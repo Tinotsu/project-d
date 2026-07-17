@@ -47,6 +47,10 @@ let corners: Point[] = [];
 let floorTransform: Homography | undefined;
 let lastVideoTime = -1;
 let animationFrame = 0;
+let lastLandmarks: NormalizedLandmark[] | undefined;
+let lastPoseTime = 0;
+let smoothedFeet: Partial<Record<"left" | "right", [Point, Point, Point]>> = {};
+const lastFootTime = { left: 0, right: 0 };
 
 function setStatus(message: string, active = false): void {
   if (status.querySelector("span")!.textContent === message && status.classList.contains("active") === active) return;
@@ -57,6 +61,7 @@ function setStatus(message: string, active = false): void {
 function beginCalibration(): void {
   corners = [];
   floorTransform = undefined;
+  smoothedFeet = {};
   canvas.classList.add("calibrating");
   recalibrateButton.disabled = true;
   cornerPrompt.hidden = false;
@@ -110,13 +115,25 @@ function readFoot(
   side: "left" | "right",
 ): [Point, Point, Point] | null {
   const points = footLandmarks[side].map((index) => landmarks[index]);
-  if (points.some((point) => (point.visibility ?? 1) < 0.5)) return null;
+  const now = performance.now();
+  let pixels = smoothedFeet[side];
+  if (points.every((point) => (point.visibility ?? 1) >= 0.5)) {
+    const current = points.map((point) => ({ x: point.x * canvas.width, y: point.y * canvas.height })) as [
+      Point,
+      Point,
+      Point,
+    ];
+    pixels = current.map((point, index) => {
+      const previous = smoothedFeet[side]?.[index];
+      return previous
+        ? { x: previous.x + (point.x - previous.x) * 0.35, y: previous.y + (point.y - previous.y) * 0.35 }
+        : point;
+    }) as [Point, Point, Point];
+    smoothedFeet[side] = pixels;
+    lastFootTime[side] = now;
+  }
+  if (!pixels || now - lastFootTime[side] > 250) return null;
 
-  const pixels = points.map((point) => ({ x: point.x * canvas.width, y: point.y * canvas.height })) as [
-    Point,
-    Point,
-    Point,
-  ];
   context.beginPath();
   pixels.forEach((point, index) => index ? context.lineTo(point.x, point.y) : context.moveTo(point.x, point.y));
   context.closePath();
@@ -144,6 +161,11 @@ function showFoot(side: "left" | "right", point: Point | null): number | null {
 }
 
 function render(): void {
+  if (!poseLandmarker || video.readyState < 2 || video.currentTime === lastVideoTime) {
+    animationFrame = requestAnimationFrame(render);
+    return;
+  }
+  lastVideoTime = video.currentTime;
   context.clearRect(0, 0, canvas.width, canvas.height);
   const occupiedLanes = new Set<number>();
   context.save();
@@ -152,10 +174,14 @@ function render(): void {
     context.scale(-1, 1);
   }
 
-  if (poseLandmarker && video.readyState >= 2 && video.currentTime !== lastVideoTime) {
-    lastVideoTime = video.currentTime;
-    const result = poseLandmarker.detectForVideo(video, performance.now());
-    const landmarks = result.landmarks[0];
+  {
+    const now = performance.now();
+    const result = poseLandmarker.detectForVideo(video, now);
+    if (result.landmarks[0]) {
+      lastLandmarks = result.landmarks[0];
+      lastPoseTime = now;
+    }
+    const landmarks = result.landmarks[0] ?? (now - lastPoseTime <= 250 ? lastLandmarks : undefined);
     if (landmarks) {
       drawingUtils.drawConnectors(landmarks, PoseLandmarker.POSE_CONNECTIONS, {
         color: "rgba(255,255,255,.45)",
@@ -194,17 +220,10 @@ function render(): void {
 canvas.addEventListener("click", (event) => {
   if (!canvas.classList.contains("calibrating") || corners.length >= 4) return;
   const bounds = canvas.getBoundingClientRect();
-  const sourceAspect = canvas.width / canvas.height;
-  const boundsAspect = bounds.width / bounds.height;
-  const displayWidth = sourceAspect > boundsAspect ? bounds.width : bounds.height * sourceAspect;
-  const displayHeight = sourceAspect > boundsAspect ? bounds.width / sourceAspect : bounds.height;
-  const displayX = event.clientX - bounds.left - (bounds.width - displayWidth) / 2;
-  const displayY = event.clientY - bounds.top - (bounds.height - displayHeight) / 2;
-  if (displayX < 0 || displayX > displayWidth || displayY < 0 || displayY > displayHeight) return;
-  const x = (displayX / displayWidth) * canvas.width;
+  const x = ((event.clientX - bounds.left) / bounds.width) * canvas.width;
   corners.push({
     x: mirrorToggle.checked ? canvas.width - x : x,
-    y: (displayY / displayHeight) * canvas.height,
+    y: ((event.clientY - bounds.top) / bounds.height) * canvas.height,
   });
 
   if (corners.length < 4) {
@@ -239,14 +258,6 @@ mirrorToggle.addEventListener("change", () => {
   }
 });
 
-verticalToggle.addEventListener("change", () => {
-  stage.style.aspectRatio = verticalToggle.checked
-    ? "9 / 16"
-    : video.videoWidth
-      ? `${video.videoWidth} / ${video.videoHeight}`
-      : "16 / 9";
-});
-
 startButton.addEventListener("click", async () => {
   startButton.disabled = true;
   setStatus("Loading pose model…");
@@ -257,11 +268,9 @@ startButton.addEventListener("click", async () => {
     const [vision, stream] = await Promise.all([
       FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm"),
       navigator.mediaDevices.getUserMedia({
-        video: {
-          width: { ideal: 1280 },
-          frameRate: { ideal: 30 },
-          resizeMode: "none",
-        } as MediaTrackConstraints & { resizeMode: string },
+        video: verticalToggle.checked
+          ? { width: { ideal: 720 }, height: { ideal: 1280 }, aspectRatio: { ideal: 9 / 16 }, frameRate: { ideal: 30 } }
+          : { width: { ideal: 1280 }, height: { ideal: 720 }, aspectRatio: { ideal: 16 / 9 }, frameRate: { ideal: 30 } },
         audio: false,
       }),
     ]);
@@ -283,16 +292,18 @@ startButton.addEventListener("click", async () => {
     await video.play();
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
-    stage.style.aspectRatio = verticalToggle.checked ? "9 / 16" : `${video.videoWidth} / ${video.videoHeight}`;
+    stage.style.aspectRatio = `${video.videoWidth} / ${video.videoHeight}`;
     drawingUtils = new DrawingUtils(context);
     emptyState.hidden = true;
     startButton.hidden = true;
+    verticalToggle.disabled = true;
     beginCalibration();
     setStatus("Choose floor corners");
     cancelAnimationFrame(animationFrame);
     render();
   } catch (error) {
     startButton.disabled = false;
+    verticalToggle.disabled = false;
     setStatus("Could not start camera");
     setupTitle.textContent = "Camera unavailable";
     setupCopy.textContent = error instanceof Error ? error.message : "Check browser camera permissions and try again.";

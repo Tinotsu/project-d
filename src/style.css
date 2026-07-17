@@ -29,8 +29,9 @@ h1 span { color: #ffe640; }
 .camera-panel:has(#vertical:checked) .toolbar { align-items: stretch; flex-wrap: wrap; }
 .camera-panel:has(#vertical:checked) .toolbar p { flex-basis: 100%; margin: 0; text-align: left; }
 .stage { position: relative; width: 100%; aspect-ratio: 9 / 16; overflow: hidden; background: #0b0c10; }
+.camera-panel:not(:has(#vertical:checked)) .stage { aspect-ratio: 16 / 9; }
 video, canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
-video, canvas { object-fit: contain; }
+video { object-fit: fill; }
 .stage.mirrored video { transform: scaleX(-1); }
 canvas { z-index: 2; }
 canvas.calibrating { cursor: crosshair; }
@@ -48,6 +49,7 @@ canvas.calibrating { cursor: crosshair; }
 .primary { background: #ffe640; }
 .secondary { background: #e9e9e6; }
 .mirror-toggle { display: flex; align-items: center; gap: 7px; color: #b9b9c1; font-size: 12px; cursor: pointer; white-space: nowrap; }
+.mirror-toggle:has(input:disabled) { cursor: default; opacity: .5; }
 .mirror-toggle input { width: 15px; height: 15px; margin: 0; accent-color: #ffe640; }
 .toolbar p { margin: 0 0 0 auto; max-width: 370px; color: #8e8e98; font-size: 12px; text-align: right; }
 
