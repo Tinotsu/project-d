@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#08090d" />
+    <title>Floor Rush — Pose calibration MVP</title>
+    <script type="module" crossorigin src="/assets/index-kZSY-H9U.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-D-mHBy-z.css">
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <p class="eyebrow">POSE CALIBRATION MVP</p>
+          <h1>FLOOR<span>RUSH</span></h1>
+        </div>
+        <div class="status" id="status"><i></i><span>Ready to connect</span></div>
+      </header>
+
+      <section class="workspace">
+        <div class="camera-panel">
+          <div class="stage" id="stage">
+            <video id="camera" autoplay playsinline muted></video>
+            <canvas id="overlay"></canvas>
+            <div class="empty-state" id="empty-state">
+              <div class="camera-icon"></div>
+              <strong>Camera is offline</strong>
+              <span>Start tracking to begin floor calibration</span>
+            </div>
+            <div class="corner-prompt" id="corner-prompt" hidden></div>
+          </div>
+
+          <div class="toolbar">
+            <button class="primary" id="start">Start camera</button>
+            <button class="secondary" id="recalibrate" disabled>Recalibrate floor</button>
+            <p id="hint">Keep your whole body and the play floor in frame.</p>
+          </div>
+        </div>
+
+        <aside>
+          <section class="setup-card">
+            <p class="card-label">FLOOR SETUP</p>
+            <h2 id="setup-title">Connect your camera</h2>
+            <p id="setup-copy">Camera access stays in your browser. No video is uploaded.</p>
+            <div class="steps">
+              <span class="active">1</span><b></b><span>2</span><b></b><span>3</span>
+            </div>
+            <div class="step-labels"><span>Camera</span><span>Corners</span><span>Track</span></div>
+          </section>
+
+          <section class="feet-card">
+            <p class="card-label">LIVE FLOOR POSITION</p>
+            <div class="foot-row left">
+              <span class="foot-dot"></span>
+              <div><small>LEFT FOOT</small><strong id="left-lane">—</strong></div>
+              <code id="left-position">x — &nbsp; y —</code>
+            </div>
+            <div class="foot-row right">
+              <span class="foot-dot"></span>
+              <div><small>RIGHT FOOT</small><strong id="right-lane">—</strong></div>
+              <code id="right-position">x — &nbsp; y —</code>
+            </div>
+          </section>
+
+          <section class="lanes-card">
+            <p class="card-label">PLAY AREA</p>
+            <div class="lane-strip">
+              <span>L1</span><span>L2</span><span>L3</span><span>L4</span>
+            </div>
+            <p>Blue = left foot &nbsp;·&nbsp; Pink = right foot</p>
+          </section>
+        </aside>
+      </section>
+    </main>
+  </body>
+</html>
