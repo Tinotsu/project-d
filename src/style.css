@@ -25,9 +25,13 @@ h1 span { color: #ffe640; }
 .workspace { display: grid; grid-template-columns: minmax(0, 1fr) 310px; gap: 18px; align-items: start; }
 .camera-panel, aside section { border: 1px solid #292a31; background: #111218; }
 .camera-panel { border-radius: 19px; overflow: hidden; }
-.stage { position: relative; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; background: #0b0c10; }
+.camera-panel:has(#vertical:checked) { width: min(100%, 360px); justify-self: center; }
+.camera-panel:has(#vertical:checked) .toolbar { align-items: stretch; flex-wrap: wrap; }
+.camera-panel:has(#vertical:checked) .toolbar p { flex-basis: 100%; margin: 0; text-align: left; }
+.stage { position: relative; width: 100%; aspect-ratio: 9 / 16; overflow: hidden; background: #0b0c10; }
 video, canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
-video { object-fit: fill; }
+video, canvas { object-fit: contain; }
+.stage.mirrored video { transform: scaleX(-1); }
 canvas { z-index: 2; }
 canvas.calibrating { cursor: crosshair; }
 .empty-state { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 7px; color: #868690; text-align: center; }
@@ -43,6 +47,8 @@ canvas.calibrating { cursor: crosshair; }
 .toolbar button:disabled { cursor: default; opacity: .35; }
 .primary { background: #ffe640; }
 .secondary { background: #e9e9e6; }
+.mirror-toggle { display: flex; align-items: center; gap: 7px; color: #b9b9c1; font-size: 12px; cursor: pointer; white-space: nowrap; }
+.mirror-toggle input { width: 15px; height: 15px; margin: 0; accent-color: #ffe640; }
 .toolbar p { margin: 0 0 0 auto; max-width: 370px; color: #8e8e98; font-size: 12px; text-align: right; }
 
 aside { display: grid; gap: 12px; }

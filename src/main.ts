@@ -20,6 +20,8 @@ const context = canvas.getContext("2d")!;
 const stage = document.querySelector<HTMLElement>("#stage")!;
 const startButton = document.querySelector<HTMLButtonElement>("#start")!;
 const recalibrateButton = document.querySelector<HTMLButtonElement>("#recalibrate")!;
+const verticalToggle = document.querySelector<HTMLInputElement>("#vertical")!;
+const mirrorToggle = document.querySelector<HTMLInputElement>("#mirror")!;
 const emptyState = document.querySelector<HTMLElement>("#empty-state")!;
 const cornerPrompt = document.querySelector<HTMLElement>("#corner-prompt")!;
 const hint = document.querySelector<HTMLElement>("#hint")!;
@@ -90,15 +92,16 @@ function drawFloor(lanes: Set<number>): void {
 
 function drawCalibrationPoints(): void {
   corners.forEach((point, index) => {
+    const x = mirrorToggle.checked ? canvas.width - point.x : point.x;
     context.beginPath();
-    context.arc(point.x, point.y, 12, 0, Math.PI * 2);
+    context.arc(x, point.y, 12, 0, Math.PI * 2);
     context.fillStyle = "#ffe640";
     context.fill();
     context.fillStyle = "#08090d";
     context.font = "700 13px sans-serif";
     context.textAlign = "center";
     context.textBaseline = "middle";
-    context.fillText(String.fromCharCode(65 + index), point.x, point.y + 1);
+    context.fillText(String.fromCharCode(65 + index), x, point.y + 1);
   });
 }
 
@@ -143,6 +146,11 @@ function showFoot(side: "left" | "right", point: Point | null): number | null {
 function render(): void {
   context.clearRect(0, 0, canvas.width, canvas.height);
   const occupiedLanes = new Set<number>();
+  context.save();
+  if (mirrorToggle.checked) {
+    context.translate(canvas.width, 0);
+    context.scale(-1, 1);
+  }
 
   if (poseLandmarker && video.readyState >= 2 && video.currentTime !== lastVideoTime) {
     lastVideoTime = video.currentTime;
@@ -178,6 +186,7 @@ function render(): void {
   }
 
   drawFloor(occupiedLanes);
+  context.restore();
   drawCalibrationPoints();
   animationFrame = requestAnimationFrame(render);
 }
@@ -185,9 +194,17 @@ function render(): void {
 canvas.addEventListener("click", (event) => {
   if (!canvas.classList.contains("calibrating") || corners.length >= 4) return;
   const bounds = canvas.getBoundingClientRect();
+  const sourceAspect = canvas.width / canvas.height;
+  const boundsAspect = bounds.width / bounds.height;
+  const displayWidth = sourceAspect > boundsAspect ? bounds.width : bounds.height * sourceAspect;
+  const displayHeight = sourceAspect > boundsAspect ? bounds.width / sourceAspect : bounds.height;
+  const displayX = event.clientX - bounds.left - (bounds.width - displayWidth) / 2;
+  const displayY = event.clientY - bounds.top - (bounds.height - displayHeight) / 2;
+  if (displayX < 0 || displayX > displayWidth || displayY < 0 || displayY > displayHeight) return;
+  const x = (displayX / displayWidth) * canvas.width;
   corners.push({
-    x: ((event.clientX - bounds.left) / bounds.width) * canvas.width,
-    y: ((event.clientY - bounds.top) / bounds.height) * canvas.height,
+    x: mirrorToggle.checked ? canvas.width - x : x,
+    y: (displayY / displayHeight) * canvas.height,
   });
 
   if (corners.length < 4) {
@@ -214,6 +231,22 @@ canvas.addEventListener("click", (event) => {
 
 recalibrateButton.addEventListener("click", beginCalibration);
 
+mirrorToggle.addEventListener("change", () => {
+  stage.classList.toggle("mirrored", mirrorToggle.checked);
+  if (video.srcObject) {
+    beginCalibration();
+    setStatus("Choose floor corners");
+  }
+});
+
+verticalToggle.addEventListener("change", () => {
+  stage.style.aspectRatio = verticalToggle.checked
+    ? "9 / 16"
+    : video.videoWidth
+      ? `${video.videoWidth} / ${video.videoHeight}`
+      : "16 / 9";
+});
+
 startButton.addEventListener("click", async () => {
   startButton.disabled = true;
   setStatus("Loading pose model…");
@@ -224,7 +257,11 @@ startButton.addEventListener("click", async () => {
     const [vision, stream] = await Promise.all([
       FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm"),
       navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
+        video: {
+          width: { ideal: 1280 },
+          frameRate: { ideal: 30 },
+          resizeMode: "none",
+        } as MediaTrackConstraints & { resizeMode: string },
         audio: false,
       }),
     ]);
@@ -246,7 +283,7 @@ startButton.addEventListener("click", async () => {
     await video.play();
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
-    stage.style.aspectRatio = `${video.videoWidth} / ${video.videoHeight}`;
+    stage.style.aspectRatio = verticalToggle.checked ? "9 / 16" : `${video.videoWidth} / ${video.videoHeight}`;
     drawingUtils = new DrawingUtils(context);
     emptyState.hidden = true;
     startButton.hidden = true;
