@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "song": "/levels/second-heaven/song.json",
+  "level": {
+    "id": "test",
+    "difficulty": "test",
+    "rating": 1,
+    "speed": 1,
+    "endTime": 20.5
+  },
+  "timing": {
+    "bpm": 149,
+    "offset": 0.042
+  },
+  "playfield": {
+    "lanes": 4,
+    "travelTime": 2
+  },
+  "notes": [
+    { "id": "n01", "time": 3.263, "type": "STEP", "lane": 1, "foot": "left" },
+    { "id": "n02", "time": 4.068, "type": "STEP", "lane": 3, "foot": "right" },
+    { "id": "n03", "time": 4.874, "type": "STEP", "lane": 2, "foot": "left" },
+    { "id": "n04", "time": 5.679, "type": "STEP", "lane": 4, "foot": "right" },
+    { "id": "n05", "time": 6.484, "type": "STEP", "lane": 1, "foot": "left" },
+    { "id": "n06", "time": 7.290, "type": "STEP", "lane": 3, "foot": "right" },
+    { "id": "n07", "time": 8.095, "type": "JUMP", "foot": "both" },
+    { "id": "n08", "time": 8.901, "type": "STEP", "lane": 2, "foot": "left" },
+    { "id": "n09", "time": 9.706, "type": "STEP", "lane": 4, "foot": "right" },
+    { "id": "n10", "time": 10.109, "type": "STEP", "lane": 1, "foot": "left" },
+    { "id": "n11", "time": 10.511, "type": "STEP", "lane": 3, "foot": "right" },
+    { "id": "n12", "time": 10.914, "type": "STEP", "lane": 2, "foot": "left" },
+    { "id": "n13", "time": 11.317, "type": "STEP", "lane": 4, "foot": "right" },
+    { "id": "n14", "time": 12.122, "type": "JUMP", "foot": "both" },
+    { "id": "n15", "time": 12.927, "type": "STEP", "lane": 1, "foot": "left" },
+    { "id": "n16", "time": 13.330, "type": "STEP", "lane": 3, "foot": "right" },
+    { "id": "n17", "time": 13.733, "type": "STEP", "lane": 2, "foot": "left" },
+    { "id": "n18", "time": 14.135, "type": "STEP", "lane": 4, "foot": "right" },
+    { "id": "n19", "time": 14.538, "type": "STEP", "lane": 1, "foot": "left" },
+    { "id": "n20", "time": 14.941, "type": "STEP", "lane": 4, "foot": "right" },
+    { "id": "n21", "time": 15.344, "type": "STEP", "lane": 2, "foot": "left" },
+    { "id": "n22", "time": 15.746, "type": "STEP", "lane": 3, "foot": "right" },
+    { "id": "n23", "time": 16.149, "type": "JUMP", "foot": "both" },
+    { "id": "n24", "time": 16.954, "type": "STEP", "lane": 1, "foot": "left" },
+    { "id": "n25", "time": 17.357, "type": "STEP", "lane": 4, "foot": "right" },
+    { "id": "n26", "time": 17.760, "type": "STEP", "lane": 2, "foot": "left" },
+    { "id": "n27", "time": 18.162, "type": "STEP", "lane": 3, "foot": "right" },
+    { "id": "n28", "time": 18.565, "type": "JUMP", "foot": "both" }
+  ],
+  "visualEffects": {
+    "hitBurst": true,
+    "laneGlow": true
+  }
+}

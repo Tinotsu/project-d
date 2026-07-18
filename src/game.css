@@ -1,0 +1,49 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap");
+
+:root {
+  color: #f7f7f4;
+  background: #08090d;
+  font-family: "Space Grotesk", sans-serif;
+  font-synthesis: none;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; min-height: 100vh; background: radial-gradient(circle at 50% 0, #28213a, transparent 34rem), #08090d; }
+button, a { font: inherit; }
+button:focus-visible, a:focus-visible { outline: 3px solid #ffe640; outline-offset: 3px; }
+
+.game-shell { width: min(1240px, 100%); margin: auto; padding: 24px clamp(14px, 3vw, 42px) 42px; }
+header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+.eyebrow { margin: 0 0 5px; color: #898995; font: 500 11px/1 "DM Mono", monospace; letter-spacing: .16em; }
+h1 { margin: 0; font-size: clamp(27px, 4vw, 42px); line-height: .95; letter-spacing: -.07em; }
+h1 span { color: #ffe640; }
+header a { padding: 9px 13px; border: 1px solid #3c3d47; border-radius: 99px; color: #d5d5da; font-size: 13px; text-decoration: none; }
+
+.game-card { overflow: hidden; border: 1px solid #30313b; border-radius: 19px; background: #111218; box-shadow: 0 28px 80px #0008; }
+.game-hud { display: grid; grid-template-columns: 1fr repeat(3, auto); gap: clamp(18px, 4vw, 58px); align-items: center; min-height: 76px; padding: 14px 22px; border-bottom: 1px solid #30313b; }
+.game-hud div { display: grid; gap: 4px; }
+.game-hud small { color: #7d7e89; font: 500 9px "DM Mono", monospace; letter-spacing: .14em; }
+.game-hud strong { font: 600 18px "DM Mono", monospace; }
+#score { color: #ffe640; font-size: 24px; }
+
+.game-stage { position: relative; width: 100%; aspect-ratio: 5 / 3; overflow: hidden; background: linear-gradient(#151123, #08090e); }
+.game-stage canvas { display: block; width: 100%; height: 100%; }
+.game-overlay { position: absolute; z-index: 2; inset: 0; display: grid; place-content: center; justify-items: center; padding: 20px; background: #08090dc9; text-align: center; transition: opacity .18s; }
+.game-overlay.hidden { opacity: 0; pointer-events: none; }
+.game-overlay p { margin: 0 0 9px; color: #ffe640; font: 500 10px "DM Mono", monospace; letter-spacing: .18em; }
+.game-overlay h2 { margin: 0; font-size: clamp(34px, 7vw, 72px); letter-spacing: -.06em; }
+.game-overlay span { margin: 9px 0 24px; color: #9c9ca7; font-size: 14px; }
+.game-overlay button { border: 0; border-radius: 10px; padding: 13px 24px; background: #ffe640; color: #08090d; font-weight: 700; cursor: pointer; }
+.game-overlay button:disabled { cursor: default; opacity: .45; }
+
+.game-footer { display: flex; align-items: center; justify-content: space-between; gap: 18px; min-height: 74px; padding: 13px 20px; border-top: 1px solid #30313b; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px 15px; color: #8e8f99; font-size: 11px; }
+kbd { display: inline-grid; min-width: 26px; height: 24px; place-content: center; margin-right: 3px; border: 1px solid #4a4b56; border-bottom-width: 3px; border-radius: 5px; background: #20212a; color: #fff; font: 500 10px "DM Mono", monospace; }
+.judgements { flex: 0 0 auto; color: #b8b8c0; font: 500 10px "DM Mono", monospace; }
+
+@media (max-width: 720px) {
+  .game-hud { grid-template-columns: 1fr 1fr; }
+  .game-hud div:nth-child(2), .game-hud div:nth-child(4) { text-align: right; }
+  .game-footer { align-items: flex-start; flex-direction: column; }
+  .game-stage { aspect-ratio: 4 / 3; }
+}

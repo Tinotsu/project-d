@@ -10,10 +10,12 @@
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 320px; min-height: 100vh; background: radial-gradient(circle at 70% 0, #1a1a23, transparent 34rem), #08090d; }
 button { font: inherit; }
-button:focus-visible { outline: 3px solid #ffe640; outline-offset: 3px; }
+button:focus-visible, .page-link:focus-visible { outline: 3px solid #ffe640; outline-offset: 3px; }
 
 main { width: min(1440px, 100%); margin: auto; padding: 28px clamp(18px, 4vw, 56px) 48px; }
 header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 26px; }
+.header-actions { display: flex; align-items: center; gap: 10px; }
+.page-link { padding: 9px 13px; border: 1px solid #4a4938; border-radius: 99px; color: #ffe640; font-size: 13px; text-decoration: none; }
 .eyebrow, .card-label { margin: 0 0 5px; color: #898995; font: 500 11px/1 "DM Mono", monospace; letter-spacing: .16em; }
 h1 { margin: 0; font-size: clamp(27px, 4vw, 42px); line-height: .95; letter-spacing: -.07em; }
 h1 span { color: #ffe640; }
@@ -75,6 +77,7 @@ aside section { border-radius: 14px; padding: 19px; }
   header { margin-inline: 5px; }
   .status { padding: 8px; }
   .status span { display: none; }
+  .page-link { padding: 8px; font-size: 11px; }
   .toolbar { align-items: stretch; flex-wrap: wrap; }
   .toolbar button { flex: 1; }
   .toolbar p { flex-basis: 100%; max-width: none; text-align: left; }

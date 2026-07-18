@@ -24,6 +24,8 @@ npm run dev
 
 Open the localhost URL printed by Vite. Camera access requires localhost or HTTPS. The ONNX model and runtime are bundled with the app.
 
+The camera setup page links to `/game.html`, a short playable test chart for **Second Heaven**. Use `A`, `S`, `K`, and `L` for lanes 1–4 and `Space` for jumps.
+
 To create a production build:
 
 ```bash
@@ -87,6 +89,12 @@ The four calibration clicks define a homography from camera pixels to normalized
 
 Feet outside this rectangle are reported as `OUTSIDE`.
 
+## Test level data
+
+Song metadata is shared in `public/levels/second-heaven/song.json`. The separate difficulty chart in `public/levels/second-heaven/test.json` contains the level settings, timing grid, playfield, notes, and visual-effect settings. Note times are seconds from the start of the decoded audio.
+
+The test page uses Web Audio's context clock for gameplay timing and PixiJS for the playfield. Scoring is independent from rendering in `src/rhythm-engine.ts`.
+
 ## Current scope
 
-This MVP includes camera capture, pose landmarks, calibration, lane detection, automatic mirroring, temporal smoothing, and jump detection. It does not yet include step/contact detection, scoring, music synchronization, or jump scoring.
+This MVP includes camera capture, pose landmarks, calibration, lane detection, automatic mirroring, temporal smoothing, jump detection, a test chart, Web Audio synchronization, and real-time step/jump scoring. The camera calibration and game currently live on separate pages, so keyboard controls are the immediate way to play the test chart.

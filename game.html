@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#08090d" />
+    <title>FloorRush — Test level</title>
+  </head>
+  <body>
+    <main class="game-shell">
+      <header>
+        <div>
+          <p class="eyebrow">LEVEL 01 · TIMING TEST</p>
+          <h1>FLOOR<span>RUSH</span></h1>
+        </div>
+        <a href="/">Camera setup</a>
+      </header>
+
+      <section class="game-card">
+        <div class="game-hud">
+          <div><small>TRACK</small><strong id="song-title">Loading…</strong></div>
+          <div><small>SCORE</small><strong id="score">000000</strong></div>
+          <div><small>COMBO</small><strong id="combo">0</strong></div>
+          <div><small>TIME</small><strong id="song-time">0.000</strong></div>
+        </div>
+
+        <div class="game-stage" id="game-stage">
+          <div class="game-overlay" id="game-overlay">
+            <p>TEST · RATING 1</p>
+            <h2 id="overlay-title">Ready?</h2>
+            <span id="overlay-copy">Match the bars as they cross the yellow line.</span>
+            <button id="play" disabled>Loading music…</button>
+          </div>
+        </div>
+
+        <div class="game-footer">
+          <div class="controls">
+            <span><kbd>A</kbd> Lane 1 · Left</span>
+            <span><kbd>S</kbd> Lane 2 · Left</span>
+            <span><kbd>K</kbd> Lane 3 · Right</span>
+            <span><kbd>L</kbd> Lane 4 · Right</span>
+            <span><kbd>Space</kbd> Jump</span>
+          </div>
+          <div class="judgements" id="judgements">Perfect 0 · Great 0 · Good 0 · Miss 0</div>
+        </div>
+      </section>
+    </main>
+    <script type="module" src="/src/game.ts"></script>
+  </body>
+</html>

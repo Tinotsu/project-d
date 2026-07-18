@@ -9,7 +9,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "onnxruntime-web": "^1.27.0"
+    "onnxruntime-web": "^1.27.0",
+    "pixi.js": "^8.19.0"
   },
   "devDependencies": {
     "typescript": "7.0.2",
