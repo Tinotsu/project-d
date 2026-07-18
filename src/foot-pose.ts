@@ -10,6 +10,42 @@ export type FootPose = {
   right: [Keypoint, Keypoint, Keypoint];
 };
 
+export class JumpDetector {
+  private groundLeft?: number;
+  private groundRight?: number;
+  private previousLeft?: number;
+  private previousRight?: number;
+  private jumping = false;
+
+  update(leftY: number, rightY: number): boolean {
+    if (this.groundLeft === undefined || this.groundRight === undefined) {
+      this.groundLeft = this.previousLeft = leftY;
+      this.groundRight = this.previousRight = rightY;
+      return false;
+    }
+
+    const rising = this.previousLeft! - leftY > 0.008 && this.previousRight! - rightY > 0.008;
+    if (!this.jumping && rising && this.groundLeft - leftY > 0.035 && this.groundRight - rightY > 0.035) {
+      this.jumping = true;
+    } else if (this.jumping && leftY > this.groundLeft - 0.015 && rightY > this.groundRight - 0.015) {
+      this.jumping = false;
+    }
+
+    if (!this.jumping) {
+      this.groundLeft += (leftY - this.groundLeft) * 0.1;
+      this.groundRight += (rightY - this.groundRight) * 0.1;
+    }
+    this.previousLeft = leftY;
+    this.previousRight = rightY;
+    return this.jumping;
+  }
+
+  reset(): void {
+    this.groundLeft = this.groundRight = this.previousLeft = this.previousRight = undefined;
+    this.jumping = false;
+  }
+}
+
 export function decodeFootPose(
   output: ArrayLike<number>,
   scale: number,

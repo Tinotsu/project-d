@@ -89,4 +89,4 @@ Feet outside this rectangle are reported as `OUTSIDE`.
 
 ## Current scope
 
-This MVP includes camera capture, pose landmarks, calibration, lane detection, automatic mirroring, and temporal smoothing. It does not yet include step/contact detection, scoring, music synchronization, or jump detection.
+This MVP includes camera capture, pose landmarks, calibration, lane detection, automatic mirroring, temporal smoothing, and jump detection. It does not yet include step/contact detection, scoring, music synchronization, or jump scoring.

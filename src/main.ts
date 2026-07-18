@@ -6,7 +6,7 @@ import {
   type Homography,
   type Point,
 } from "./floor.ts";
-import { FootPoseDetector, type Keypoint } from "./foot-pose.ts";
+import { FootPoseDetector, JumpDetector, type Keypoint } from "./foot-pose.ts";
 import "./style.css";
 
 const video = document.querySelector<HTMLVideoElement>("#camera")!;
@@ -26,6 +26,7 @@ const leftLane = document.querySelector<HTMLElement>("#left-lane")!;
 const rightLane = document.querySelector<HTMLElement>("#right-lane")!;
 const leftPosition = document.querySelector<HTMLElement>("#left-position")!;
 const rightPosition = document.querySelector<HTMLElement>("#right-position")!;
+const jumpStatus = document.querySelector<HTMLElement>("#jump-status")!;
 
 const cornerNames = ["A · FAR LEFT", "B · FAR RIGHT", "C · NEAR RIGHT", "D · NEAR LEFT"];
 const footColors = { left: "#34d9ff", right: "#ff3b9d" };
@@ -37,6 +38,7 @@ let lastVideoTime = -1;
 let animationFrame = 0;
 let smoothedFeet: Partial<Record<"left" | "right", [Point, Point, Point]>> = {};
 const lastFootTime = { left: 0, right: 0 };
+const jumpDetector = new JumpDetector();
 
 function setStatus(message: string, active = false): void {
   if (status.querySelector("span")!.textContent === message && status.classList.contains("active") === active) return;
@@ -48,6 +50,7 @@ function beginCalibration(): void {
   corners = [];
   floorTransform = undefined;
   smoothedFeet = {};
+  jumpDetector.reset();
   canvas.classList.add("calibrating");
   recalibrateButton.disabled = true;
   cornerPrompt.hidden = false;
@@ -140,6 +143,11 @@ function showFoot(side: "left" | "right", point: Point | null): number | null {
   return lane;
 }
 
+function showJump(jumping: boolean): void {
+  jumpStatus.textContent = jumping ? "JUMP!" : "GROUNDED";
+  jumpStatus.classList.toggle("active", jumping);
+}
+
 async function render(): Promise<void> {
   if (!poseDetector || video.readyState < 2 || video.currentTime === lastVideoTime) {
     animationFrame = requestAnimationFrame(render);
@@ -156,6 +164,13 @@ async function render(): Promise<void> {
   {
     const left = readFoot(pose?.left ?? null, "left");
     const right = readFoot(pose?.right ?? null, "right");
+    if (!left || !right) jumpDetector.reset();
+    showJump(left && right
+      ? jumpDetector.update(
+          left.reduce((sum, point) => sum + point.y, 0) / (left.length * canvas.height),
+          right.reduce((sum, point) => sum + point.y, 0) / (right.length * canvas.height),
+        )
+      : false);
     if (left || right) {
       const leftFloor = left && floorTransform ? projectFoot(left, floorTransform) : null;
       const rightFloor = right && floorTransform ? projectFoot(right, floorTransform) : null;

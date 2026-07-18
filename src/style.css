@@ -61,9 +61,12 @@ aside h2 { margin: 15px 0 7px; font-size: 18px; letter-spacing: -.03em; }
 .foot-dot { width: 9px; height: 9px; border-radius: 50%; background: #34d9ff; box-shadow: 0 0 10px #34d9ff99; }
 .foot-row.right .foot-dot { background: #ff3b9d; box-shadow: 0 0 10px #ff3b9d99; }
 .foot-row div { display: grid; gap: 2px; }
-.foot-row small { color: #777781; font: 9px "DM Mono", monospace; letter-spacing: .08em; }
+.foot-row small, .jump-row small { color: #777781; font: 9px "DM Mono", monospace; letter-spacing: .08em; }
 .foot-row strong { font-size: 14px; }
 .foot-row code { color: #a2a2ac; font: 10px "DM Mono", monospace; white-space: pre; }
+.jump-row { display: flex; align-items: center; justify-content: space-between; padding: 14px 0 10px; border-top: 1px solid #292a31; }
+.jump-row strong { color: #777781; font: 700 13px "DM Mono", monospace; }
+.jump-row strong.active { color: #ffe640; text-shadow: 0 0 12px #ffe64099; }
 .lane-strip { display: grid; grid-template-columns: repeat(4, 1fr); margin: 14px 0 11px; border: 1px solid #373841; border-radius: 8px; overflow: hidden; }
 .lane-strip span { padding: 13px 0; border-right: 1px solid #373841; color: #b7b7be; font: 500 10px "DM Mono", monospace; text-align: center; }
 .lane-strip span:last-child { border: 0; }

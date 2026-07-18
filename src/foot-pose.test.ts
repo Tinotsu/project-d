@@ -1,5 +1,23 @@
 import { describe, expect, it } from "vitest";
-import { decodeFootPose } from "./foot-pose.ts";
+import { decodeFootPose, JumpDetector } from "./foot-pose.ts";
+
+describe("JumpDetector", () => {
+  it("detects both feet taking off and landing", () => {
+    const detector = new JumpDetector();
+
+    expect(detector.update(0.8, 0.8)).toBe(false);
+    expect(detector.update(0.78, 0.78)).toBe(false);
+    expect(detector.update(0.74, 0.74)).toBe(true);
+    expect(detector.update(0.72, 0.72)).toBe(true);
+    expect(detector.update(0.8, 0.8)).toBe(false);
+  });
+
+  it("ignores a one-foot step", () => {
+    const detector = new JumpDetector();
+    detector.update(0.8, 0.8);
+    expect(detector.update(0.74, 0.8)).toBe(false);
+  });
+});
 
 describe("decodeFootPose", () => {
   it("selects the strongest pose and removes letterbox padding", () => {
