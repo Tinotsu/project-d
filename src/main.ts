@@ -15,8 +15,6 @@ const context = canvas.getContext("2d")!;
 const stage = document.querySelector<HTMLElement>("#stage")!;
 const startButton = document.querySelector<HTMLButtonElement>("#start")!;
 const recalibrateButton = document.querySelector<HTMLButtonElement>("#recalibrate")!;
-const verticalToggle = document.querySelector<HTMLInputElement>("#vertical")!;
-const mirrorToggle = document.querySelector<HTMLInputElement>("#mirror")!;
 const emptyState = document.querySelector<HTMLElement>("#empty-state")!;
 const cornerPrompt = document.querySelector<HTMLElement>("#corner-prompt")!;
 const hint = document.querySelector<HTMLElement>("#hint")!;
@@ -85,7 +83,7 @@ function drawFloor(lanes: Set<number>): void {
 
 function drawCalibrationPoints(): void {
   corners.forEach((point, index) => {
-    const x = mirrorToggle.checked ? canvas.width - point.x : point.x;
+    const x = canvas.width - point.x;
     context.beginPath();
     context.arc(x, point.y, 12, 0, Math.PI * 2);
     context.fillStyle = "#ffe640";
@@ -152,10 +150,8 @@ async function render(): Promise<void> {
   context.clearRect(0, 0, canvas.width, canvas.height);
   const occupiedLanes = new Set<number>();
   context.save();
-  if (mirrorToggle.checked) {
-    context.translate(canvas.width, 0);
-    context.scale(-1, 1);
-  }
+  context.translate(canvas.width, 0);
+  context.scale(-1, 1);
 
   {
     const left = readFoot(pose?.left ?? null, "left");
@@ -194,7 +190,7 @@ canvas.addEventListener("click", (event) => {
   const bounds = canvas.getBoundingClientRect();
   const x = ((event.clientX - bounds.left) / bounds.width) * canvas.width;
   corners.push({
-    x: mirrorToggle.checked ? canvas.width - x : x,
+    x: canvas.width - x,
     y: ((event.clientY - bounds.top) / bounds.height) * canvas.height,
   });
 
@@ -222,14 +218,6 @@ canvas.addEventListener("click", (event) => {
 
 recalibrateButton.addEventListener("click", beginCalibration);
 
-mirrorToggle.addEventListener("change", () => {
-  stage.classList.toggle("mirrored", mirrorToggle.checked);
-  if (video.srcObject) {
-    beginCalibration();
-    setStatus("Choose floor corners");
-  }
-});
-
 startButton.addEventListener("click", async () => {
   startButton.disabled = true;
   setStatus("Loading pose model…");
@@ -240,9 +228,7 @@ startButton.addEventListener("click", async () => {
     const [detector, stream] = await Promise.all([
       FootPoseDetector.create("/models/foot-pose.onnx"),
       navigator.mediaDevices.getUserMedia({
-        video: verticalToggle.checked
-          ? { width: { ideal: 720 }, height: { ideal: 1280 }, aspectRatio: { ideal: 9 / 16 }, frameRate: { ideal: 30 } }
-          : { width: { ideal: 1280 }, height: { ideal: 720 }, aspectRatio: { ideal: 16 / 9 }, frameRate: { ideal: 30 } },
+        video: { width: { ideal: 1280 }, height: { ideal: 720 }, aspectRatio: { ideal: 16 / 9 }, frameRate: { ideal: 30 } },
         audio: false,
       }),
     ]);
@@ -256,14 +242,12 @@ startButton.addEventListener("click", async () => {
     stage.style.aspectRatio = `${video.videoWidth} / ${video.videoHeight}`;
     emptyState.hidden = true;
     startButton.hidden = true;
-    verticalToggle.disabled = true;
     beginCalibration();
     setStatus("Choose floor corners");
     cancelAnimationFrame(animationFrame);
     render();
   } catch (error) {
     startButton.disabled = false;
-    verticalToggle.disabled = false;
     setStatus("Could not start camera");
     setupTitle.textContent = "Camera unavailable";
     setupCopy.textContent = error instanceof Error ? error.message : "Check browser camera permissions and try again.";
