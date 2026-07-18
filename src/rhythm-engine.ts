@@ -7,6 +7,7 @@ export type ChartNote = {
   type: NoteType;
   lane?: number;
   foot: Foot;
+  slide?: string;
 };
 
 export type PlayerEvent = {

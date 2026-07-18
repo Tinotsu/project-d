@@ -6,7 +6,7 @@
     "difficulty": "test",
     "rating": 1,
     "speed": 1,
-    "endTime": 20.5
+    "endTime": 37
   },
   "timing": {
     "bpm": 149,
@@ -44,7 +44,29 @@
     { "id": "n25", "time": 17.357, "type": "STEP", "lane": 4, "foot": "right" },
     { "id": "n26", "time": 17.760, "type": "STEP", "lane": 2, "foot": "left" },
     { "id": "n27", "time": 18.162, "type": "STEP", "lane": 3, "foot": "right" },
-    { "id": "n28", "time": 18.565, "type": "JUMP", "foot": "both" }
+    { "id": "n28", "time": 18.565, "type": "JUMP", "foot": "both" },
+    { "id": "n29", "time": 19.370, "type": "STEP", "lane": 1, "foot": "left", "slide": "s1" },
+    { "id": "n30", "time": 19.773, "type": "SLIDE_RIGHT", "lane": 2, "foot": "left", "slide": "s1" },
+    { "id": "n33", "time": 21.384, "type": "STEP", "lane": 4, "foot": "right", "slide": "s2" },
+    { "id": "n34", "time": 21.786, "type": "SLIDE_LEFT", "lane": 3, "foot": "right", "slide": "s2" },
+    { "id": "n37", "time": 23.397, "type": "JUMP", "foot": "both" },
+    { "id": "n38", "time": 24.203, "type": "STEP", "lane": 2, "foot": "left" },
+    { "id": "n39", "time": 24.605, "type": "STEP", "lane": 3, "foot": "right" },
+    { "id": "n40", "time": 25.411, "type": "STEP", "lane": 2, "foot": "left", "slide": "s3" },
+    { "id": "n41", "time": 25.813, "type": "SLIDE_RIGHT", "lane": 3, "foot": "left", "slide": "s3" },
+    { "id": "n44", "time": 27.424, "type": "STEP", "lane": 3, "foot": "right", "slide": "s4" },
+    { "id": "n45", "time": 27.827, "type": "SLIDE_LEFT", "lane": 2, "foot": "right", "slide": "s4" },
+    { "id": "n48", "time": 29.437, "type": "JUMP", "foot": "both" },
+    { "id": "n49", "time": 30.243, "type": "STEP", "lane": 1, "foot": "left", "slide": "s5" },
+    { "id": "n50", "time": 30.243, "type": "STEP", "lane": 4, "foot": "right", "slide": "s6" },
+    { "id": "n51", "time": 30.646, "type": "SLIDE_RIGHT", "lane": 2, "foot": "left", "slide": "s5" },
+    { "id": "n52", "time": 30.646, "type": "SLIDE_LEFT", "lane": 3, "foot": "right", "slide": "s6" },
+    { "id": "n57", "time": 32.256, "type": "JUMP", "foot": "both" },
+    { "id": "n58", "time": 33.062, "type": "STEP", "lane": 2, "foot": "left" },
+    { "id": "n59", "time": 33.464, "type": "STEP", "lane": 3, "foot": "right" },
+    { "id": "n60", "time": 34.270, "type": "STEP", "lane": 1, "foot": "left" },
+    { "id": "n61", "time": 34.672, "type": "STEP", "lane": 4, "foot": "right" },
+    { "id": "n62", "time": 35.478, "type": "JUMP", "foot": "both" }
   ],
   "visualEffects": {
     "hitBurst": true,

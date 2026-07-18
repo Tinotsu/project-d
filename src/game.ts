@@ -134,6 +134,20 @@ for (let lane = 1; lane <= chart.playfield.lanes; lane++) {
 stepZone.moveTo(nearLeft - 18, hitY).lineTo(nearRight + 18, hitY).stroke({ color: 0xffe640, alpha: 0.85, width: 3 });
 app.stage.addChild(stepZone);
 
+const slideGroups = new Map<string, ChartNote[]>();
+for (const note of chart.notes) {
+  if (!note.slide) continue;
+  const group = slideGroups.get(note.slide) ?? [];
+  group.push(note);
+  slideGroups.set(note.slide, group);
+}
+const slidePaths = new Map<string, Graphics>();
+for (const slide of slideGroups.keys()) {
+  const path = new Graphics();
+  slidePaths.set(slide, path);
+  app.stage.addChild(path);
+}
+
 function createFootMarker(side: "left" | "right"): Container {
   const marker = new Container();
   const halo = new Graphics()
@@ -179,12 +193,13 @@ const noteViews = new Map<string, Container>();
 for (const note of chart.notes) {
   const view = new Container();
   const noteWidth = note.type === "JUMP" ? 480 : 120;
+  const isSlide = note.type === "SLIDE_LEFT" || note.type === "SLIDE_RIGHT";
   const body = new Graphics()
     .roundRect(-noteWidth / 2, -13, noteWidth, 26, 8)
-    .fill(note.type === "JUMP" ? 0xffe640 : note.foot === "left" ? 0x35dcff : 0xff4fa2)
+    .fill(note.type === "JUMP" ? 0xffe640 : isSlide ? 0xff9c18 : note.foot === "left" ? 0x35dcff : 0xff4fa2)
     .stroke({ color: 0xffffff, alpha: 0.8, width: 2 });
   const label = new Text({
-    text: note.type === "JUMP" ? "JUMP" : note.foot === "left" ? "L" : "R",
+    text: note.type === "JUMP" ? "JUMP" : note.type === "SLIDE_LEFT" ? "←" : note.type === "SLIDE_RIGHT" ? "→" : note.foot === "left" ? "L" : "R",
     style: { fill: 0x08090d, fontFamily: "DM Mono", fontSize: 15, fontWeight: "700" },
   });
   label.anchor.set(0.5);
@@ -347,8 +362,8 @@ function submitCameraAction(action: InputAction): void {
   if (action.type === "LEFT_STEP") submitPlayerEvent("STEP", "left", action.lane);
   if (action.type === "RIGHT_STEP") submitPlayerEvent("STEP", "right", action.lane);
   if (action.type === "JUMP") submitPlayerEvent("JUMP", "both");
-  if (action.type === "SLIDE_LEFT") submitPlayerEvent("SLIDE_LEFT", "either", action.lane);
-  if (action.type === "SLIDE_RIGHT") submitPlayerEvent("SLIDE_RIGHT", "either", action.lane);
+  if (action.type === "SLIDE_LEFT") submitPlayerEvent("SLIDE_LEFT", action.foot ?? "either", action.lane);
+  if (action.type === "SLIDE_RIGHT") submitPlayerEvent("SLIDE_RIGHT", action.foot ?? "either", action.lane);
 }
 
 resetCameraEventsButton.addEventListener("click", () => {
@@ -497,8 +512,53 @@ app.ticker.add(() => {
   timeElement.textContent = Math.max(0, songTime).toFixed(3);
   engine.update(songTime).forEach(showResult);
 
+  for (const [slide, path] of slidePaths) {
+    path.clear();
+    const notes = slideGroups.get(slide)!;
+    const first = notes[0];
+    const last = notes[notes.length - 1];
+    if (!running || first.time - songTime > chart.playfield.travelTime || songTime >= last.time) continue;
+
+    let pathNotes: Array<{ time: number; lane: number }> = notes.map((note) => ({ time: note.time, lane: note.lane! }));
+    if (songTime > first.time) {
+      const nextIndex = notes.findIndex((note) => note.time >= songTime);
+      if (nextIndex < 1) continue;
+      const previous = notes[nextIndex - 1];
+      const next = notes[nextIndex];
+      const progress = (songTime - previous.time) / (next.time - previous.time);
+      pathNotes = [
+        { time: songTime, lane: previous.lane! + (next.lane! - previous.lane!) * progress },
+        ...notes.slice(nextIndex).map((note) => ({ time: note.time, lane: note.lane! })),
+      ];
+    }
+
+    const points = pathNotes.map((note) => {
+      const progress = Math.min(1, Math.max(0, 1 - (note.time - songTime) / chart.playfield.travelTime)) ** 1.45;
+      const edges = laneEdges(note.lane, progress);
+      const playfieldWidth = farRight - farLeft + (nearRight - nearLeft - farRight + farLeft) * progress;
+      return {
+        x: (edges[0] + edges[1]) / 2,
+        y: horizonY + (hitY - horizonY) * progress,
+        halfWidth: playfieldWidth / chart.playfield.lanes * 0.27,
+      };
+    });
+    if (points.length < 2) continue;
+
+    const polygon = points.flatMap((point) => [point.x - point.halfWidth, point.y]);
+    for (let index = points.length - 1; index >= 0; index--) polygon.push(points[index].x + points[index].halfWidth, points[index].y);
+    const color = first.foot === "left" ? 0x35dcff : 0xff4fa2;
+    path.poly(polygon, true).fill({ color, alpha: 0.52 }).stroke({ color: 0xffffff, alpha: 0.55, width: 2 });
+    path.moveTo(points[0].x, points[0].y);
+    for (const point of points.slice(1)) path.lineTo(point.x, point.y);
+    path.stroke({ color, alpha: 0.95, width: 5 });
+  }
+
   for (const note of chart.notes) {
     const view = noteViews.get(note.id)!;
+    if (note.slide && note.type !== "STEP") {
+      view.visible = false;
+      continue;
+    }
     if (!running || engine.judgements.has(note.id)) {
       view.visible = false;
       continue;

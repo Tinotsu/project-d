@@ -6,8 +6,8 @@ describe("InputActionState", () => {
     const state = new InputActionState();
     state.update(2, 3, 0.8, 0.8, false);
     expect(state.update(1, 4, 0.8, 0.8, false)).toEqual([
-      { type: "LEFT_ENTER_LANE", lane: 1 }, { type: "SLIDE_LEFT", lane: 1 },
-      { type: "RIGHT_ENTER_LANE", lane: 4 }, { type: "SLIDE_RIGHT", lane: 4 },
+      { type: "LEFT_ENTER_LANE", lane: 1 }, { type: "SLIDE_LEFT", lane: 1, foot: "left" },
+      { type: "RIGHT_ENTER_LANE", lane: 4 }, { type: "SLIDE_RIGHT", lane: 4, foot: "right" },
     ]);
     expect(state.update(1, 4, 0.74, 0.74, true)).toEqual([{ type: "JUMP" }]);
     expect(state.update(1, 4, 0.72, 0.72, true)).toEqual([]);
