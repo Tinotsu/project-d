@@ -48,13 +48,6 @@ canvas.calibrating { cursor: crosshair; }
 
 aside { display: grid; gap: 12px; }
 aside section { border-radius: 14px; padding: 19px; }
-aside h2 { margin: 15px 0 7px; font-size: 18px; letter-spacing: -.03em; }
-.setup-card > p:not(.card-label), .lanes-card > p:not(.card-label) { margin: 0; color: #90909a; font-size: 12px; line-height: 1.5; }
-.steps { display: flex; align-items: center; margin-top: 22px; }
-.steps span { display: grid; place-content: center; flex: 0 0 24px; height: 24px; border: 1px solid #3c3d45; border-radius: 50%; color: #777781; font: 500 10px "DM Mono", monospace; }
-.steps span.active { border-color: #ffe640; background: #ffe640; color: #08090d; }
-.steps b { flex: 1; height: 1px; background: #3c3d45; }
-.step-labels { display: flex; justify-content: space-between; margin-top: 7px; color: #777781; font: 10px "DM Mono", monospace; }
 .feet-card { padding-bottom: 8px; }
 .foot-row { display: grid; grid-template-columns: 10px 1fr auto; align-items: center; gap: 11px; padding: 16px 0; border-top: 1px solid #292a31; }
 .feet-card .card-label + .foot-row { margin-top: 14px; }
@@ -67,14 +60,14 @@ aside h2 { margin: 15px 0 7px; font-size: 18px; letter-spacing: -.03em; }
 .jump-row { display: flex; align-items: center; justify-content: space-between; padding: 14px 0 10px; border-top: 1px solid #292a31; }
 .jump-row strong { color: #777781; font: 700 13px "DM Mono", monospace; }
 .jump-row strong.active { color: #ffe640; text-shadow: 0 0 12px #ffe64099; }
-.lane-strip { display: grid; grid-template-columns: repeat(4, 1fr); margin: 14px 0 11px; border: 1px solid #373841; border-radius: 8px; overflow: hidden; }
-.lane-strip span { padding: 13px 0; border-right: 1px solid #373841; color: #b7b7be; font: 500 10px "DM Mono", monospace; text-align: center; }
-.lane-strip span:last-child { border: 0; }
+.events-card { grid-column: 1 / -1; }
+.event-log { display: grid; gap: 7px; max-height: 190px; margin-top: 14px; overflow-y: auto; }
+.event-log p { margin: 0; padding: 9px 10px; border-radius: 9px 9px 9px 2px; background: #1b1c24; color: #d8d8de; font: 10px "DM Mono", monospace; }
+.event-log .event-empty { background: transparent; color: #777781; }
 
 @media (max-width: 900px) {
   .workspace { grid-template-columns: 1fr; }
   aside { grid-template-columns: repeat(2, 1fr); }
-  .lanes-card { grid-column: 1 / -1; }
 }
 
 @media (max-width: 590px) {
@@ -86,5 +79,4 @@ aside h2 { margin: 15px 0 7px; font-size: 18px; letter-spacing: -.03em; }
   .toolbar button { flex: 1; }
   .toolbar p { flex-basis: 100%; max-width: none; text-align: left; }
   aside { grid-template-columns: 1fr; }
-  .lanes-card { grid-column: auto; }
 }

@@ -1,5 +1,31 @@
 import { describe, expect, it } from "vitest";
-import { decodeFootPose, JumpDetector } from "./foot-pose.ts";
+import { decodeFootPose, InputActionState, JumpDetector } from "./foot-pose.ts";
+
+describe("InputActionState", () => {
+  it("emits lane entry and step once", () => {
+    const state = new InputActionState();
+    expect(state.update(1, 4, false)).toEqual([
+      { type: "LEFT_ENTER_LANE", lane: 1 }, { type: "LEFT_STEP", lane: 1 },
+      { type: "RIGHT_ENTER_LANE", lane: 4 }, { type: "RIGHT_STEP", lane: 4 },
+    ]);
+    expect(state.update(1, 4, false)).toEqual([]);
+    state.update(null, 4, false);
+    expect(state.update(1, 4, false)).toEqual([
+      { type: "LEFT_ENTER_LANE", lane: 1 }, { type: "LEFT_STEP", lane: 1 },
+    ]);
+  });
+
+  it("emits slides and jumps only on transitions", () => {
+    const state = new InputActionState();
+    state.update(2, 3, false);
+    expect(state.update(1, 4, false)).toEqual([
+      { type: "LEFT_ENTER_LANE", lane: 1 }, { type: "SLIDE_LEFT", lane: 1 },
+      { type: "RIGHT_ENTER_LANE", lane: 4 }, { type: "SLIDE_RIGHT", lane: 4 },
+    ]);
+    expect(state.update(1, 4, true)).toEqual([{ type: "JUMP" }]);
+    expect(state.update(1, 4, true)).toEqual([]);
+  });
+});
 
 describe("JumpDetector", () => {
   it("detects both feet taking off and landing", () => {

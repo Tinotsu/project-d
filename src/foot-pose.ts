@@ -9,6 +9,44 @@ export type FootPose = {
   left: [Keypoint, Keypoint, Keypoint];
   right: [Keypoint, Keypoint, Keypoint];
 };
+export type InputAction = {
+  type: "LEFT_ENTER_LANE" | "RIGHT_ENTER_LANE" | "LEFT_STEP" | "RIGHT_STEP" | "JUMP" | "SLIDE_LEFT" | "SLIDE_RIGHT";
+  lane?: number;
+};
+
+export class InputActionState {
+  private leftLane: number | null = null;
+  private rightLane: number | null = null;
+  private jumping = false;
+
+  update(leftLane: number | null, rightLane: number | null, jumping: boolean): InputAction[] {
+    const actions: InputAction[] = [];
+    if (jumping && !this.jumping) actions.push({ type: "JUMP" });
+    this.jumping = jumping;
+    if (jumping) return actions;
+
+    for (const [side, lane, previous] of [
+      ["LEFT", leftLane, this.leftLane],
+      ["RIGHT", rightLane, this.rightLane],
+    ] as const) {
+      if (lane === null || lane === previous) continue;
+      actions.push({ type: `${side}_ENTER_LANE`, lane });
+      if (previous === null) {
+        actions.push({ type: `${side}_STEP`, lane });
+      } else {
+        actions.push({ type: lane < previous ? "SLIDE_LEFT" : "SLIDE_RIGHT", lane });
+      }
+    }
+    this.leftLane = leftLane;
+    this.rightLane = rightLane;
+    return actions;
+  }
+
+  reset(): void {
+    this.leftLane = this.rightLane = null;
+    this.jumping = false;
+  }
+}
 
 export class JumpDetector {
   private groundLeft?: number;

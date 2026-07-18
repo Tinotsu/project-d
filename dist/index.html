@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#08090d" />
     <title>Floor Rush — Pose calibration MVP</title>
-    <script type="module" crossorigin src="/assets/index-C9fU2tRy.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-8TJLLATZ.css">
+    <script type="module" crossorigin src="/assets/index-C-fdmZ6U.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-BMJy34ws.css">
   </head>
   <body>
     <main>
@@ -39,16 +39,6 @@
         </div>
 
         <aside>
-          <section class="setup-card">
-            <p class="card-label">FLOOR SETUP</p>
-            <h2 id="setup-title">Connect your camera</h2>
-            <p id="setup-copy">Camera access stays in your browser. No video is uploaded.</p>
-            <div class="steps">
-              <span class="active">1</span><b></b><span>2</span><b></b><span>3</span>
-            </div>
-            <div class="step-labels"><span>Camera</span><span>Corners</span><span>Track</span></div>
-          </section>
-
           <section class="feet-card">
             <p class="card-label">LIVE FLOOR POSITION</p>
             <div class="foot-row left">
@@ -66,12 +56,11 @@
             </div>
           </section>
 
-          <section class="lanes-card">
-            <p class="card-label">PLAY AREA</p>
-            <div class="lane-strip">
-              <span>L1</span><span>L2</span><span>L3</span><span>L4</span>
+          <section class="events-card">
+            <p class="card-label">INPUT EVENTS</p>
+            <div class="event-log" id="event-log" aria-live="polite">
+              <p class="event-empty">Waiting for movement…</p>
             </div>
-            <p>Blue = left foot &nbsp;·&nbsp; Pink = right foot</p>
           </section>
         </aside>
       </section>

@@ -6,7 +6,7 @@ import {
   type Homography,
   type Point,
 } from "./floor.ts";
-import { FootPoseDetector, JumpDetector, type Keypoint } from "./foot-pose.ts";
+import { FootPoseDetector, InputActionState, JumpDetector, type InputAction, type Keypoint } from "./foot-pose.ts";
 import "./style.css";
 
 const video = document.querySelector<HTMLVideoElement>("#camera")!;
@@ -19,14 +19,12 @@ const emptyState = document.querySelector<HTMLElement>("#empty-state")!;
 const cornerPrompt = document.querySelector<HTMLElement>("#corner-prompt")!;
 const hint = document.querySelector<HTMLElement>("#hint")!;
 const status = document.querySelector<HTMLElement>("#status")!;
-const setupTitle = document.querySelector<HTMLElement>("#setup-title")!;
-const setupCopy = document.querySelector<HTMLElement>("#setup-copy")!;
-const stepMarkers = [...document.querySelectorAll<HTMLElement>(".steps span")];
 const leftLane = document.querySelector<HTMLElement>("#left-lane")!;
 const rightLane = document.querySelector<HTMLElement>("#right-lane")!;
 const leftPosition = document.querySelector<HTMLElement>("#left-position")!;
 const rightPosition = document.querySelector<HTMLElement>("#right-position")!;
 const jumpStatus = document.querySelector<HTMLElement>("#jump-status")!;
+const eventLog = document.querySelector<HTMLElement>("#event-log")!;
 
 const cornerNames = ["A · FAR LEFT", "B · FAR RIGHT", "C · NEAR RIGHT", "D · NEAR LEFT"];
 const footColors = { left: "#34d9ff", right: "#ff3b9d" };
@@ -39,6 +37,7 @@ let animationFrame = 0;
 let smoothedFeet: Partial<Record<"left" | "right", [Point, Point, Point]>> = {};
 const lastFootTime = { left: 0, right: 0 };
 const jumpDetector = new JumpDetector();
+const inputActions = new InputActionState();
 
 function setStatus(message: string, active = false): void {
   if (status.querySelector("span")!.textContent === message && status.classList.contains("active") === active) return;
@@ -51,14 +50,12 @@ function beginCalibration(): void {
   floorTransform = undefined;
   smoothedFeet = {};
   jumpDetector.reset();
+  inputActions.reset();
   canvas.classList.add("calibrating");
   recalibrateButton.disabled = true;
   cornerPrompt.hidden = false;
   cornerPrompt.textContent = `CLICK ${cornerNames[0]}`;
-  setupTitle.textContent = "Mark the four floor corners";
-  setupCopy.textContent = "Click clockwise: far left, far right, near right, near left.";
   hint.textContent = "Click corner A: the far-left edge of your play area.";
-  stepMarkers.forEach((marker, index) => marker.classList.toggle("active", index <= 1));
 }
 
 function drawFloor(lanes: Set<number>): void {
@@ -148,6 +145,15 @@ function showJump(jumping: boolean): void {
   jumpStatus.classList.toggle("active", jumping);
 }
 
+function showAction(action: InputAction): void {
+  eventLog.querySelector(".event-empty")?.remove();
+  const message = document.createElement("p");
+  message.textContent = action.lane ? `${action.type} · LANE ${action.lane}` : action.type;
+  eventLog.append(message);
+  if (eventLog.children.length > 10) eventLog.firstElementChild?.remove();
+  eventLog.scrollTop = eventLog.scrollHeight;
+}
+
 async function render(): Promise<void> {
   if (!poseDetector || video.readyState < 2 || video.currentTime === lastVideoTime) {
     animationFrame = requestAnimationFrame(render);
@@ -165,32 +171,34 @@ async function render(): Promise<void> {
     const left = readFoot(pose?.left ?? null, "left");
     const right = readFoot(pose?.right ?? null, "right");
     if (!left || !right) jumpDetector.reset();
-    showJump(left && right
+    const jumping = left && right
       ? jumpDetector.update(
           left.reduce((sum, point) => sum + point.y, 0) / (left.length * canvas.height),
           right.reduce((sum, point) => sum + point.y, 0) / (right.length * canvas.height),
         )
-      : false);
+      : false;
+    showJump(jumping);
     if (left || right) {
       const leftFloor = left && floorTransform ? projectFoot(left, floorTransform) : null;
       const rightFloor = right && floorTransform ? projectFoot(right, floorTransform) : null;
       const leftZone = showFoot("left", leftFloor);
       const rightZone = showFoot("right", rightFloor);
+      inputActions.update(leftZone, rightZone, jumping).forEach((action) => {
+        window.dispatchEvent(new CustomEvent(action.type, { detail: action }));
+        showAction(action);
+      });
       if (leftZone) occupiedLanes.add(leftZone);
       if (rightZone) occupiedLanes.add(rightZone);
       if (left && right) {
         setStatus("Tracking feet", true);
       } else {
         setStatus("Feet not visible");
-        setupTitle.textContent = "Keep both feet in frame";
-        setupCopy.textContent = "Point the camera at your lower legs and both feet.";
       }
     } else {
+      inputActions.update(null, null, false);
       showFoot("left", null);
       showFoot("right", null);
       setStatus("No feet in view");
-      setupTitle.textContent = "Show both feet to the camera";
-      setupCopy.textContent = "Only your lower legs and feet need to be visible.";
     }
   }
 
@@ -220,14 +228,11 @@ canvas.addEventListener("click", (event) => {
     canvas.classList.remove("calibrating");
     cornerPrompt.hidden = true;
     recalibrateButton.disabled = false;
-    setupTitle.textContent = "Floor tracking is live";
-    setupCopy.textContent = "Move each foot across the floor to check all four lanes.";
     hint.textContent = "Calibration complete. Blue and pink markers show the tracked feet.";
-    stepMarkers.forEach((marker) => marker.classList.add("active"));
     setStatus("Tracking live", true);
   } catch (error) {
     beginCalibration();
-    setupCopy.textContent = error instanceof Error ? error.message : "Please mark the floor again.";
+    hint.textContent = error instanceof Error ? error.message : "Please mark the floor again.";
   }
 });
 
@@ -236,8 +241,7 @@ recalibrateButton.addEventListener("click", beginCalibration);
 startButton.addEventListener("click", async () => {
   startButton.disabled = true;
   setStatus("Loading pose model…");
-  setupTitle.textContent = "Starting pose tracking";
-  setupCopy.textContent = "Allow camera access when your browser asks.";
+  hint.textContent = "Allow camera access when your browser asks.";
 
   try {
     const [detector, stream] = await Promise.all([
@@ -264,7 +268,6 @@ startButton.addEventListener("click", async () => {
   } catch (error) {
     startButton.disabled = false;
     setStatus("Could not start camera");
-    setupTitle.textContent = "Camera unavailable";
-    setupCopy.textContent = error instanceof Error ? error.message : "Check browser camera permissions and try again.";
+    hint.textContent = error instanceof Error ? error.message : "Check browser camera permissions and try again.";
   }
 });
