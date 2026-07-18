@@ -25,6 +25,7 @@ const leftPosition = document.querySelector<HTMLElement>("#left-position")!;
 const rightPosition = document.querySelector<HTMLElement>("#right-position")!;
 const jumpStatus = document.querySelector<HTMLElement>("#jump-status")!;
 const eventLog = document.querySelector<HTMLElement>("#event-log")!;
+const resetEventsButton = document.querySelector<HTMLButtonElement>("#reset-events")!;
 
 const cornerNames = ["A · FAR LEFT", "B · FAR RIGHT", "C · NEAR RIGHT", "D · NEAR LEFT"];
 const footColors = { left: "#34d9ff", right: "#ff3b9d" };
@@ -154,6 +155,15 @@ function showAction(action: InputAction): void {
   eventLog.scrollTop = eventLog.scrollHeight;
 }
 
+resetEventsButton.addEventListener("click", () => {
+  inputActions.reset();
+  jumpDetector.reset();
+  const empty = document.createElement("p");
+  empty.className = "event-empty";
+  empty.textContent = "Waiting for movement…";
+  eventLog.replaceChildren(empty);
+});
+
 async function render(): Promise<void> {
   if (!poseDetector || video.readyState < 2 || video.currentTime === lastVideoTime) {
     animationFrame = requestAnimationFrame(render);
@@ -171,11 +181,10 @@ async function render(): Promise<void> {
     const left = readFoot(pose?.left ?? null, "left");
     const right = readFoot(pose?.right ?? null, "right");
     if (!left || !right) jumpDetector.reset();
-    const jumping = left && right
-      ? jumpDetector.update(
-          left.reduce((sum, point) => sum + point.y, 0) / (left.length * canvas.height),
-          right.reduce((sum, point) => sum + point.y, 0) / (right.length * canvas.height),
-        )
+    const leftY = left ? left.reduce((sum, point) => sum + point.y, 0) / (left.length * canvas.height) : null;
+    const rightY = right ? right.reduce((sum, point) => sum + point.y, 0) / (right.length * canvas.height) : null;
+    const jumping = leftY !== null && rightY !== null
+      ? jumpDetector.update(leftY, rightY)
       : false;
     showJump(jumping);
     if (left || right) {
@@ -183,7 +192,7 @@ async function render(): Promise<void> {
       const rightFloor = right && floorTransform ? projectFoot(right, floorTransform) : null;
       const leftZone = showFoot("left", leftFloor);
       const rightZone = showFoot("right", rightFloor);
-      inputActions.update(leftZone, rightZone, jumping).forEach((action) => {
+      inputActions.update(leftZone, rightZone, leftY, rightY, jumping).forEach((action) => {
         window.dispatchEvent(new CustomEvent(action.type, { detail: action }));
         showAction(action);
       });
@@ -195,7 +204,7 @@ async function render(): Promise<void> {
         setStatus("Feet not visible");
       }
     } else {
-      inputActions.update(null, null, false);
+      inputActions.update(null, null, null, null, false);
       showFoot("left", null);
       showFoot("right", null);
       setStatus("No feet in view");

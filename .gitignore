@@ -1,5 +1,7 @@
 node_modules/
 dist/
+music mp3/
+public/music/*.mp3
 
 .DS_Store
 *.log

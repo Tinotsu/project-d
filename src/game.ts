@@ -1,5 +1,20 @@
 import { Application, Container, Graphics, Text } from "pixi.js";
 import {
+  calibrateFloor,
+  floorLane,
+  projectFloorPoint,
+  projectFoot,
+  type Homography,
+  type Point,
+} from "./floor.ts";
+import {
+  FootPoseDetector,
+  InputActionState,
+  JumpDetector,
+  type InputAction,
+  type Keypoint,
+} from "./foot-pose.ts";
+import {
   RhythmEngine,
   type ChartNote,
   type Foot,
@@ -35,6 +50,8 @@ const nearRight = 1010;
 const horizonY = 70;
 const hitY = 540;
 const laneColors = [0x35dcff, 0x6c82ff, 0xff4fa2, 0xff9b45];
+const cornerNames = ["A · FAR LEFT", "B · FAR RIGHT", "C · NEAR RIGHT", "D · NEAR LEFT"];
+const footColors = { left: "#35dcff", right: "#ff4fa2" };
 
 const stageElement = document.querySelector<HTMLElement>("#game-stage")!;
 const overlay = document.querySelector<HTMLElement>("#game-overlay")!;
@@ -46,6 +63,15 @@ const scoreElement = document.querySelector<HTMLElement>("#score")!;
 const comboElement = document.querySelector<HTMLElement>("#combo")!;
 const timeElement = document.querySelector<HTMLElement>("#song-time")!;
 const judgementsElement = document.querySelector<HTMLElement>("#judgements")!;
+const cameraVideo = document.querySelector<HTMLVideoElement>("#camera")!;
+const cameraCanvas = document.querySelector<HTMLCanvasElement>("#camera-overlay")!;
+const cameraContext = cameraCanvas.getContext("2d")!;
+const cameraEmpty = document.querySelector<HTMLElement>("#camera-empty")!;
+const cameraStatus = document.querySelector<HTMLElement>("#camera-status")!;
+const cameraHint = document.querySelector<HTMLElement>("#camera-hint")!;
+const cornerPrompt = document.querySelector<HTMLElement>("#corner-prompt")!;
+const startCameraButton = document.querySelector<HTMLButtonElement>("#start-camera")!;
+const recalibrateButton = document.querySelector<HTMLButtonElement>("#recalibrate")!;
 
 const chartResponse = await fetch("/levels/second-heaven/test.json");
 if (!chartResponse.ok) throw new Error("Could not load the test chart");
@@ -58,8 +84,6 @@ if (!audioResponse.ok) throw new Error("Could not load the music file");
 const audioData = await audioResponse.arrayBuffer();
 
 songTitle.textContent = song.title;
-playButton.disabled = false;
-playButton.textContent = "Start test level";
 
 const app = new Application();
 await app.init({
@@ -141,6 +165,15 @@ let audioBuffer: AudioBuffer | undefined;
 let source: AudioBufferSourceNode | undefined;
 let startedAt = 0;
 let running = false;
+let poseDetector: FootPoseDetector;
+let cameraFrame = 0;
+let lastVideoTime = -1;
+let floorTransform: Homography | undefined;
+let corners: Point[] = [];
+let smoothedFeet: Partial<Record<"left" | "right", [Point, Point, Point]>> = {};
+const lastFootTime = { left: 0, right: 0 };
+const jumpDetector = new JumpDetector();
+const inputActions = new InputActionState();
 
 function currentSongTime(): number {
   const elapsed = audioContext && startedAt ? audioContext.currentTime - startedAt : 0;
@@ -164,37 +197,209 @@ function submitPlayerEvent(type: NoteType, foot: Foot, lane?: number): void {
   if (result) showResult(result);
 }
 
-const keys: Record<string, { lane: number; foot: Foot }> = {
-  KeyA: { lane: 1, foot: "left" },
-  KeyS: { lane: 2, foot: "left" },
-  KeyK: { lane: 3, foot: "right" },
-  KeyL: { lane: 4, foot: "right" },
-};
-window.addEventListener("keydown", (event) => {
-  if (event.repeat) return;
-  if (event.code === "Space") {
-    event.preventDefault();
-    submitPlayerEvent("JUMP", "both");
-  } else if (keys[event.code]) {
-    submitPlayerEvent("STEP", keys[event.code].foot, keys[event.code].lane);
+function setCameraStatus(message: string, active = false): void {
+  cameraStatus.textContent = message;
+  cameraStatus.parentElement!.classList.toggle("active", active);
+}
+
+function beginCalibration(): void {
+  corners = [];
+  floorTransform = undefined;
+  smoothedFeet = {};
+  jumpDetector.reset();
+  inputActions.reset();
+  cameraCanvas.classList.add("calibrating");
+  recalibrateButton.disabled = true;
+  cornerPrompt.hidden = false;
+  cornerPrompt.textContent = `CLICK ${cornerNames[0]}`;
+  cameraHint.textContent = "Click the far-left corner of your play area.";
+  overlayTitle.textContent = "Ready?";
+  overlayCopy.textContent = "Calibrate the camera below to enable the level.";
+  playButton.textContent = "Calibrate camera first";
+  playButton.disabled = true;
+}
+
+function drawCameraFloor(occupiedLanes: Set<number>): void {
+  if (!floorTransform) return;
+  for (let lane = 0; lane < 4; lane++) {
+    const start = lane / 4;
+    const end = (lane + 1) / 4;
+    const points = [
+      projectFloorPoint({ x: start, y: 0 }, floorTransform),
+      projectFloorPoint({ x: end, y: 0 }, floorTransform),
+      projectFloorPoint({ x: end, y: 1 }, floorTransform),
+      projectFloorPoint({ x: start, y: 1 }, floorTransform),
+    ];
+    cameraContext.beginPath();
+    points.forEach((point, index) => index ? cameraContext.lineTo(point.x, point.y) : cameraContext.moveTo(point.x, point.y));
+    cameraContext.closePath();
+    cameraContext.fillStyle = occupiedLanes.has(lane + 1) ? "rgba(255, 230, 64, .24)" : "rgba(10, 13, 19, .18)";
+    cameraContext.strokeStyle = occupiedLanes.has(lane + 1) ? "#ffe640" : "rgba(255, 255, 255, .55)";
+    cameraContext.lineWidth = occupiedLanes.has(lane + 1) ? 4 : 2;
+    cameraContext.fill();
+    cameraContext.stroke();
+  }
+}
+
+function drawCalibrationPoints(): void {
+  corners.forEach((point, index) => {
+    cameraContext.beginPath();
+    cameraContext.arc(cameraCanvas.width - point.x, point.y, 11, 0, Math.PI * 2);
+    cameraContext.fillStyle = "#ffe640";
+    cameraContext.fill();
+    cameraContext.fillStyle = "#08090d";
+    cameraContext.font = "700 12px sans-serif";
+    cameraContext.textAlign = "center";
+    cameraContext.textBaseline = "middle";
+    cameraContext.fillText(String.fromCharCode(65 + index), cameraCanvas.width - point.x, point.y + 1);
+  });
+}
+
+function readFoot(
+  points: [Keypoint, Keypoint, Keypoint] | null,
+  side: "left" | "right",
+): [Point, Point, Point] | null {
+  const now = performance.now();
+  let pixels = smoothedFeet[side];
+  if (points?.every((point) => point.confidence >= 0.5)) {
+    pixels = points.map((point, index) => {
+      const previous = smoothedFeet[side]?.[index];
+      return previous
+        ? { x: previous.x + (point.x - previous.x) * 0.35, y: previous.y + (point.y - previous.y) * 0.35 }
+        : point;
+    }) as [Point, Point, Point];
+    smoothedFeet[side] = pixels;
+    lastFootTime[side] = now;
+  }
+  if (!pixels || now - lastFootTime[side] > 250) return null;
+
+  cameraContext.beginPath();
+  pixels.forEach((point, index) => index ? cameraContext.lineTo(point.x, point.y) : cameraContext.moveTo(point.x, point.y));
+  cameraContext.closePath();
+  cameraContext.fillStyle = `${footColors[side]}55`;
+  cameraContext.strokeStyle = footColors[side];
+  cameraContext.lineWidth = 4;
+  cameraContext.fill();
+  cameraContext.stroke();
+  return pixels;
+}
+
+function submitCameraAction(action: InputAction): void {
+  if (action.type === "LEFT_STEP") submitPlayerEvent("STEP", "left", action.lane);
+  if (action.type === "RIGHT_STEP") submitPlayerEvent("STEP", "right", action.lane);
+  if (action.type === "JUMP") submitPlayerEvent("JUMP", "both");
+  if (action.type === "SLIDE_LEFT") submitPlayerEvent("SLIDE_LEFT", "either", action.lane);
+  if (action.type === "SLIDE_RIGHT") submitPlayerEvent("SLIDE_RIGHT", "either", action.lane);
+}
+
+async function renderCamera(): Promise<void> {
+  if (!poseDetector || cameraVideo.readyState < 2 || cameraVideo.currentTime === lastVideoTime) {
+    cameraFrame = requestAnimationFrame(renderCamera);
+    return;
+  }
+  lastVideoTime = cameraVideo.currentTime;
+  const pose = await poseDetector.detect(cameraVideo);
+  cameraContext.clearRect(0, 0, cameraCanvas.width, cameraCanvas.height);
+  const occupiedLanes = new Set<number>();
+  cameraContext.save();
+  cameraContext.translate(cameraCanvas.width, 0);
+  cameraContext.scale(-1, 1);
+
+  const left = readFoot(pose?.left ?? null, "left");
+  const right = readFoot(pose?.right ?? null, "right");
+  if (!left || !right) jumpDetector.reset();
+  const leftY = left ? left.reduce((sum, point) => sum + point.y, 0) / (left.length * cameraCanvas.height) : null;
+  const rightY = right ? right.reduce((sum, point) => sum + point.y, 0) / (right.length * cameraCanvas.height) : null;
+  const jumping = leftY !== null && rightY !== null
+    ? jumpDetector.update(leftY, rightY)
+    : false;
+
+  if (floorTransform) {
+    const leftLane = left ? floorLane(projectFoot(left, floorTransform)) : null;
+    const rightLane = right ? floorLane(projectFoot(right, floorTransform)) : null;
+    inputActions.update(leftLane, rightLane, leftY, rightY, jumping).forEach(submitCameraAction);
+    if (leftLane) occupiedLanes.add(leftLane);
+    if (rightLane) occupiedLanes.add(rightLane);
+    setCameraStatus(left && right ? "Tracking both feet" : "Move both feet into view", Boolean(left && right));
+  } else {
+    inputActions.reset();
+  }
+
+  drawCameraFloor(occupiedLanes);
+  cameraContext.restore();
+  drawCalibrationPoints();
+  cameraFrame = requestAnimationFrame(renderCamera);
+}
+
+cameraCanvas.addEventListener("click", (event) => {
+  if (!cameraCanvas.classList.contains("calibrating") || corners.length >= 4) return;
+  const bounds = cameraCanvas.getBoundingClientRect();
+  const x = ((event.clientX - bounds.left) / bounds.width) * cameraCanvas.width;
+  corners.push({
+    x: cameraCanvas.width - x,
+    y: ((event.clientY - bounds.top) / bounds.height) * cameraCanvas.height,
+  });
+
+  if (corners.length < 4) {
+    cornerPrompt.textContent = `CLICK ${cornerNames[corners.length]}`;
+    cameraHint.textContent = `Click ${cornerNames[corners.length].split(" · ")[1].toLowerCase()}.`;
+    return;
+  }
+
+  try {
+    floorTransform = calibrateFloor(corners as [Point, Point, Point, Point]);
+    cameraCanvas.classList.remove("calibrating");
+    cornerPrompt.hidden = true;
+    recalibrateButton.disabled = false;
+    cameraHint.textContent = "Blue and pink markers show the detected feet.";
+    setCameraStatus("Floor calibrated", true);
+    overlayCopy.textContent = "Step on the matching lanes as notes cross the yellow line.";
+    playButton.textContent = "Start test level";
+    playButton.disabled = false;
+  } catch (error) {
+    beginCalibration();
+    cameraHint.textContent = error instanceof Error ? error.message : "Mark the floor again.";
   }
 });
 
-for (const [eventName, type, foot] of [
-  ["LEFT_STEP", "STEP", "left"],
-  ["RIGHT_STEP", "STEP", "right"],
-  ["SLIDE_LEFT", "SLIDE_LEFT", "either"],
-  ["SLIDE_RIGHT", "SLIDE_RIGHT", "either"],
-  ["JUMP", "JUMP", "both"],
-] as const) {
-  window.addEventListener(eventName, (event) => {
-    submitPlayerEvent(type, foot, (event as CustomEvent<{ lane?: number }>).detail?.lane);
-  });
-}
+recalibrateButton.addEventListener("click", beginCalibration);
+
+startCameraButton.addEventListener("click", async () => {
+  startCameraButton.disabled = true;
+  setCameraStatus("Loading foot model…");
+  cameraHint.textContent = "Allow camera access when your browser asks.";
+
+  try {
+    const [detector, stream] = await Promise.all([
+      FootPoseDetector.create("/models/foot-pose.onnx"),
+      navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 1280 }, height: { ideal: 720 }, aspectRatio: { ideal: 16 / 9 }, frameRate: { ideal: 30 } },
+        audio: false,
+      }),
+    ]);
+    poseDetector = detector;
+    cameraVideo.srcObject = stream;
+    await new Promise<void>((resolve) => cameraVideo.addEventListener("loadedmetadata", () => resolve(), { once: true }));
+    await cameraVideo.play();
+    cameraCanvas.width = cameraVideo.videoWidth;
+    cameraCanvas.height = cameraVideo.videoHeight;
+    cameraEmpty.hidden = true;
+    startCameraButton.hidden = true;
+    beginCalibration();
+    setCameraStatus("Mark four floor corners");
+    cancelAnimationFrame(cameraFrame);
+    renderCamera();
+  } catch (error) {
+    startCameraButton.disabled = false;
+    setCameraStatus("Could not start camera");
+    cameraHint.textContent = error instanceof Error ? error.message : "Check camera permission and try again.";
+  }
+});
 
 playButton.addEventListener("click", async () => {
   playButton.disabled = true;
   playButton.textContent = "Starting…";
+  recalibrateButton.disabled = true;
   audioContext ??= new AudioContext();
   audioBuffer ??= await audioContext.decodeAudioData(audioData.slice(0));
   await audioContext.resume();
@@ -203,6 +408,7 @@ playButton.addEventListener("click", async () => {
   noteViews.forEach((view) => view.visible = false);
   laneGlowUntil.fill(0);
   feedback.visible = false;
+  inputActions.reset();
   scoreElement.textContent = "000000";
   comboElement.textContent = "0";
   judgementsElement.textContent = "Perfect 0 · Great 0 · Good 0 · Miss 0";
@@ -256,6 +462,7 @@ app.ticker.add(() => {
     overlayCopy.textContent = `Score ${engine.score.total.toString().padStart(6, "0")} · Max combo ${engine.score.maxCombo}`;
     playButton.textContent = "Play again";
     playButton.disabled = false;
+    recalibrateButton.disabled = false;
     overlay.classList.remove("hidden");
   }
 });

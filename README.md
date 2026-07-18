@@ -24,7 +24,7 @@ npm run dev
 
 Open the localhost URL printed by Vite. Camera access requires localhost or HTTPS. The ONNX model and runtime are bundled with the app.
 
-The camera setup page links to `/game.html`, a short playable test chart for **Second Heaven**. Use `A`, `S`, `K`, and `L` for lanes 1–4 and `Space` for jumps.
+The camera setup page links to `/game.html`, a short playable test chart for **Second Heaven**. Start the camera there, mark the four floor corners, then use your detected steps and jumps to play. The recording is not distributed with this repository; provide a copy you are licensed to use at `public/music/second-heaven.mp3`.
 
 To create a production build:
 
@@ -52,7 +52,7 @@ Only the lower legs, both feet, and play floor need to be visible. The custom mo
 
 ## Train a feet-only pose model
 
-The CMU Human Foot Keypoint Dataset can train a six-keypoint YOLO Pose model without new labels. Download its train/validation annotation JSON files and the corresponding COCO 2017 images, then arrange them as:
+The [CMU Human Foot Keypoint Dataset](https://cmu-perceptual-computing-lab.github.io/foot_keypoint_dataset/) can train a six-keypoint YOLO Pose model without new labels. Its annotations are CC BY 4.0 and use images from COCO, whose copyrights remain with their respective owners. Download the train/validation annotation JSON files and the corresponding COCO 2017 images, then arrange them as:
 
 ```text
 foot-pose/
@@ -70,12 +70,14 @@ python3 scripts/convert_cmu_to_yolo_pose.py person_keypoints_val2017_foot_v1.jso
 The generated image lists include only CMU-annotated COCO images. Train and export a small pose model with Ultralytics:
 
 ```bash
-python3 -m pip install ultralytics
-yolo pose train data=/path/to/foot-pose/foot-pose.yaml model=yolo26n-pose.pt epochs=100 imgsz=640
+python3 -m pip install ultralytics==8.4.98
+yolo pose train data=/path/to/foot-pose/foot-pose.yaml model=yolo26n-pose.pt epochs=100 imgsz=640 batch=16 seed=0 deterministic=True
 yolo export model=runs/pose/train/weights/best.pt format=onnx imgsz=640 simplify=True
 ```
 
 Copy the exported model to `public/models/foot-pose.onnx` to use new weights in the browser.
+
+The bundled model was trained on 10,970 images and validated on 434 images. At epoch 100 it reached pose mAP50 0.5956 and pose mAP50–95 0.4051, with 0.6995 precision and 0.5668 recall. It has not been validated for medical or safety-critical use; occlusion, footwear, lighting, and camera angle can reduce accuracy.
 
 ## Floor coordinates
 
@@ -97,4 +99,8 @@ The test page uses Web Audio's context clock for gameplay timing and PixiJS for 
 
 ## Current scope
 
-This MVP includes camera capture, pose landmarks, calibration, lane detection, automatic mirroring, temporal smoothing, jump detection, a test chart, Web Audio synchronization, and real-time step/jump scoring. The camera calibration and game currently live on separate pages, so keyboard controls are the immediate way to play the test chart.
+This MVP includes camera capture, pose landmarks, calibration, lane detection, automatic mirroring, temporal smoothing, jump detection, a test chart, Web Audio synchronization, and real-time step/jump scoring. The game page runs the foot model directly and keeps its camera preview beneath the playfield.
+
+## License
+
+FloorRush, including its Ultralytics YOLO model, is licensed under the [GNU Affero General Public License v3.0](LICENSE). The CMU foot annotations are licensed separately under CC BY 4.0. COCO images and the Second Heaven recording are not distributed by this project.

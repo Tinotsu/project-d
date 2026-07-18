@@ -14,16 +14,60 @@ export type InputAction = {
   lane?: number;
 };
 
+class FootContactState {
+  private groundY?: number;
+  private peakY?: number;
+  private lifted = false;
+
+  update(y: number | null): boolean {
+    if (y === null) {
+      this.reset();
+      return false;
+    }
+    if (this.groundY === undefined) {
+      this.groundY = y;
+      return false;
+    }
+    if (!this.lifted && this.groundY - y > 0.02) {
+      this.lifted = true;
+      this.peakY = y;
+      return false;
+    }
+    if (this.lifted) this.peakY = Math.min(this.peakY!, y);
+    if (this.lifted && (y > this.groundY - 0.012 || y - this.peakY! > 0.02)) {
+      this.lifted = false;
+      this.groundY = y;
+      this.peakY = undefined;
+      return true;
+    }
+    if (!this.lifted) this.groundY = Math.max(this.groundY, y);
+    return false;
+  }
+
+  reset(): void {
+    this.groundY = this.peakY = undefined;
+    this.lifted = false;
+  }
+}
+
 export class InputActionState {
   private leftLane: number | null = null;
   private rightLane: number | null = null;
+  private readonly leftContact = new FootContactState();
+  private readonly rightContact = new FootContactState();
   private jumping = false;
 
-  update(leftLane: number | null, rightLane: number | null, jumping: boolean): InputAction[] {
+  update(leftLane: number | null, rightLane: number | null, leftY: number | null, rightY: number | null, jumping: boolean): InputAction[] {
     const actions: InputAction[] = [];
     if (jumping && !this.jumping) actions.push({ type: "JUMP" });
     this.jumping = jumping;
-    if (jumping) return actions;
+    if (jumping) {
+      this.leftLane = leftLane;
+      this.rightLane = rightLane;
+      this.leftContact.reset();
+      this.rightContact.reset();
+      return actions;
+    }
 
     for (const [side, lane, previous] of [
       ["LEFT", leftLane, this.leftLane],
@@ -31,12 +75,12 @@ export class InputActionState {
     ] as const) {
       if (lane === null || lane === previous) continue;
       actions.push({ type: `${side}_ENTER_LANE`, lane });
-      if (previous === null) {
-        actions.push({ type: `${side}_STEP`, lane });
-      } else {
+      if (previous !== null) {
         actions.push({ type: lane < previous ? "SLIDE_LEFT" : "SLIDE_RIGHT", lane });
       }
     }
+    if (this.leftContact.update(leftY) && leftLane !== null) actions.push({ type: "LEFT_STEP", lane: leftLane });
+    if (this.rightContact.update(rightY) && rightLane !== null) actions.push({ type: "RIGHT_STEP", lane: rightLane });
     this.leftLane = leftLane;
     this.rightLane = rightLane;
     return actions;
@@ -44,6 +88,8 @@ export class InputActionState {
 
   reset(): void {
     this.leftLane = this.rightLane = null;
+    this.leftContact.reset();
+    this.rightContact.reset();
     this.jumping = false;
   }
 }
@@ -51,35 +97,43 @@ export class InputActionState {
 export class JumpDetector {
   private groundLeft?: number;
   private groundRight?: number;
-  private previousLeft?: number;
-  private previousRight?: number;
+  private peakLeft?: number;
+  private peakRight?: number;
   private jumping = false;
 
   update(leftY: number, rightY: number): boolean {
     if (this.groundLeft === undefined || this.groundRight === undefined) {
-      this.groundLeft = this.previousLeft = leftY;
-      this.groundRight = this.previousRight = rightY;
+      this.groundLeft = leftY;
+      this.groundRight = rightY;
       return false;
     }
 
-    const rising = this.previousLeft! - leftY > 0.008 && this.previousRight! - rightY > 0.008;
-    if (!this.jumping && rising && this.groundLeft - leftY > 0.035 && this.groundRight - rightY > 0.035) {
+    if (!this.jumping && this.groundLeft - leftY > 0.035 && this.groundRight - rightY > 0.035) {
       this.jumping = true;
-    } else if (this.jumping && leftY > this.groundLeft - 0.015 && rightY > this.groundRight - 0.015) {
-      this.jumping = false;
+      this.peakLeft = leftY;
+      this.peakRight = rightY;
+    } else if (this.jumping) {
+      this.peakLeft = Math.min(this.peakLeft!, leftY);
+      this.peakRight = Math.min(this.peakRight!, rightY);
+      if (
+        (leftY > this.groundLeft - 0.015 && rightY > this.groundRight - 0.015)
+        || (leftY - this.peakLeft > 0.025 && rightY - this.peakRight > 0.025)
+      ) {
+        this.jumping = false;
+        this.groundLeft = leftY;
+        this.groundRight = rightY;
+      }
     }
 
     if (!this.jumping) {
-      this.groundLeft += (leftY - this.groundLeft) * 0.1;
-      this.groundRight += (rightY - this.groundRight) * 0.1;
+      this.groundLeft = Math.max(this.groundLeft, leftY);
+      this.groundRight = Math.max(this.groundRight, rightY);
     }
-    this.previousLeft = leftY;
-    this.previousRight = rightY;
     return this.jumping;
   }
 
   reset(): void {
-    this.groundLeft = this.groundRight = this.previousLeft = this.previousRight = undefined;
+    this.groundLeft = this.groundRight = this.peakLeft = this.peakRight = undefined;
     this.jumping = false;
   }
 }

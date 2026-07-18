@@ -28,20 +28,30 @@
           <div class="game-overlay" id="game-overlay">
             <p>TEST · RATING 1</p>
             <h2 id="overlay-title">Ready?</h2>
-            <span id="overlay-copy">Match the bars as they cross the yellow line.</span>
-            <button id="play" disabled>Loading music…</button>
+            <span id="overlay-copy">Start and calibrate the camera below.</span>
+            <button id="play" disabled>Set up camera first</button>
           </div>
         </div>
 
-        <div class="game-footer">
-          <div class="controls">
-            <span><kbd>A</kbd> Lane 1 · Left</span>
-            <span><kbd>S</kbd> Lane 2 · Left</span>
-            <span><kbd>K</kbd> Lane 3 · Right</span>
-            <span><kbd>L</kbd> Lane 4 · Right</span>
-            <span><kbd>Space</kbd> Jump</span>
+        <div class="camera-strip">
+          <div class="camera-stage">
+            <video id="camera" autoplay playsinline muted></video>
+            <canvas id="camera-overlay"></canvas>
+            <div class="camera-empty" id="camera-empty">
+              <strong>Camera offline</strong>
+              <span>Start it to track your feet</span>
+            </div>
+            <div class="corner-prompt" id="corner-prompt" hidden></div>
           </div>
-          <div class="judgements" id="judgements">Perfect 0 · Great 0 · Good 0 · Miss 0</div>
+          <div class="camera-controls">
+            <div class="camera-status"><i></i><span id="camera-status">Camera not started</span></div>
+            <p id="camera-hint">Keep both feet and the full play area visible.</p>
+            <div class="camera-actions">
+              <button id="start-camera">Start camera</button>
+              <button id="recalibrate" disabled>Recalibrate</button>
+            </div>
+            <div class="judgements" id="judgements">Perfect 0 · Great 0 · Good 0 · Miss 0</div>
+          </div>
         </div>
       </section>
     </main>
