@@ -1,0 +1,18 @@
+path: .
+train: train2017.txt
+val: val2017.txt
+
+kpt_shape: [6, 3]
+flip_idx: [3, 4, 5, 0, 1, 2]
+
+names:
+  0: feet
+
+kpt_names:
+  0:
+    - left_big_toe
+    - left_small_toe
+    - left_heel
+    - right_big_toe
+    - right_small_toe
+    - right_heel

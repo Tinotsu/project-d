@@ -1,13 +1,13 @@
 # FloorRush
 
-A browser MVP for a DanceRush-style floor game. It tracks both feet with MediaPipe Pose, maps camera coordinates onto a calibrated floor, and reports which of four lanes each foot occupies.
+A browser MVP for a DanceRush-style floor game. It tracks both feet with a custom YOLO Pose model, maps camera coordinates onto a calibrated floor, and reports which of four lanes each foot occupies.
 
 ## Pipeline
 
 ```text
 Camera
-  → MediaPipe Pose Landmarker
-  → ankle + heel + toe landmarks
+  → YOLO feet-only pose model
+  → big toe + small toe + heel landmarks
   → perspective transform
   → normalized floor coordinates
   → four floor lanes
@@ -22,7 +22,7 @@ npm install
 npm run dev
 ```
 
-Open the localhost URL printed by Vite. Camera access requires localhost or HTTPS. An internet connection is currently required to download the MediaPipe WASM runtime and pose model.
+Open the localhost URL printed by Vite. Camera access requires localhost or HTTPS. The ONNX model and runtime are bundled with the app.
 
 To create a production build:
 
@@ -50,9 +50,34 @@ Use **Recalibrate floor** whenever the camera or play area moves.
 
 ## Pose framing
 
-MediaPipe Pose is a full-body detector, not a feet-only detector. For reliable initialization, keep the head, shoulders, hips, knees, and both feet visible together. A lower-leg-only crop will usually return no pose, even when the feet are clear.
+Only the lower legs, both feet, and play floor need to be visible. The custom model predicts the big toe, small toe, and heel for each foot. The highest-confidence pose is used, short detection gaps are held for 250 ms, and foot points are smoothed over time to reduce flicker.
 
-The current model is MediaPipe Pose Landmarker Full. Each foot position is calculated from its ankle, heel, and toe landmarks. Short detection gaps are held for 250 ms, and foot points are smoothed over time to reduce flicker.
+## Train a feet-only pose model
+
+The CMU Human Foot Keypoint Dataset can train a six-keypoint YOLO Pose model without new labels. Download its train/validation annotation JSON files and the corresponding COCO 2017 images, then arrange them as:
+
+```text
+foot-pose/
+  images/train2017/*.jpg
+  images/val2017/*.jpg
+```
+
+Convert both splits. The converter also writes `foot-pose.yaml` with the correct dataset path:
+
+```bash
+python3 scripts/convert_cmu_to_yolo_pose.py person_keypoints_train2017_foot_v1.json /path/to/foot-pose train2017
+python3 scripts/convert_cmu_to_yolo_pose.py person_keypoints_val2017_foot_v1.json /path/to/foot-pose val2017
+```
+
+The generated image lists include only CMU-annotated COCO images. Train and export a small pose model with Ultralytics:
+
+```bash
+python3 -m pip install ultralytics
+yolo pose train data=/path/to/foot-pose/foot-pose.yaml model=yolo26n-pose.pt epochs=100 imgsz=640
+yolo export model=runs/pose/train/weights/best.pt format=onnx imgsz=640 simplify=True
+```
+
+Copy the exported model to `public/models/foot-pose.onnx` to use new weights in the browser.
 
 ## Floor coordinates
 

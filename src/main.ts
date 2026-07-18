@@ -1,10 +1,4 @@
 import {
-  DrawingUtils,
-  FilesetResolver,
-  PoseLandmarker,
-  type NormalizedLandmark,
-} from "@mediapipe/tasks-vision";
-import {
   calibrateFloor,
   floorLane,
   projectFloorPoint,
@@ -12,6 +6,7 @@ import {
   type Homography,
   type Point,
 } from "./floor.ts";
+import { FootPoseDetector, type Keypoint } from "./foot-pose.ts";
 import "./style.css";
 
 const video = document.querySelector<HTMLVideoElement>("#camera")!;
@@ -35,20 +30,13 @@ const leftPosition = document.querySelector<HTMLElement>("#left-position")!;
 const rightPosition = document.querySelector<HTMLElement>("#right-position")!;
 
 const cornerNames = ["A · FAR LEFT", "B · FAR RIGHT", "C · NEAR RIGHT", "D · NEAR LEFT"];
-const footLandmarks = {
-  left: [27, 29, 31],
-  right: [28, 30, 32],
-} as const;
 const footColors = { left: "#34d9ff", right: "#ff3b9d" };
 
-let poseLandmarker: PoseLandmarker;
-let drawingUtils: DrawingUtils;
+let poseDetector: FootPoseDetector;
 let corners: Point[] = [];
 let floorTransform: Homography | undefined;
 let lastVideoTime = -1;
 let animationFrame = 0;
-let lastLandmarks: NormalizedLandmark[] | undefined;
-let lastPoseTime = 0;
 let smoothedFeet: Partial<Record<"left" | "right", [Point, Point, Point]>> = {};
 const lastFootTime = { left: 0, right: 0 };
 
@@ -111,19 +99,13 @@ function drawCalibrationPoints(): void {
 }
 
 function readFoot(
-  landmarks: NormalizedLandmark[],
+  points: [Keypoint, Keypoint, Keypoint] | null,
   side: "left" | "right",
 ): [Point, Point, Point] | null {
-  const points = footLandmarks[side].map((index) => landmarks[index]);
   const now = performance.now();
   let pixels = smoothedFeet[side];
-  if (points.every((point) => (point.visibility ?? 1) >= 0.5)) {
-    const current = points.map((point) => ({ x: point.x * canvas.width, y: point.y * canvas.height })) as [
-      Point,
-      Point,
-      Point,
-    ];
-    pixels = current.map((point, index) => {
+  if (points?.every((point) => point.confidence >= 0.5)) {
+    pixels = points.map((point, index) => {
       const previous = smoothedFeet[side]?.[index];
       return previous
         ? { x: previous.x + (point.x - previous.x) * 0.35, y: previous.y + (point.y - previous.y) * 0.35 }
@@ -160,12 +142,13 @@ function showFoot(side: "left" | "right", point: Point | null): number | null {
   return lane;
 }
 
-function render(): void {
-  if (!poseLandmarker || video.readyState < 2 || video.currentTime === lastVideoTime) {
+async function render(): Promise<void> {
+  if (!poseDetector || video.readyState < 2 || video.currentTime === lastVideoTime) {
     animationFrame = requestAnimationFrame(render);
     return;
   }
   lastVideoTime = video.currentTime;
+  const pose = await poseDetector.detect(video);
   context.clearRect(0, 0, canvas.width, canvas.height);
   const occupiedLanes = new Set<number>();
   context.save();
@@ -175,20 +158,9 @@ function render(): void {
   }
 
   {
-    const now = performance.now();
-    const result = poseLandmarker.detectForVideo(video, now);
-    if (result.landmarks[0]) {
-      lastLandmarks = result.landmarks[0];
-      lastPoseTime = now;
-    }
-    const landmarks = result.landmarks[0] ?? (now - lastPoseTime <= 250 ? lastLandmarks : undefined);
-    if (landmarks) {
-      drawingUtils.drawConnectors(landmarks, PoseLandmarker.POSE_CONNECTIONS, {
-        color: "rgba(255,255,255,.45)",
-        lineWidth: 2,
-      });
-      const left = readFoot(landmarks, "left");
-      const right = readFoot(landmarks, "right");
+    const left = readFoot(pose?.left ?? null, "left");
+    const right = readFoot(pose?.right ?? null, "right");
+    if (left || right) {
       const leftFloor = left && floorTransform ? projectFoot(left, floorTransform) : null;
       const rightFloor = right && floorTransform ? projectFoot(right, floorTransform) : null;
       const leftZone = showFoot("left", leftFloor);
@@ -200,14 +172,14 @@ function render(): void {
       } else {
         setStatus("Feet not visible");
         setupTitle.textContent = "Keep both feet in frame";
-        setupCopy.textContent = "Step back until your hips, knees, and both feet are visible.";
+        setupCopy.textContent = "Point the camera at your lower legs and both feet.";
       }
     } else {
       showFoot("left", null);
       showFoot("right", null);
-      setStatus("No full pose in view");
-      setupTitle.textContent = "Move back from the camera";
-      setupCopy.textContent = "MediaPipe needs your hips, knees, and feet visible together to find a pose.";
+      setStatus("No feet in view");
+      setupTitle.textContent = "Show both feet to the camera";
+      setupCopy.textContent = "Only your lower legs and feet need to be visible.";
     }
   }
 
@@ -265,8 +237,8 @@ startButton.addEventListener("click", async () => {
   setupCopy.textContent = "Allow camera access when your browser asks.";
 
   try {
-    const [vision, stream] = await Promise.all([
-      FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm"),
+    const [detector, stream] = await Promise.all([
+      FootPoseDetector.create("/models/foot-pose.onnx"),
       navigator.mediaDevices.getUserMedia({
         video: verticalToggle.checked
           ? { width: { ideal: 720 }, height: { ideal: 1280 }, aspectRatio: { ideal: 9 / 16 }, frameRate: { ideal: 30 } }
@@ -274,18 +246,7 @@ startButton.addEventListener("click", async () => {
         audio: false,
       }),
     ]);
-    poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
-      baseOptions: {
-        modelAssetPath:
-          "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task",
-        delegate: "GPU",
-      },
-      runningMode: "VIDEO",
-      numPoses: 1,
-      minPoseDetectionConfidence: 0.5,
-      minPosePresenceConfidence: 0.5,
-      minTrackingConfidence: 0.5,
-    });
+    poseDetector = detector;
 
     video.srcObject = stream;
     await new Promise<void>((resolve) => video.addEventListener("loadedmetadata", () => resolve(), { once: true }));
@@ -293,7 +254,6 @@ startButton.addEventListener("click", async () => {
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     stage.style.aspectRatio = `${video.videoWidth} / ${video.videoHeight}`;
-    drawingUtils = new DrawingUtils(context);
     emptyState.hidden = true;
     startButton.hidden = true;
     verticalToggle.disabled = true;

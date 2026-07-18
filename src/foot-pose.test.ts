@@ -1,0 +1,28 @@
+import { describe, expect, it } from "vitest";
+import { decodeFootPose } from "./foot-pose.ts";
+
+describe("decodeFootPose", () => {
+  it("selects the strongest pose and removes letterbox padding", () => {
+    const output = new Float32Array(48);
+    output[4] = 0.4;
+    output[28] = 0.8;
+    for (let point = 0; point < 6; point++) {
+      const offset = 30 + point * 3;
+      output[offset] = 110 + point * 10;
+      output[offset + 1] = 220 + point * 10;
+      output[offset + 2] = 0.9;
+    }
+
+    const pose = decodeFootPose(output, 2, 10, 20);
+
+    expect(pose?.score).toBeCloseTo(0.8);
+    expect(pose?.left[0]).toEqual({ x: 50, y: 100, confidence: expect.closeTo(0.9) });
+    expect(pose?.right[2]).toEqual({ x: 75, y: 125, confidence: expect.closeTo(0.9) });
+  });
+
+  it("rejects weak detections", () => {
+    const output = new Float32Array(24);
+    output[4] = 0.2;
+    expect(decodeFootPose(output, 1, 0, 0)).toBeNull();
+  });
+});
