@@ -37,7 +37,7 @@ header a { padding: 9px 13px; border: 1px solid #3c3d47; border-radius: 99px; co
 .game-overlay button { border: 0; border-radius: 10px; padding: 13px 24px; background: #ffe640; color: #08090d; font-weight: 700; cursor: pointer; }
 .game-overlay button:disabled { cursor: default; opacity: .45; }
 
-.camera-strip { display: grid; grid-template-columns: clamp(180px, 27vw, 300px) minmax(0, 1fr); gap: 14px; align-items: center; padding: 10px 14px; border-top: 1px solid #30313b; }
+.camera-strip { display: grid; grid-template-columns: clamp(180px, 27vw, 300px) minmax(150px, 210px) minmax(0, 1fr); gap: 14px; align-items: center; padding: 10px 14px; border-top: 1px solid #30313b; }
 .camera-stage { position: relative; justify-self: start; height: clamp(110px, 19vh, 150px); aspect-ratio: 16 / 9; overflow: hidden; border: 1px solid #353640; border-radius: 10px; background: #08090d; }
 .camera-stage video, .camera-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
 .camera-stage video { object-fit: fill; transform: scaleX(-1); }
@@ -48,6 +48,13 @@ header a { padding: 9px 13px; border: 1px solid #3c3d47; border-radius: 99px; co
 .camera-empty span { font-size: 10px; }
 .camera-empty[hidden] { display: none; }
 .corner-prompt { position: absolute; z-index: 2; top: 7px; left: 50%; transform: translateX(-50%); padding: 5px 7px; border-radius: 5px; background: #ffe640; color: #08090d; font: 700 8px "DM Mono", monospace; white-space: nowrap; pointer-events: none; }
+.camera-events { align-self: stretch; min-height: 0; padding: 8px; border: 1px solid #353640; border-radius: 10px; background: #0d0e13; }
+.camera-events-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.camera-events-heading small { color: #7d7e89; font: 500 8px "DM Mono", monospace; letter-spacing: .12em; }
+.camera-events-heading button { border: 1px solid #3c3d46; border-radius: 5px; padding: 3px 6px; background: transparent; color: #aaaab4; font-size: 8px; cursor: pointer; }
+.camera-event-log { display: grid; gap: 4px; max-height: 105px; margin-top: 7px; overflow-y: auto; }
+.camera-event-log p { margin: 0; padding: 5px 6px; border-radius: 5px; background: #1b1c24; color: #d8d8de; font: 8px "DM Mono", monospace; }
+.camera-event-log .event-empty { background: transparent; color: #777781; }
 .camera-controls { display: grid; grid-template-columns: 1fr auto; gap: 7px 12px; align-items: center; min-width: 0; }
 .camera-status { display: flex; align-items: center; gap: 7px; color: #c7c7cd; font-size: 12px; }
 .camera-status i { width: 7px; height: 7px; border-radius: 50%; background: #73737c; }
@@ -64,6 +71,8 @@ header a { padding: 9px 13px; border: 1px solid #3c3d47; border-radius: 99px; co
   .game-hud div:nth-child(2), .game-hud div:nth-child(4) { text-align: right; }
   .camera-strip { grid-template-columns: minmax(130px, 42%) minmax(0, 1fr); gap: 8px; padding: 8px; }
   .camera-stage { width: 100%; height: auto; }
+  .camera-events { max-height: 130px; }
+  .camera-controls { grid-column: 1 / -1; }
   .camera-hint { display: none; }
   .camera-controls { grid-template-columns: 1fr; gap: 6px; }
   .camera-actions { grid-row: 2; }

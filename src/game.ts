@@ -72,6 +72,8 @@ const cameraHint = document.querySelector<HTMLElement>("#camera-hint")!;
 const cornerPrompt = document.querySelector<HTMLElement>("#corner-prompt")!;
 const startCameraButton = document.querySelector<HTMLButtonElement>("#start-camera")!;
 const recalibrateButton = document.querySelector<HTMLButtonElement>("#recalibrate")!;
+const cameraEventLog = document.querySelector<HTMLElement>("#camera-event-log")!;
+const resetCameraEventsButton = document.querySelector<HTMLButtonElement>("#reset-camera-events")!;
 
 const chartResponse = await fetch("/levels/second-heaven/test.json");
 if (!chartResponse.ok) throw new Error("Could not load the test chart");
@@ -119,6 +121,55 @@ for (let boundary = 0; boundary <= chart.playfield.lanes; boundary++) {
 }
 highway.moveTo(nearLeft, hitY).lineTo(nearRight, hitY).stroke({ color: 0xffe640, width: 8 });
 app.stage.addChild(highway);
+
+const stepZone = new Graphics()
+  .roundRect(nearLeft - 18, hitY - 36, nearRight - nearLeft + 36, 78, 10)
+  .fill({ color: 0x090a0f, alpha: 0.92 })
+  .stroke({ color: 0xffffff, alpha: 0.65, width: 3 });
+for (let lane = 1; lane <= chart.playfield.lanes; lane++) {
+  const edges = laneEdges(lane, 1);
+  stepZone.rect(edges[0], hitY - 34, edges[1] - edges[0], 74).fill({ color: laneColors[lane - 1], alpha: 0.1 });
+  if (lane > 1) stepZone.moveTo(edges[0], hitY - 34).lineTo(edges[0], hitY + 40).stroke({ color: 0xffffff, alpha: 0.18, width: 2 });
+}
+stepZone.moveTo(nearLeft - 18, hitY).lineTo(nearRight + 18, hitY).stroke({ color: 0xffe640, alpha: 0.85, width: 3 });
+app.stage.addChild(stepZone);
+
+function createFootMarker(side: "left" | "right"): Container {
+  const marker = new Container();
+  const halo = new Graphics()
+    .circle(0, 0, 32)
+    .fill({ color: 0xff8a00, alpha: 0.2 })
+    .stroke({ color: 0xff9c18, alpha: 0.9, width: 3 });
+  const foot = new Graphics()
+    .ellipse(0, 8, 11, 21)
+    .circle(-9, -16, 4)
+    .circle(-4, -20, 4.5)
+    .circle(2, -22, 4.5)
+    .circle(8, -21, 4)
+    .fill(0xff9c18);
+  foot.rotation = side === "left" ? -0.2 : 0.2;
+  marker.addChild(halo, foot);
+  marker.visible = false;
+  app.stage.addChild(marker);
+  return marker;
+}
+
+const leftFootMarker = createFootMarker("left");
+const rightFootMarker = createFootMarker("right");
+
+function showTrackedFeet(leftLane: number | null, rightLane: number | null): void {
+  const sameLane = leftLane !== null && leftLane === rightLane;
+  for (const [marker, lane, offset] of [
+    [leftFootMarker, leftLane, -30],
+    [rightFootMarker, rightLane, 30],
+  ] as const) {
+    marker.visible = lane !== null;
+    if (lane !== null) {
+      const edges = laneEdges(lane, 1);
+      marker.position.set((edges[0] + edges[1]) / 2 + (sameLane ? offset : 0), hitY + 3);
+    }
+  }
+}
 
 const laneGlow = new Graphics();
 app.stage.addChild(laneGlow);
@@ -208,6 +259,7 @@ function beginCalibration(): void {
   smoothedFeet = {};
   jumpDetector.reset();
   inputActions.reset();
+  showTrackedFeet(null, null);
   cameraCanvas.classList.add("calibrating");
   recalibrateButton.disabled = true;
   cornerPrompt.hidden = false;
@@ -285,12 +337,28 @@ function readFoot(
 }
 
 function submitCameraAction(action: InputAction): void {
+  cameraEventLog.querySelector(".event-empty")?.remove();
+  const message = document.createElement("p");
+  message.textContent = action.lane ? `${action.type} · LANE ${action.lane}` : action.type;
+  cameraEventLog.append(message);
+  if (cameraEventLog.children.length > 10) cameraEventLog.firstElementChild?.remove();
+  cameraEventLog.scrollTop = cameraEventLog.scrollHeight;
+
   if (action.type === "LEFT_STEP") submitPlayerEvent("STEP", "left", action.lane);
   if (action.type === "RIGHT_STEP") submitPlayerEvent("STEP", "right", action.lane);
   if (action.type === "JUMP") submitPlayerEvent("JUMP", "both");
   if (action.type === "SLIDE_LEFT") submitPlayerEvent("SLIDE_LEFT", "either", action.lane);
   if (action.type === "SLIDE_RIGHT") submitPlayerEvent("SLIDE_RIGHT", "either", action.lane);
 }
+
+resetCameraEventsButton.addEventListener("click", () => {
+  inputActions.reset();
+  jumpDetector.reset();
+  const empty = document.createElement("p");
+  empty.className = "event-empty";
+  empty.textContent = "Waiting for movement…";
+  cameraEventLog.replaceChildren(empty);
+});
 
 async function renderCamera(): Promise<void> {
   if (!poseDetector || cameraVideo.readyState < 2 || cameraVideo.currentTime === lastVideoTime) {
@@ -317,11 +385,13 @@ async function renderCamera(): Promise<void> {
   if (floorTransform) {
     const leftLane = left ? floorLane(projectFoot(left, floorTransform)) : null;
     const rightLane = right ? floorLane(projectFoot(right, floorTransform)) : null;
+    showTrackedFeet(leftLane, rightLane);
     inputActions.update(leftLane, rightLane, leftY, rightY, jumping).forEach(submitCameraAction);
     if (leftLane) occupiedLanes.add(leftLane);
     if (rightLane) occupiedLanes.add(rightLane);
     setCameraStatus(left && right ? "Tracking both feet" : "Move both feet into view", Boolean(left && right));
   } else {
+    showTrackedFeet(null, null);
     inputActions.reset();
   }
 
