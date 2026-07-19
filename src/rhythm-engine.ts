@@ -54,7 +54,7 @@ export class RhythmEngine {
       const offset = event.time - note.time;
       if (
         this.judgements.has(note.id)
-        || Math.abs(offset) > 0.16
+        || Math.abs(offset) > (note.type === "STEP" ? 0.2 : 0.16)
         || note.type !== event.type
         || (note.lane !== undefined && note.lane !== event.lane)
         || (note.foot !== "either" && note.foot !== event.foot)
@@ -67,16 +67,16 @@ export class RhythmEngine {
 
     if (!closest) return null;
     const absoluteOffset = Math.abs(closestOffset);
-    const judgement = absoluteOffset <= 0.05 + Number.EPSILON
+    const judgement = absoluteOffset <= (closest.type === "STEP" ? 0.06 : 0.05) + Number.EPSILON
       ? "perfect"
-      : absoluteOffset <= 0.1 + Number.EPSILON ? "great" : "good";
+      : absoluteOffset <= (closest.type === "STEP" ? 0.12 : 0.1) + Number.EPSILON ? "great" : "good";
     return this.applyJudgement(closest, judgement, closestOffset);
   }
 
   update(songTime: number): JudgementResult[] {
     const misses: JudgementResult[] = [];
     for (const note of this.notes) {
-      if (!this.judgements.has(note.id) && songTime - note.time > 0.2) {
+      if (!this.judgements.has(note.id) && songTime - note.time > (note.type === "STEP" ? 0.24 : 0.2)) {
         misses.push(this.applyJudgement(note, "miss", songTime - note.time));
       }
     }

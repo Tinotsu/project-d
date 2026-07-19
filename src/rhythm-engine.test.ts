@@ -20,9 +20,9 @@ describe("RhythmEngine", () => {
     const engine = new RhythmEngine([note]);
 
     expect(engine.submit({ time: 1, type: "STEP", lane: 2, foot: "left" })).toBeNull();
-    expect(engine.submit({ time: 1.18, type: "STEP", lane: 1, foot: "left" })).toBeNull();
-    expect(engine.update(1.2)).toEqual([]);
-    expect(engine.update(1.201)[0]?.judgement).toBe("miss");
+    expect(engine.submit({ time: 1.23, type: "STEP", lane: 1, foot: "left" })).toBeNull();
+    expect(engine.update(1.24)).toEqual([]);
+    expect(engine.update(1.241)[0]?.judgement).toBe("miss");
     expect(engine.score.miss).toBe(1);
     expect(engine.score.combo).toBe(0);
   });

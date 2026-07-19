@@ -193,9 +193,10 @@ const noteViews = new Map<string, Container>();
 for (const note of chart.notes) {
   const view = new Container();
   const noteWidth = note.type === "JUMP" ? 480 : 120;
+  const noteHeight = note.type === "STEP" ? 34 : 26;
   const isSlide = note.type === "SLIDE_LEFT" || note.type === "SLIDE_RIGHT";
   const body = new Graphics()
-    .roundRect(-noteWidth / 2, -13, noteWidth, 26, 8)
+    .roundRect(-noteWidth / 2, -noteHeight / 2, noteWidth, noteHeight, 8)
     .fill(note.type === "JUMP" ? 0xffe640 : isSlide ? 0xff9c18 : note.foot === "left" ? 0x35dcff : 0xff4fa2)
     .stroke({ color: 0xffffff, alpha: 0.8, width: 2 });
   const label = new Text({
