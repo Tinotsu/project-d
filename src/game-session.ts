@@ -5,6 +5,7 @@ import type { InputAction } from "./foot-pose.ts";
 
 export type GameSnapshot = {
   running: boolean;
+  paused: boolean;
   time: number;
   score: number;
   combo: number;
@@ -28,6 +29,7 @@ export class GameSession {
   private readonly clock = new AudioClock();
   private engine: RhythmEngine;
   private running = false;
+  private paused = false;
 
   constructor(readonly level: LoadedLevel) {
     this.engine = new RhythmEngine(level.chart.notes);
@@ -41,16 +43,24 @@ export class GameSession {
     this.engine = new RhythmEngine(this.level.chart.notes);
     await this.clock.start();
     this.running = true;
+    this.paused = false;
+  }
+
+  async togglePause(): Promise<void> {
+    if (!this.running) return;
+    if (this.paused) await this.clock.resume();
+    else await this.clock.pause();
+    this.paused = !this.paused;
   }
 
   submit(action: InputAction): JudgementResult | null {
-    if (!this.running) return null;
+    if (!this.running || this.paused) return null;
     const event = playerEventForAction(action, this.currentTime());
     return event ? this.engine.submit(event) : null;
   }
 
   update(): JudgementResult[] {
-    if (!this.running) return [];
+    if (!this.running || this.paused) return [];
     const time = this.currentTime();
     const misses = this.engine.update(time);
     if (time >= this.level.chart.level.endTime) this.stop();
@@ -68,6 +78,7 @@ export class GameSession {
   snapshot(): GameSnapshot {
     return {
       running: this.running,
+      paused: this.paused,
       time: this.currentTime(),
       score: this.engine.score.total,
       combo: this.engine.score.combo,
@@ -81,6 +92,7 @@ export class GameSession {
 
   stop(): void {
     this.running = false;
+    this.paused = false;
     this.clock.stop();
   }
 }

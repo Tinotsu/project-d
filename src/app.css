@@ -96,6 +96,8 @@ button:focus-visible, input:focus-visible, select:focus-visible, audio:focus-vis
 .game-hud small { color: #777782; font: 500 8px "DM Mono", monospace; letter-spacing: .14em; }
 .game-hud strong { font: 600 16px "DM Mono", monospace; }
 .game-hud .accent { color: #ffe640; font-size: 21px; }
+.game-controls { display: flex !important; align-items: center; gap: 2px !important; }
+.game-controls .restart-button { background: #ffe640; color: #08090d; }
 .judgements { color: #aaaab4; font: 10px "DM Mono", monospace; white-space: nowrap; }
 .game-layout { position: absolute; inset: 0; }
 .playfield-shell { position: absolute; inset: 0; overflow: hidden; background: radial-gradient(circle at 50% 14%, #fff9 0, #28e8ff55 3%, transparent 17%), radial-gradient(circle at 12% 36%, #23eaff55, transparent 30%), radial-gradient(circle at 88% 38%, #ff36b855, transparent 30%), linear-gradient(#14102b, #080814 62%, #020207); }

@@ -34,9 +34,7 @@ const laneColors = [0x35dcff, 0x6c82ff, 0xff4fa2, 0xff9b45];
 const assetUrls = [
   footBaseUrl,
   footUrl,
-  leftStepUrl,
   trackUrl,
-  rightStepUrl,
 ];
 
 export class PixiPlayfield {
@@ -241,9 +239,24 @@ export class PixiPlayfield {
       element.append(base, jump);
       view.addChild(new DOMContainer({ element, anchor: 0.5 }));
     } else {
-      const step = Sprite.from(note.foot === "left" ? leftStepUrl : rightStepUrl);
-      step.anchor.set(0.5);
-      view.addChild(step);
+      const element = document.createElement("div");
+      element.style.cssText = "position:relative;width:152px;height:54px;pointer-events:none;perspective:260px";
+      const step = document.createElement("object");
+      step.data = note.foot === "left" ? leftStepUrl : rightStepUrl;
+      step.type = "image/svg+xml";
+      step.width = "152";
+      step.height = note.foot === "left" ? "53" : "54";
+      step.style.cssText = "position:absolute;left:0;bottom:0;pointer-events:none;transform:rotateX(62deg);transform-origin:50% 100%";
+      step.addEventListener("load", () => {
+        const document = step.contentDocument!;
+        (document.querySelector("svg > rect") as SVGElement).style.display = "none";
+        document.getElementById("Rectangle 4")!.animate(
+          [{ transform: "translateY(0)" }, { transform: "translateY(-175px)" }],
+          { duration: 500, iterations: Infinity },
+        );
+      });
+      element.append(step);
+      view.addChild(new DOMContainer({ element, anchor: 0.5 }));
     }
     view.visible = false;
     return view;

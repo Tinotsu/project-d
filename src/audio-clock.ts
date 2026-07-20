@@ -25,6 +25,14 @@ export class AudioClock {
     this.source.start(this.startedAt);
   }
 
+  async pause(): Promise<void> {
+    await this.context?.suspend();
+  }
+
+  async resume(): Promise<void> {
+    await this.context?.resume();
+  }
+
   currentTime(endTime: number): number {
     const elapsed = this.context && this.startedAt ? this.context.currentTime - this.startedAt : this.stoppedAt;
     return Math.min(endTime, Math.max(0, elapsed));

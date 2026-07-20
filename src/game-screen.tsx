@@ -87,6 +87,21 @@ export function GameScreen({ cameraInput, level, onExit, onFinish }: GameScreenP
     }
   }, [session]);
 
+  const togglePause = useCallback(async () => {
+    await session.togglePause();
+    setHud(session.snapshot());
+  }, [session]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.code !== "Space" || event.repeat || event.target instanceof HTMLButtonElement) return;
+      event.preventDefault();
+      void togglePause();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [togglePause]);
+
   async function startLevel(): Promise<void> {
     setStarting(true);
     try {
@@ -104,7 +119,13 @@ export function GameScreen({ cameraInput, level, onExit, onFinish }: GameScreenP
   return (
     <main className="game-screen">
       <header className="game-hud">
-        <button className="text-button" onClick={onExit}>Exit</button>
+        <div className="game-controls">
+          <button className="text-button" onClick={onExit}>Exit</button>
+          <button className="text-button" disabled={!hud.running || starting} onClick={() => void togglePause()}>
+            {hud.paused ? "Resume" : "Pause"}
+          </button>
+          <button className="text-button restart-button" disabled={!ready || starting} onClick={() => void startLevel()}>Restart</button>
+        </div>
         <div className="hud-track"><small>TRACK</small><strong>{level.song.title}</strong></div>
         <div><small>SCORE</small><strong className="accent">{hud.score.toString().padStart(6, "0")}</strong></div>
         <div><small>COMBO</small><strong>{hud.combo}</strong></div>
