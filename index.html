@@ -4,71 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#08090d" />
-    <title>Floor Rush — Pose calibration MVP</title>
+    <title>FloorRush</title>
   </head>
   <body>
-    <main>
-      <header>
-        <div>
-          <p class="eyebrow">POSE CALIBRATION MVP</p>
-          <h1>FLOOR<span>RUSH</span></h1>
-        </div>
-        <div class="header-actions">
-          <a class="page-link" href="/game.html">Play test level</a>
-          <div class="status" id="status"><i></i><span>Ready to connect</span></div>
-        </div>
-      </header>
-
-      <section class="workspace">
-        <div class="camera-panel">
-          <div class="stage mirrored" id="stage">
-            <video id="camera" autoplay playsinline muted></video>
-            <canvas id="overlay"></canvas>
-            <div class="empty-state" id="empty-state">
-              <div class="camera-icon"></div>
-              <strong>Camera is offline</strong>
-              <span>Start tracking to begin floor calibration</span>
-            </div>
-            <div class="corner-prompt" id="corner-prompt" hidden></div>
-          </div>
-
-          <div class="toolbar">
-            <button class="primary" id="start">Start camera</button>
-            <button class="secondary" id="recalibrate" disabled>Recalibrate floor</button>
-            <p id="hint">Keep your lower legs, both feet, and the play floor in frame.</p>
-          </div>
-        </div>
-
-        <aside>
-          <section class="feet-card">
-            <p class="card-label">LIVE FLOOR POSITION</p>
-            <div class="foot-row left">
-              <span class="foot-dot"></span>
-              <div><small>LEFT FOOT</small><strong id="left-lane">—</strong></div>
-              <code id="left-position">x — &nbsp; y —</code>
-            </div>
-            <div class="foot-row right">
-              <span class="foot-dot"></span>
-              <div><small>RIGHT FOOT</small><strong id="right-lane">—</strong></div>
-              <code id="right-position">x — &nbsp; y —</code>
-            </div>
-            <div class="jump-row">
-              <small>JUMP DETECTOR</small><strong id="jump-status">GROUNDED</strong>
-            </div>
-          </section>
-
-          <section class="events-card">
-            <div class="events-heading">
-              <p class="card-label">INPUT EVENTS</p>
-              <button id="reset-events" type="button">Reset input events</button>
-            </div>
-            <div class="event-log" id="event-log" aria-live="polite">
-              <p class="event-empty">Waiting for movement…</p>
-            </div>
-          </section>
-        </aside>
-      </section>
-    </main>
-    <script type="module" src="/src/main.ts"></script>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
