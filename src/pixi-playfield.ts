@@ -2,6 +2,7 @@ import {
   Application,
   Assets,
   Container,
+  DOMContainer,
   Graphics,
   PerspectiveMesh,
   Sprite,
@@ -20,25 +21,21 @@ import rightStepUrl from "../assets/right base.svg?url";
 import type { LevelChart } from "./level.ts";
 import type { ChartNote, JudgementResult } from "./rhythm-engine.ts";
 
-export const gameWidth = 1100;
-export const gameHeight = 660;
+export const gameWidth = 1280;
+export const gameHeight = 720;
 
-const farLeft = 410;
-const farRight = 690;
-const nearLeft = 90;
-const nearRight = 1010;
-const horizonY = 70;
-const hitY = 540;
+const farLeft = 520;
+const farRight = 760;
+const nearLeft = 20;
+const nearRight = 1260;
+const horizonY = 100;
+const hitY = 590;
 const laneColors = [0x35dcff, 0x6c82ff, 0xff4fa2, 0xff9b45];
 const assetUrls = [
-  blueSlideUrl,
   footBaseUrl,
   footUrl,
-  jumpBaseUrl,
-  jumpUrl,
   leftStepUrl,
   trackUrl,
-  redSlideUrl,
   rightStepUrl,
 ];
 
@@ -46,7 +43,7 @@ export class PixiPlayfield {
   private readonly app = new Application();
   private readonly noteViews = new Map<string, Container>();
   private readonly slideGroups = new Map<string, ChartNote[]>();
-  private readonly slidePaths = new Map<string, Graphics>();
+  private readonly slidePaths = new Map<string, DOMContainer>();
   private readonly laneGlow = new Graphics();
   private readonly laneGlowUntil = [0, 0, 0, 0];
   private readonly feedback = new Graphics();
@@ -120,13 +117,15 @@ export class PixiPlayfield {
       }
 
       const progress = Math.min(1, Math.max(0, 1 - timeUntil / this.chart.playfield.travelTime));
-      const easedProgress = progress ** 1.45;
+      const easedProgress = progress ** 1.65;
       const playfieldWidth = farRight - farLeft + (nearRight - nearLeft - farRight + farLeft) * easedProgress;
       const lane = note.lane ?? 2.5;
       const edges = Number.isInteger(lane) ? this.laneEdges(lane, easedProgress) : [gameWidth / 2, gameWidth / 2];
       view.position.set((edges[0] + edges[1]) / 2, horizonY + (hitY - horizonY) * easedProgress);
-      view.scale.x = note.type === "JUMP" ? playfieldWidth / 480 : playfieldWidth / this.chart.playfield.lanes * 0.82 / 152;
-      view.scale.y = (note.type === "JUMP" ? 0.48 : 0.55) + easedProgress * 0.65;
+      const scale = note.type === "JUMP"
+        ? playfieldWidth * 0.72 / 830
+        : playfieldWidth / this.chart.playfield.lanes * 0.82 / 152;
+      view.scale.set(scale);
       view.visible = true;
     }
 
@@ -135,8 +134,8 @@ export class PixiPlayfield {
       if (performance.now() < until) this.drawLane(this.laneGlow, index + 1, laneColors[index], 0.35);
     });
     const pulse = 1 + Math.sin(performance.now() / 90) * 0.04;
-    this.leftFootMarker.scale.set(0.72 * pulse);
-    this.rightFootMarker.scale.set(-0.72 * pulse, 0.72 * pulse);
+    this.leftFootMarker.scale.set(0.9 * pulse);
+    this.rightFootMarker.scale.set(-0.9 * pulse, 0.9 * pulse);
     if (this.feedback.visible && performance.now() > this.feedbackUntil) {
       this.feedback.visible = false;
       this.feedbackLabel.visible = false;
@@ -163,25 +162,28 @@ export class PixiPlayfield {
     this.app.canvas.setAttribute("aria-label", "Four-lane rhythm game playfield");
     mount.append(this.app.canvas);
 
-    const track = new PerspectiveMesh({ texture: Texture.from(trackUrl), verticesX: 12, verticesY: 12 });
-    track.setCorners(farLeft, horizonY, farRight, horizonY, nearRight, hitY, nearLeft, hitY);
-    track.alpha = 0.42;
+    const track = new PerspectiveMesh({ texture: Texture.from(trackUrl), verticesX: 16, verticesY: 16 });
+    track.setCorners(farLeft, horizonY, farRight, horizonY, 1400, gameHeight, -120, gameHeight);
+    track.alpha = 0.78;
     this.app.stage.addChild(track);
 
     const highway = new Graphics();
-    for (let lane = 1; lane <= this.chart.playfield.lanes; lane++) this.drawLane(highway, lane, laneColors[lane - 1], 0.1);
+    for (let lane = 1; lane <= this.chart.playfield.lanes; lane++) this.drawLane(highway, lane, laneColors[lane - 1], 0.06);
     for (let boundary = 0; boundary <= this.chart.playfield.lanes; boundary++) {
       const farX = farLeft + (farRight - farLeft) * boundary / this.chart.playfield.lanes;
       const nearX = nearLeft + (nearRight - nearLeft) * boundary / this.chart.playfield.lanes;
-      highway.moveTo(farX, horizonY).lineTo(nearX, hitY).stroke({ color: 0xffffff, alpha: 0.28, width: 2 });
+      highway.moveTo(farX, horizonY).lineTo(nearX, hitY).stroke({ color: 0xffffff, alpha: 0.38, width: 2 });
+    }
+    for (let depth = 0.14; depth < 1; depth += 0.14) {
+      const outerLeft = this.laneEdges(1, depth)[0];
+      const outerRight = this.laneEdges(this.chart.playfield.lanes, depth)[1];
+      const y = horizonY + (hitY - horizonY) * depth;
+      highway.moveTo(outerLeft, y).lineTo(outerRight, y).stroke({ color: 0xffffff, alpha: 0.16, width: 2 });
     }
     this.app.stage.addChild(highway);
 
-    const stepZone = Sprite.from(footBaseUrl);
-    stepZone.anchor.set(0.5);
-    stepZone.position.set(gameWidth / 2, hitY + 2);
-    stepZone.width = nearRight - nearLeft + 36;
-    stepZone.height = 112;
+    const stepZone = new PerspectiveMesh({ texture: Texture.from(footBaseUrl), verticesX: 10, verticesY: 2 });
+    stepZone.setCorners(55, 558, 1225, 558, 1310, 650, -30, 650);
     this.app.stage.addChild(stepZone);
 
     for (const note of this.chart.notes) {
@@ -190,14 +192,23 @@ export class PixiPlayfield {
         group.push(note);
         this.slideGroups.set(note.slide, group);
       }
+    }
+    for (const [slide, notes] of this.slideGroups) {
+      const element = document.createElement("img");
+      element.src = notes[0].foot === "left" ? blueSlideUrl : redSlideUrl;
+      element.width = 86;
+      element.height = 316;
+      element.alt = "";
+      element.style.pointerEvents = "none";
+      const path = new DOMContainer({ element, anchor: { x: 0.5, y: 1 } });
+      path.visible = false;
+      this.slidePaths.set(slide, path);
+      this.app.stage.addChild(path);
+    }
+    for (const note of this.chart.notes) {
       const view = this.createNoteView(note);
       this.noteViews.set(note.id, view);
       this.app.stage.addChild(view);
-    }
-    for (const slide of this.slideGroups.keys()) {
-      const path = new Graphics();
-      this.slidePaths.set(slide, path);
-      this.app.stage.addChildAt(path, 2);
     }
 
     this.leftFootMarker = this.createFootMarker(false);
@@ -213,20 +224,25 @@ export class PixiPlayfield {
   private createNoteView(note: ChartNote): Container {
     const view = new Container();
     if (note.type === "JUMP") {
-      const base = Sprite.from(jumpBaseUrl);
-      base.anchor.set(0.5);
-      base.width = 480;
-      base.height = 76;
-      const arrows = Sprite.from(jumpUrl);
-      arrows.anchor.set(0.5);
-      arrows.width = 470;
-      arrows.height = 116;
-      view.addChild(base, arrows);
+      const element = document.createElement("div");
+      element.style.cssText = "position:relative;width:830px;height:200px;pointer-events:none";
+      const base = document.createElement("img");
+      base.src = jumpBaseUrl;
+      base.width = 830;
+      base.height = 130;
+      base.alt = "";
+      base.style.cssText = "position:absolute;left:0;top:35px";
+      const jump = document.createElement("img");
+      jump.src = jumpUrl;
+      jump.width = 800;
+      jump.height = 200;
+      jump.alt = "";
+      jump.style.cssText = "position:absolute;left:15px;top:0";
+      element.append(base, jump);
+      view.addChild(new DOMContainer({ element, anchor: 0.5 }));
     } else {
       const step = Sprite.from(note.foot === "left" ? leftStepUrl : rightStepUrl);
       step.anchor.set(0.5);
-      step.width = 152;
-      step.height = 54;
       view.addChild(step);
     }
     view.visible = false;
@@ -236,14 +252,14 @@ export class PixiPlayfield {
   private createFootMarker(mirrored: boolean): Sprite {
     const marker = Sprite.from(footUrl);
     marker.anchor.set(0.5);
-    marker.scale.set(mirrored ? -0.72 : 0.72, 0.72);
+    marker.scale.set(mirrored ? -0.9 : 0.9, 0.9);
     marker.visible = false;
     return marker;
   }
 
   private renderSlides(songTime: number, running: boolean): void {
     for (const [slide, path] of this.slidePaths) {
-      path.clear();
+      path.visible = false;
       const notes = this.slideGroups.get(slide)!;
       const first = notes[0];
       const last = notes[notes.length - 1];
@@ -263,7 +279,7 @@ export class PixiPlayfield {
       }
 
       const points = pathNotes.map((note) => {
-        const progress = Math.min(1, Math.max(0, 1 - (note.time - songTime) / this.chart.playfield.travelTime)) ** 1.45;
+        const progress = Math.min(1, Math.max(0, 1 - (note.time - songTime) / this.chart.playfield.travelTime)) ** 1.65;
         const edges = this.laneEdges(note.lane, progress);
         const playfieldWidth = farRight - farLeft + (nearRight - nearLeft - farRight + farLeft) * progress;
         return {
@@ -274,10 +290,12 @@ export class PixiPlayfield {
       });
       if (points.length < 2) continue;
 
-      const polygon = points.flatMap((point) => [point.x - point.halfWidth, point.y]);
-      for (let index = points.length - 1; index >= 0; index--) polygon.push(points[index].x + points[index].halfWidth, points[index].y);
-      const texture = Texture.from(first.foot === "left" ? blueSlideUrl : redSlideUrl);
-      path.poly(polygon, true).fill({ texture, textureSpace: "local", alpha: 0.82 }).stroke({ color: 0xffffff, alpha: 0.5, width: 2 });
+      const start = points[0];
+      const end = points[points.length - 1];
+      path.position.set(start.x, start.y);
+      path.rotation = Math.atan2(end.y - start.y, end.x - start.x) + Math.PI / 2;
+      path.scale.set((start.halfWidth + end.halfWidth) / 86, Math.hypot(end.x - start.x, end.y - start.y) / 316);
+      path.visible = true;
     }
   }
 

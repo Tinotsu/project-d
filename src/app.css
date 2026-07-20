@@ -90,25 +90,26 @@ button:focus-visible, input:focus-visible, select:focus-visible, audio:focus-vis
 .event-log p { flex: 0 0 auto; margin: 0; border-radius: 7px; padding: 7px 9px; background: #1d1e26; color: #d7d7dc; font: 9px "DM Mono", monospace; }
 .event-log .event-empty { background: transparent; color: #777782; }
 
-.game-screen { display: grid; grid-template-rows: auto minmax(0, 1fr); width: 100vw; height: 100dvh; overflow: hidden; background: #08090d; }
-.game-hud { z-index: 3; display: grid; grid-template-columns: auto minmax(150px, 1fr) repeat(3, auto) auto; align-items: center; gap: 20px; min-height: 70px; padding: 10px 20px; border-bottom: 1px solid #30313a; background: #111218ee; }
+.game-screen { position: relative; width: 100vw; height: 100dvh; overflow: hidden; background: #05050b; }
+.game-hud { position: absolute; z-index: 4; right: 0; bottom: 0; left: 0; display: grid; grid-template-columns: auto minmax(150px, 1fr) repeat(3, auto) auto; align-items: center; gap: 20px; min-height: 78px; padding: 12px 22px; border-top: 2px solid #ffffffb8; background: linear-gradient(90deg, #071629ee, #14121ddd 45%, #250b20ee); box-shadow: 0 -16px 50px #0009; backdrop-filter: blur(12px); }
 .game-hud > div { display: grid; gap: 4px; }
 .game-hud small { color: #777782; font: 500 8px "DM Mono", monospace; letter-spacing: .14em; }
 .game-hud strong { font: 600 16px "DM Mono", monospace; }
 .game-hud .accent { color: #ffe640; font-size: 21px; }
 .judgements { color: #aaaab4; font: 10px "DM Mono", monospace; white-space: nowrap; }
-.game-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 12px; min-height: 0; padding: 12px; }
-.playfield-shell { position: relative; min-width: 0; min-height: 0; overflow: hidden; border: 1px solid #282932; border-radius: 16px; background: linear-gradient(#151123, #08090e); }
+.game-layout { position: absolute; inset: 0; }
+.playfield-shell { position: absolute; inset: 0; overflow: hidden; background: radial-gradient(circle at 50% 14%, #fff9 0, #28e8ff55 3%, transparent 17%), radial-gradient(circle at 12% 36%, #23eaff55, transparent 30%), radial-gradient(circle at 88% 38%, #ff36b855, transparent 30%), linear-gradient(#14102b, #080814 62%, #020207); }
+.playfield-shell::before { position: absolute; inset: 0; content: ""; background: repeating-linear-gradient(70deg, transparent 0 75px, #8df7ff18 76px 78px), repeating-linear-gradient(110deg, transparent 0 75px, #ff71d518 76px 78px); mask-image: linear-gradient(#fff, transparent 66%); }
 .pixi-stage { position: absolute; inset: 0; }
-.pixi-stage canvas { position: absolute; inset: 0; width: auto !important; height: auto !important; max-width: 100%; max-height: 100%; margin: auto; }
+.pixi-stage canvas { position: absolute; inset: 0; width: 100% !important; height: 100% !important; }
 .game-overlay { position: absolute; z-index: 2; inset: 0; display: grid; place-content: center; justify-items: center; padding: 24px; background: #08090dcc; text-align: center; }
 .game-overlay p { margin: 0 0 7px; color: #ffe640; font: 500 10px "DM Mono", monospace; letter-spacing: .15em; }
 .game-overlay h2 { margin: 0; font-size: clamp(40px, 7vw, 78px); letter-spacing: -.07em; }
 .game-overlay span { margin: 8px 0 22px; color: #9a9aa5; }
 .game-overlay button { border: 0; border-radius: 9px; padding: 13px 22px; background: #ffe640; color: #08090d; font-weight: 700; }
-.camera-panel.compact { display: flex; flex-direction: column; gap: 10px; min-height: 0; }
-.camera-panel.compact .camera-stage { flex: 0 0 auto; grid-row: auto; border-radius: 12px; }
-.camera-panel.compact .camera-details, .camera-panel.compact .camera-readout { padding: 12px; }
+.camera-panel.compact { position: absolute; z-index: 3; top: 18px; right: 18px; display: flex; width: 250px; flex-direction: column; gap: 8px; padding: 9px; border: 1px solid #8df7ff66; border-radius: 8px; background: #070914c7; box-shadow: 0 0 40px #001b30aa; backdrop-filter: blur(10px); }
+.camera-panel.compact .camera-stage { flex: 0 0 auto; grid-row: auto; border-radius: 4px; }
+.camera-panel.compact .camera-details, .camera-panel.compact .camera-readout { border-radius: 4px; padding: 10px; background: #06070dbd; }
 
 .results-screen { display: grid; min-height: calc(100vh - 82px); place-items: center; padding: 30px; }
 .results-card { width: min(600px, 100%); padding: clamp(28px, 5vw, 58px); text-align: center; }
@@ -141,7 +142,6 @@ button:focus-visible, input:focus-visible, select:focus-visible, audio:focus-vis
   .camera-panel { grid-template-columns: 1fr 1fr; }
   .camera-stage { grid-column: 1 / -1; grid-row: auto; }
   .input-events { grid-column: 1 / -1; }
-  .game-layout { grid-template-columns: minmax(0, 1fr) 230px; }
   .hud-track, .judgements { display: none !important; }
   .game-hud { grid-template-columns: auto 1fr repeat(2, auto); }
 }
@@ -152,8 +152,8 @@ button:focus-visible, input:focus-visible, select:focus-visible, audio:focus-vis
   .home-screen, .setup-screen, .editor-screen { padding-top: 34px; }
   .screen-heading { align-items: flex-start; flex-direction: column; }
   .camera-panel { display: flex; flex-direction: column; }
-  .game-layout { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) auto; }
-  .camera-panel.compact { display: grid; grid-template-columns: 180px 1fr; }
+  .camera-panel.compact { top: 10px; right: 10px; width: 170px; }
+  .camera-panel.compact .camera-details { display: none; }
   .camera-panel.compact .camera-readout { display: none; }
   .game-hud { gap: 10px; padding-inline: 10px; }
   .game-hud .text-button { padding-inline: 7px; }
