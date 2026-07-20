@@ -5,6 +5,7 @@ import {
   Graphics,
   PerspectiveMesh,
   Sprite,
+  Text,
   Texture,
 } from "pixi.js";
 import blueSlideUrl from "../assets/blue slide.svg?url";
@@ -49,6 +50,15 @@ export class PixiPlayfield {
   private readonly laneGlow = new Graphics();
   private readonly laneGlowUntil = [0, 0, 0, 0];
   private readonly feedback = new Graphics();
+  private readonly feedbackLabel = new Text({
+    text: "",
+    style: {
+      fill: 0xffffff,
+      fontFamily: "Space Grotesk",
+      fontSize: 42,
+      fontWeight: "700",
+    },
+  });
   private leftFootMarker!: Sprite;
   private rightFootMarker!: Sprite;
   private feedbackUntil = 0;
@@ -82,6 +92,8 @@ export class PixiPlayfield {
       .roundRect(gameWidth / 2 - 145, 275, 290, 82, 18)
       .fill({ color: 0x08090d, alpha: 0.82 })
       .stroke({ color, width: 5 });
+    this.feedbackLabel.text = result.judgement.toUpperCase();
+    this.feedbackLabel.visible = true;
     this.feedback.visible = true;
     this.feedbackUntil = performance.now() + 380;
     const lanes = result.note.lane ? [result.note.lane] : [1, 2, 3, 4];
@@ -123,9 +135,12 @@ export class PixiPlayfield {
       if (performance.now() < until) this.drawLane(this.laneGlow, index + 1, laneColors[index], 0.35);
     });
     const pulse = 1 + Math.sin(performance.now() / 90) * 0.04;
-    this.leftFootMarker.scale.set(pulse);
-    this.rightFootMarker.scale.set(-pulse, pulse);
-    if (this.feedback.visible && performance.now() > this.feedbackUntil) this.feedback.visible = false;
+    this.leftFootMarker.scale.set(0.72 * pulse);
+    this.rightFootMarker.scale.set(-0.72 * pulse, 0.72 * pulse);
+    if (this.feedback.visible && performance.now() > this.feedbackUntil) {
+      this.feedback.visible = false;
+      this.feedbackLabel.visible = false;
+    }
   }
 
   destroy(): void {
@@ -189,7 +204,10 @@ export class PixiPlayfield {
     this.rightFootMarker = this.createFootMarker(true);
     this.app.stage.addChild(this.leftFootMarker, this.rightFootMarker, this.laneGlow);
     this.feedback.visible = false;
-    this.app.stage.addChild(this.feedback);
+    this.feedbackLabel.anchor.set(0.5);
+    this.feedbackLabel.position.set(gameWidth / 2, 316);
+    this.feedbackLabel.visible = false;
+    this.app.stage.addChild(this.feedback, this.feedbackLabel);
   }
 
   private createNoteView(note: ChartNote): Container {
@@ -218,9 +236,7 @@ export class PixiPlayfield {
   private createFootMarker(mirrored: boolean): Sprite {
     const marker = Sprite.from(footUrl);
     marker.anchor.set(0.5);
-    marker.width = 72;
-    marker.height = 75;
-    if (mirrored) marker.scale.x *= -1;
+    marker.scale.set(mirrored ? -0.72 : 0.72, 0.72);
     marker.visible = false;
     return marker;
   }

@@ -15,7 +15,7 @@ type GameScreenProps = {
 
 export function GameScreen({ cameraInput, level, onExit, onFinish }: GameScreenProps) {
   const mountRef = useRef<HTMLDivElement>(null);
-  const playfieldRef = useRef<PixiPlayfield>();
+  const playfieldRef = useRef<PixiPlayfield | undefined>(undefined);
   const cameraSnapshot = useRef<CameraSnapshot>(initialCameraSnapshot);
   const started = useRef(false);
   const finished = useRef(false);

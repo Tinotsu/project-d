@@ -24,7 +24,7 @@ npm run dev
 
 Open the localhost URL printed by Vite. Camera access requires localhost or HTTPS. The ONNX model and runtime are bundled with the app.
 
-The camera setup page links to `/game.html`, a short playable test chart for **Second Heaven**. Start the camera there, mark the four floor corners, then use your detected steps and jumps to play. The recording is not distributed with this repository; provide a copy you are licensed to use at `public/music/second-heaven.mp3`.
+The browser app includes level selection, camera calibration, gameplay, results, and a chart editor for **Second Heaven**. The recording is not distributed with this repository; provide a copy you are licensed to use at `public/music/second-heaven.mp3`.
 
 To create a production build:
 
@@ -34,7 +34,7 @@ npm run build
 
 ## Use
 
-1. Click **Start camera** and allow camera access.
+1. Select the test level and click **Start camera**.
 2. Click the floor corners clockwise:
    - A: far left
    - B: far right
@@ -95,11 +95,19 @@ Feet outside this rectangle are reported as `OUTSIDE`.
 
 Song metadata is shared in `public/levels/second-heaven/song.json`. The separate difficulty chart in `public/levels/second-heaven/test.json` contains the level settings, timing grid, playfield, notes, and visual-effect settings. Note times are seconds from the start of the decoded audio.
 
-The test page uses Web Audio's context clock for gameplay timing and PixiJS for the playfield. Scoring is independent from rendering in `src/rhythm-engine.ts`.
+The game uses Web Audio's context clock for gameplay timing and PixiJS for the playfield. Scoring is independent from rendering in `src/rhythm-engine.ts`. The chart editor can capture the current audio time, edit notes and timing, and download the resulting level JSON.
+
+## Application structure
+
+- React owns level selection, calibration, results, and chart editing.
+- `src/game-session.ts` coordinates the audio clock and deterministic rhythm engine.
+- `src/camera-input.ts` owns camera capture, calibration, pose input, and movement events.
+- `src/pixi-playfield.ts` renders the playfield and the SVG note assets.
+- `src/level.ts` loads song metadata and level charts.
 
 ## Current scope
 
-This MVP includes camera capture, pose landmarks, calibration, lane detection, automatic mirroring, temporal smoothing, jump detection, a test chart, Web Audio synchronization, and real-time step/jump scoring. The game page runs the foot model directly and keeps its camera preview beneath the playfield.
+The browser app includes camera capture, pose landmarks, calibration, lane detection, automatic mirroring, temporal smoothing, jump detection, a test chart, Web Audio synchronization, real-time step/jump scoring, product screens, results, and chart editing. The camera model and Pixi game runtime are loaded only when their screens need them.
 
 ## License
 

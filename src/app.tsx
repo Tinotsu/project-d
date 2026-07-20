@@ -1,45 +1,63 @@
-import { useCallback, useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import footUrl from "../assets/foot.svg?url";
 import jumpUrl from "../assets/jump.svg?url";
-import { CameraPanel } from "./camera-panel.tsx";
-import { CameraInput, initialCameraSnapshot, type CameraSnapshot } from "./camera-input.ts";
-import { ChartEditor } from "./chart-editor.tsx";
-import { GameScreen } from "./game-screen.tsx";
+import type { CameraInput } from "./camera-input.ts";
 import type { GameSnapshot } from "./game-session.ts";
 import { loadLevel, type LoadedLevel } from "./level.ts";
 
 type Screen = "home" | "setup" | "game" | "results" | "editor";
 
+const SetupScreen = lazy(() => import("./setup-screen.tsx").then((module) => ({ default: module.SetupScreen })));
+const GameScreen = lazy(() => import("./game-screen.tsx").then((module) => ({ default: module.GameScreen })));
+const ChartEditor = lazy(() => import("./chart-editor.tsx").then((module) => ({ default: module.ChartEditor })));
+
 export function App() {
   const [screen, setScreen] = useState<Screen>("home");
   const [level, setLevel] = useState<LoadedLevel>();
   const [loadError, setLoadError] = useState("");
-  const [cameraSnapshot, setCameraSnapshot] = useState<CameraSnapshot>(initialCameraSnapshot);
+  const [cameraCalibrated, setCameraCalibrated] = useState(false);
   const [result, setResult] = useState<GameSnapshot>();
-  const [cameraInput] = useState(() => new CameraInput());
+  const [cameraInput, setCameraInput] = useState<CameraInput>();
+  const cameraInputRef = useRef<CameraInput | undefined>(undefined);
 
   useEffect(() => {
     loadLevel("/levels/second-heaven/test.json").then(setLevel).catch((error: unknown) => {
       setLoadError(error instanceof Error ? error.message : "Could not load levels");
     });
-    return () => cameraInput.destroy();
-  }, [cameraInput]);
+  }, []);
+
+  useEffect(() => () => cameraInputRef.current?.destroy(), []);
 
   const finishGame = useCallback((gameResult: GameSnapshot) => {
     setResult(gameResult);
     setScreen("results");
   }, []);
 
+  async function openSetup(): Promise<void> {
+    if (!cameraInput) {
+      const { CameraInput } = await import("./camera-input.ts");
+      const input = new CameraInput();
+      cameraInputRef.current = input;
+      setCameraInput(input);
+    }
+    setScreen("setup");
+  }
+
   function play(): void {
-    setScreen(cameraSnapshot.calibrated ? "game" : "setup");
+    if (cameraCalibrated && cameraInput) setScreen("game");
+    else void openSetup();
   }
 
   if (screen === "game" && level) {
-    return <GameScreen cameraInput={cameraInput} level={level} onExit={() => setScreen("home")} onFinish={finishGame} />;
+    return (
+      <Suspense fallback={<LoadingScreen />}>
+        <GameScreen cameraInput={cameraInput!} level={level} onExit={() => setScreen("home")} onFinish={finishGame} />
+      </Suspense>
+    );
   }
 
   if (screen === "editor" && level) {
-    return <ChartEditor level={level} onBack={() => setScreen("home")} />;
+    return <Suspense fallback={<LoadingScreen />}><ChartEditor level={level} onBack={() => setScreen("home")} /></Suspense>;
   }
 
   return (
@@ -50,7 +68,7 @@ export function App() {
         </button>
         <nav>
           <button className={screen === "home" ? "active" : ""} onClick={() => setScreen("home")}>Play</button>
-          <button className={screen === "setup" ? "active" : ""} onClick={() => setScreen("setup")}>Camera</button>
+          <button className={screen === "setup" ? "active" : ""} onClick={() => void openSetup()}>Camera</button>
           <button onClick={() => setScreen("editor")} disabled={!level}>Chart editor</button>
         </nav>
       </header>
@@ -87,20 +105,15 @@ export function App() {
         </main>
       )}
 
-      {screen === "setup" && (
-        <main className="setup-screen">
-          <div className="screen-heading">
-            <div>
-              <p className="eyebrow">CAMERA INPUT</p>
-              <h2>Calibrate your floor</h2>
-              <p>Keep the full play area and both feet visible, then mark its corners.</p>
-            </div>
-            <button className="primary" disabled={!cameraSnapshot.calibrated || !level} onClick={() => setScreen("game")}>
-              Continue to level
-            </button>
-          </div>
-          <CameraPanel input={cameraInput} onSnapshot={setCameraSnapshot} />
-        </main>
+      {screen === "setup" && cameraInput && (
+        <Suspense fallback={<LoadingScreen />}>
+          <SetupScreen
+            cameraInput={cameraInput}
+            levelReady={Boolean(level)}
+            onCalibrationChange={setCameraCalibrated}
+            onContinue={() => setScreen("game")}
+          />
+        </Suspense>
       )}
 
       {screen === "results" && result && (
@@ -124,4 +137,8 @@ export function App() {
       )}
     </div>
   );
+}
+
+function LoadingScreen() {
+  return <main className="loading-screen">Loading…</main>;
 }

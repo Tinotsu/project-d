@@ -3,6 +3,7 @@ export class AudioClock {
   private buffer?: AudioBuffer;
   private source?: AudioBufferSourceNode;
   private startedAt = 0;
+  private stoppedAt = 0;
 
   async load(audioUrl: string): Promise<void> {
     const response = await fetch(audioUrl);
@@ -15,6 +16,7 @@ export class AudioClock {
   async start(): Promise<void> {
     if (!this.context || !this.buffer) throw new Error("Audio is not loaded");
     this.stop();
+    this.stoppedAt = 0;
     await this.context.resume();
     this.source = this.context.createBufferSource();
     this.source.buffer = this.buffer;
@@ -24,11 +26,12 @@ export class AudioClock {
   }
 
   currentTime(endTime: number): number {
-    const elapsed = this.context && this.startedAt ? this.context.currentTime - this.startedAt : 0;
+    const elapsed = this.context && this.startedAt ? this.context.currentTime - this.startedAt : this.stoppedAt;
     return Math.min(endTime, Math.max(0, elapsed));
   }
 
   stop(): void {
+    if (this.context && this.startedAt) this.stoppedAt = Math.max(0, this.context.currentTime - this.startedAt);
     if (this.source) {
       try {
         this.source.stop();

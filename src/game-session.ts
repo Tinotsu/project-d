@@ -51,8 +51,9 @@ export class GameSession {
 
   update(): JudgementResult[] {
     if (!this.running) return [];
-    const misses = this.engine.update(this.currentTime());
-    if (this.currentTime() >= this.level.chart.level.endTime) this.stop();
+    const time = this.currentTime();
+    const misses = this.engine.update(time);
+    if (time >= this.level.chart.level.endTime) this.stop();
     return misses;
   }
 
