@@ -2,12 +2,12 @@ import { describe, expect, it } from "vitest";
 import { decodeFootPose, InputActionState, JumpDetector } from "./foot-pose.ts";
 
 describe("InputActionState", () => {
-  it("emits slides and jumps only on transitions", () => {
+  it("emits lane changes and jumps only on transitions", () => {
     const state = new InputActionState();
     state.update(2, 3, 0.8, 0.8, false);
     expect(state.update(1, 4, 0.8, 0.8, false)).toEqual([
-      { type: "LEFT_ENTER_LANE", lane: 1 }, { type: "SLIDE_LEFT", lane: 1, foot: "left" },
-      { type: "RIGHT_ENTER_LANE", lane: 4 }, { type: "SLIDE_RIGHT", lane: 4, foot: "right" },
+      { type: "LEFT_ENTER_LANE", lane: 1 },
+      { type: "RIGHT_ENTER_LANE", lane: 4 },
     ]);
     expect(state.update(1, 4, 0.74, 0.74, true)).toEqual([{ type: "JUMP" }]);
     expect(state.update(1, 4, 0.72, 0.72, true)).toEqual([]);

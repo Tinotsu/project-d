@@ -143,7 +143,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, audio:focus-vis
 .note-composer label:nth-child(4) { flex: 1 1 180px; }
 .chart-table { padding: 16px; overflow: hidden; }
 .chart-rows { max-height: 54vh; margin-top: 12px; overflow: auto; }
-.chart-row { display: grid; grid-template-columns: 70px 110px minmax(130px, 1fr) 70px 100px minmax(100px, 1fr) 76px; gap: 8px; align-items: center; min-width: 760px; padding: 7px 0; border-top: 1px solid #292a32; }
+.chart-row { display: grid; grid-template-columns: 70px 110px minmax(130px, 1fr) 70px 100px 76px; gap: 8px; align-items: center; min-width: 660px; padding: 7px 0; border-top: 1px solid #292a32; }
 .chart-row input, .chart-row select { width: 100%; min-width: 0; }
 .chart-row code { color: #ffe640; font: 11px "DM Mono", monospace; }
 .chart-labels { border: 0; color: #777782; font: 9px "DM Mono", monospace; text-transform: uppercase; }

@@ -10,7 +10,7 @@ export type FootPose = {
   right: [Keypoint, Keypoint, Keypoint];
 };
 export type InputAction = {
-  type: "LEFT_ENTER_LANE" | "RIGHT_ENTER_LANE" | "LEFT_STEP" | "RIGHT_STEP" | "JUMP" | "SLIDE_LEFT" | "SLIDE_RIGHT";
+  type: "LEFT_ENTER_LANE" | "RIGHT_ENTER_LANE" | "LEFT_STEP" | "RIGHT_STEP" | "JUMP";
   lane?: number;
   foot?: "left" | "right";
 };
@@ -76,9 +76,6 @@ export class InputActionState {
     ] as const) {
       if (lane === null || lane === previous) continue;
       actions.push({ type: `${side}_ENTER_LANE`, lane });
-      if (previous !== null) {
-        actions.push({ type: lane < previous ? "SLIDE_LEFT" : "SLIDE_RIGHT", lane, foot: side === "LEFT" ? "left" : "right" });
-      }
     }
     if (this.leftContact.update(leftY) && leftLane !== null) actions.push({ type: "LEFT_STEP", lane: leftLane });
     if (this.rightContact.update(rightY) && rightLane !== null) actions.push({ type: "RIGHT_STEP", lane: rightLane });

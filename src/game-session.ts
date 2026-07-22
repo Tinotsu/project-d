@@ -20,8 +20,6 @@ export function playerEventForAction(action: InputAction, time: number): PlayerE
   if (action.type === "LEFT_STEP") return { time, type: "STEP", foot: "left", lane: action.lane };
   if (action.type === "RIGHT_STEP") return { time, type: "STEP", foot: "right", lane: action.lane };
   if (action.type === "JUMP") return { time, type: "JUMP", foot: "both" };
-  if (action.type === "SLIDE_LEFT") return { time, type: "SLIDE_LEFT", foot: action.foot ?? "either", lane: action.lane };
-  if (action.type === "SLIDE_RIGHT") return { time, type: "SLIDE_RIGHT", foot: action.foot ?? "either", lane: action.lane };
   return null;
 }
 

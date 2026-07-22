@@ -14,7 +14,6 @@ export function ChartEditor({ level, onBack }: ChartEditorProps) {
   const [type, setType] = useState<NoteType>("STEP");
   const [lane, setLane] = useState(1);
   const [foot, setFoot] = useState<Foot>("left");
-  const [slide, setSlide] = useState("");
 
   function updateNote(id: string, patch: Partial<ChartNote>): void {
     setChart((current) => ({
@@ -27,14 +26,7 @@ export function ChartEditor({ level, onBack }: ChartEditorProps) {
     const nextNumber = Math.max(0, ...chart.notes.map((note) => Number(note.id.match(/\d+/)?.[0] ?? 0))) + 1;
     const note: ChartNote = type === "JUMP"
       ? { id: `n${String(nextNumber).padStart(3, "0")}`, time, type, foot: "both" }
-      : {
-          id: `n${String(nextNumber).padStart(3, "0")}`,
-          time,
-          type,
-          lane,
-          foot,
-          ...(slide.trim() ? { slide: slide.trim() } : {}),
-        };
+      : { id: `n${String(nextNumber).padStart(3, "0")}`, time, type, lane, foot };
     setChart((current) => ({
       ...current,
       notes: [...current.notes, note].sort((left, right) => left.time - right.time),
@@ -79,8 +71,6 @@ export function ChartEditor({ level, onBack }: ChartEditorProps) {
           <select value={type} onChange={(event) => setType(event.target.value as NoteType)}>
             <option value="STEP">Step</option>
             <option value="JUMP">Jump</option>
-            <option value="SLIDE_LEFT">Slide left</option>
-            <option value="SLIDE_RIGHT">Slide right</option>
           </select>
         </label>
         <label>Lane<select disabled={type === "JUMP"} value={lane} onChange={(event) => setLane(Number(event.target.value))}>{[1, 2, 3, 4].map((value) => <option key={value}>{value}</option>)}</select></label>
@@ -91,7 +81,6 @@ export function ChartEditor({ level, onBack }: ChartEditorProps) {
             <option value="either">Either</option>
           </select>
         </label>
-        <label>Slide group<input disabled={type === "JUMP"} placeholder="optional, e.g. s1" value={slide} onChange={(event) => setSlide(event.target.value)} /></label>
         <button className="primary" onClick={addNote}>Add note at {time.toFixed(3)}s</button>
       </section>
 
@@ -101,19 +90,17 @@ export function ChartEditor({ level, onBack }: ChartEditorProps) {
           <button onClick={() => setChart(structuredClone(level.chart))}>Reset chart</button>
         </div>
         <div className="chart-rows">
-          <div className="chart-row chart-labels"><span>ID</span><span>Time</span><span>Type</span><span>Lane</span><span>Foot</span><span>Slide</span><span /></div>
+          <div className="chart-row chart-labels"><span>ID</span><span>Time</span><span>Type</span><span>Lane</span><span>Foot</span><span /></div>
           {chart.notes.map((note) => (
             <div className="chart-row" key={note.id}>
               <code>{note.id}</code>
               <input type="number" step="0.001" value={note.time} onChange={(event) => updateNote(note.id, { time: event.target.valueAsNumber })} />
               <select value={note.type} onChange={(event) => {
                 const nextType = event.target.value as NoteType;
-                updateNote(note.id, nextType === "JUMP" ? { type: nextType, foot: "both", lane: undefined, slide: undefined } : { type: nextType });
+                updateNote(note.id, nextType === "JUMP" ? { type: nextType, foot: "both", lane: undefined } : { type: nextType });
               }}>
                 <option value="STEP">STEP</option>
                 <option value="JUMP">JUMP</option>
-                <option value="SLIDE_LEFT">SLIDE LEFT</option>
-                <option value="SLIDE_RIGHT">SLIDE RIGHT</option>
               </select>
               <select disabled={note.type === "JUMP"} value={note.lane ?? ""} onChange={(event) => updateNote(note.id, { lane: Number(event.target.value) })}>
                 {note.type === "JUMP" && <option value="">—</option>}
@@ -125,7 +112,6 @@ export function ChartEditor({ level, onBack }: ChartEditorProps) {
                 <option value="right">Right</option>
                 <option value="either">Either</option>
               </select>
-              <input disabled={note.type === "JUMP"} value={note.slide ?? ""} onChange={(event) => updateNote(note.id, { slide: event.target.value || undefined })} />
               <button className="danger" onClick={() => setChart((current) => ({ ...current, notes: current.notes.filter((candidate) => candidate.id !== note.id) }))}>Remove</button>
             </div>
           ))}

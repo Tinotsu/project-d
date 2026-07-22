@@ -1,4 +1,4 @@
-export type NoteType = "STEP" | "JUMP" | "SLIDE_LEFT" | "SLIDE_RIGHT";
+export type NoteType = "STEP" | "JUMP";
 export type Foot = "left" | "right" | "both" | "either";
 
 export type ChartNote = {
@@ -7,7 +7,6 @@ export type ChartNote = {
   type: NoteType;
   lane?: number;
   foot: Foot;
-  slide?: string;
 };
 
 export type PlayerEvent = {
