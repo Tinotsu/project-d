@@ -38,12 +38,123 @@ const noteArt = {
   STEP: { width: 152, height: 54 },
 } as const;
 
-const assetUrls = [footBaseUrl, footUrl, trackUrl, jumpBaseUrl, jumpUrl, leftStepUrl, rightStepUrl];
+const assetUrls = [footBaseUrl, footUrl, trackUrl];
+
+const jumpBaseHeight = 130;
+const jumpLabelArt = { width: 800, height: 200 };
+
+function mountJump(warped: HTMLElement, flat: HTMLElement): void {
+  const base = document.createElement("img");
+  base.src = jumpBaseUrl;
+  base.width = noteArt.JUMP.width;
+  base.height = jumpBaseHeight;
+  warped.style.width = `${noteArt.JUMP.width}px`;
+  warped.style.height = `${jumpBaseHeight}px`;
+  warped.append(base);
+
+  const jump = document.createElement("img");
+  jump.src = jumpUrl;
+  jump.width = jumpLabelArt.width;
+  jump.height = jumpLabelArt.height;
+  flat.style.width = `${jumpLabelArt.width}px`;
+  flat.style.height = `${jumpLabelArt.height}px`;
+  flat.append(jump);
+}
+
+function mountStep(note: ChartNote, warped: HTMLElement, flat: HTMLElement): void {
+  const stepUrl = note.foot === "left" ? leftStepUrl : rightStepUrl;
+  const letterId = note.foot === "left" ? "L" : "R";
+  const stepHeight = note.foot === "left" ? 53 : 54;
+
+  const pad = document.createElement("object");
+  pad.data = stepUrl;
+  pad.type = "image/svg+xml";
+  pad.width = String(noteArt.STEP.width);
+  pad.height = String(stepHeight);
+  pad.addEventListener("load", () => {
+    const doc = pad.contentDocument!;
+    (doc.querySelector("svg > rect") as SVGElement).style.display = "none";
+    doc.getElementById(letterId)!.style.display = "none";
+    doc.getElementById("Rectangle 4")!.animate(
+      [{ transform: "translateY(0)" }, { transform: "translateY(-175px)" }],
+      { duration: 500, iterations: Infinity },
+    );
+  });
+  warped.style.width = `${noteArt.STEP.width}px`;
+  warped.style.height = `${stepHeight}px`;
+  warped.append(pad);
+
+  const label = document.createElement("object");
+  label.data = stepUrl;
+  label.type = "image/svg+xml";
+  label.width = String(noteArt.STEP.width);
+  label.height = String(stepHeight);
+  label.addEventListener("load", () => {
+    const doc = label.contentDocument!;
+    (doc.querySelector("svg > rect") as SVGElement).style.display = "none";
+    doc.querySelector(`[id$=" base"]`)!.setAttribute("display", "none");
+    doc.getElementById(letterId)!.style.display = "";
+  });
+  flat.style.width = `${noteArt.STEP.width}px`;
+  flat.style.height = `${stepHeight}px`;
+  flat.append(label);
+}
+
+const noteMount = {
+  JUMP: (_note: ChartNote, warped: HTMLElement, flat: HTMLElement) => mountJump(warped, flat),
+  STEP: mountStep,
+} as const;
+
+type Point = [number, number];
 
 type NoteView = {
   container: Container;
-  layers: Array<{ mesh: PerspectiveMesh; heightRatio: number }>;
+  warped: HTMLElement;
+  flat: HTMLElement;
+  warpedWidth: number;
+  warpedHeightRatio: number;
+  flatWidth: number;
+  flatHeight: number;
 };
+
+function flatTransform(centerX: number, bottomY: number, scale: number, width: number, height: number): string {
+  return `translate(${centerX - (width * scale) / 2}px, ${bottomY - height * scale}px) scale(${scale})`;
+}
+
+function perspectiveMatrix3d(width: number, height: number, tl: Point, tr: Point, br: Point, bl: Point): string {
+  const h = solveHomography(
+    [[0, 0], [width, 0], [width, height], [0, height]],
+    [tl, tr, br, bl],
+  );
+  const [a, b, c, d, e, f, g, h21] = h;
+  return `matrix3d(${a},${d},0,${g},${b},${e},0,${h21},0,0,1,0,${c},${f},0,1)`;
+}
+
+function solveHomography(from: Point[], to: Point[]): number[] {
+  const size = 8;
+  const matrix = Array.from({ length: size }, () => Array<number>(size + 1).fill(0));
+  for (let i = 0; i < 4; i++) {
+    const [x, y] = from[i];
+    const [u, v] = to[i];
+    matrix[i * 2] = [x, y, 1, 0, 0, 0, -u * x, -u * y, u];
+    matrix[i * 2 + 1] = [0, 0, 0, x, y, 1, -v * x, -v * y, v];
+  }
+  for (let col = 0; col < size; col++) {
+    let pivot = col;
+    for (let row = col + 1; row < size; row++) {
+      if (Math.abs(matrix[row][col]) > Math.abs(matrix[pivot][col])) pivot = row;
+    }
+    [matrix[col], matrix[pivot]] = [matrix[pivot], matrix[col]];
+    const div = matrix[col][col] || 1e-12;
+    for (let j = col; j <= size; j++) matrix[col][j] /= div;
+    for (let row = 0; row < size; row++) {
+      if (row === col) continue;
+      const factor = matrix[row][col];
+      for (let j = col; j <= size; j++) matrix[row][j] -= factor * matrix[col][j];
+    }
+  }
+  return matrix.map((row) => row[size]);
+}
 
 export class PixiPlayfield {
   private readonly app = new Application();
@@ -124,9 +235,25 @@ export class PixiPlayfield {
 
       const progress = Math.min(1, Math.max(0, 1 - timeUntil / this.chart.playfield.travelTime)) ** 1.65;
       const [startLane, endLane] = this.noteSpan(note);
-      for (const layer of view.layers) {
-        this.setNoteCorners(layer.mesh, startLane, endLane, progress, layer.heightRatio);
-      }
+      const bottom = this.laneSpan(startLane, endLane, progress);
+      const topY = bottom.y - bottom.width * view.warpedHeightRatio;
+      const top = this.laneSpan(startLane, endLane, this.progressAtY(topY));
+      view.warped.style.transform = perspectiveMatrix3d(
+        view.warpedWidth,
+        view.warpedWidth * view.warpedHeightRatio,
+        [top.left, topY],
+        [top.right, topY],
+        [bottom.right, bottom.y],
+        [bottom.left, bottom.y],
+      );
+      const scale = bottom.width / view.warpedWidth;
+      view.flat.style.transform = flatTransform(
+        (bottom.left + bottom.right) / 2,
+        bottom.y,
+        scale,
+        view.flatWidth,
+        view.flatHeight,
+      );
       view.container.visible = true;
     }
 
@@ -227,27 +354,39 @@ export class PixiPlayfield {
   }
 
   private createNoteView(note: ChartNote): NoteView {
+    const kind = note.type === "JUMP" ? "JUMP" : "STEP";
+    const root = document.createElement("div");
+    root.style.cssText = "position:absolute;top:0;left:0;pointer-events:none";
+    const warped = document.createElement("div");
+    warped.style.cssText = "position:absolute;top:0;left:0;transform-origin:0 0;pointer-events:none";
+    const flat = document.createElement("div");
+    flat.style.cssText = "position:absolute;top:0;left:0;transform-origin:0 0;pointer-events:none";
+    noteMount[kind](note, warped, flat);
+    root.append(warped, flat);
     const container = new Container();
+    container.addChild(new DOMContainer({ element: root, anchor: 0 }));
     container.visible = false;
-    const layers: NoteView["layers"] = [];
-
-    if (note.type === "JUMP") {
-      layers.push(
-        { mesh: this.createNoteMesh(jumpBaseUrl, 12), heightRatio: 130 / noteArt.JUMP.width },
-        { mesh: this.createNoteMesh(jumpUrl, 12), heightRatio: 200 / 800 },
-      );
-    } else {
-      const stepUrl = note.foot === "left" ? leftStepUrl : rightStepUrl;
-      const stepHeight = note.foot === "left" ? 53 : 54;
-      layers.push({ mesh: this.createNoteMesh(stepUrl, 6), heightRatio: stepHeight / noteArt.STEP.width });
+    const stepHeight = note.foot === "left" ? 53 : 54;
+    if (kind === "JUMP") {
+      return {
+        container,
+        warped,
+        flat,
+        warpedWidth: noteArt.JUMP.width,
+        warpedHeightRatio: jumpBaseHeight / noteArt.JUMP.width,
+        flatWidth: jumpLabelArt.width,
+        flatHeight: jumpLabelArt.height,
+      };
     }
-
-    for (const layer of layers) container.addChild(layer.mesh);
-    return { container, layers };
-  }
-
-  private createNoteMesh(textureUrl: string, verticesX: number): PerspectiveMesh {
-    return new PerspectiveMesh({ texture: Texture.from(textureUrl), verticesX, verticesY: 2 });
+    return {
+      container,
+      warped,
+      flat,
+      warpedWidth: noteArt.STEP.width,
+      warpedHeightRatio: stepHeight / noteArt.STEP.width,
+      flatWidth: noteArt.STEP.width,
+      flatHeight: stepHeight,
+    };
   }
 
   private createFootMarker(mirrored: boolean): Sprite {
@@ -318,19 +457,6 @@ export class PixiPlayfield {
     const right = playLeft + laneWidth * endLane;
     const y = horizonY + (hitY - horizonY) * progress;
     return { left, right, y, width: right - left };
-  }
-
-  private setNoteCorners(
-    mesh: PerspectiveMesh,
-    startLane: number,
-    endLane: number,
-    progress: number,
-    heightRatio: number,
-  ): void {
-    const bottom = this.laneSpan(startLane, endLane, progress);
-    const topY = bottom.y - bottom.width * heightRatio;
-    const top = this.laneSpan(startLane, endLane, this.progressAtY(topY));
-    mesh.setCorners(top.left, topY, top.right, topY, bottom.right, bottom.y, bottom.left, bottom.y);
   }
 
   private drawLane(graphics: Graphics, lane: number, color: number, alpha: number): void {
