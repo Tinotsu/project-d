@@ -24,8 +24,8 @@ import type { ChartNote, JudgementResult } from "./rhythm-engine.ts";
 export const gameWidth = 1280;
 export const gameHeight = 720;
 
-const farLeft = 520;
-const farRight = 760;
+const farLeft = 580;
+const farRight = 700;
 const nearLeft = 20;
 const nearRight = 1260;
 const horizonY = 100;
