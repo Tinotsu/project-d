@@ -113,6 +113,17 @@ button:focus-visible, input:focus-visible, select:focus-visible, audio:focus-vis
 .camera-panel.compact .camera-stage { flex: 0 0 auto; grid-row: auto; border-radius: 4px; }
 .camera-panel.compact .camera-details, .camera-panel.compact .camera-readout { border-radius: 4px; padding: 10px; background: #06070dbd; }
 
+.playfield-test-panel { position: absolute; z-index: 3; top: 18px; right: 18px; width: min(320px, calc(100% - 36px)); padding: 18px; }
+.playfield-test-panel h3 { margin: 0 0 10px; font-size: 22px; letter-spacing: -.04em; }
+.playfield-test-copy { margin: 0 0 16px; color: #9a9aa5; font-size: 13px; line-height: 1.5; }
+.playfield-test-slider { display: grid; gap: 8px; margin-bottom: 16px; color: #888893; font: 9px "DM Mono", monospace; letter-spacing: .08em; text-transform: uppercase; }
+.playfield-test-slider input { width: 100%; accent-color: #ffe640; }
+.playfield-test-slider output { color: #d5d5da; font-size: 11px; text-transform: none; letter-spacing: 0; }
+.playfield-test-keys { display: grid; gap: 10px; }
+.playfield-test-keys div { display: flex; align-items: center; justify-content: space-between; gap: 12px; border-top: 1px solid #2d2e36; padding-top: 10px; }
+.playfield-test-keys strong { color: #f5f5f2; font-size: 13px; }
+.playfield-test-keys span { color: #ffe640; font: 600 11px "DM Mono", monospace; }
+
 .results-screen { display: grid; min-height: calc(100vh - 82px); place-items: center; padding: 30px; }
 .results-card { width: min(600px, 100%); padding: clamp(28px, 5vw, 58px); text-align: center; }
 .results-card h1 { margin: 0; color: #ffe640; font: 700 clamp(58px, 12vw, 110px)/1 "DM Mono", monospace; letter-spacing: -.08em; }

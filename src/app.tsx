@@ -5,11 +5,12 @@ import type { CameraInput } from "./camera-input.ts";
 import type { GameSnapshot } from "./game-session.ts";
 import { loadLevel, type LoadedLevel } from "./level.ts";
 
-type Screen = "home" | "setup" | "game" | "results" | "editor";
+type Screen = "home" | "setup" | "game" | "results" | "editor" | "playfield-test";
 
 const SetupScreen = lazy(() => import("./setup-screen.tsx").then((module) => ({ default: module.SetupScreen })));
 const GameScreen = lazy(() => import("./game-screen.tsx").then((module) => ({ default: module.GameScreen })));
 const ChartEditor = lazy(() => import("./chart-editor.tsx").then((module) => ({ default: module.ChartEditor })));
+const PlayfieldTestScreen = lazy(() => import("./playfield-test-screen.tsx").then((module) => ({ default: module.PlayfieldTestScreen })));
 
 export function App() {
   const [screen, setScreen] = useState<Screen>("home");
@@ -60,6 +61,14 @@ export function App() {
     return <Suspense fallback={<LoadingScreen />}><ChartEditor level={level} onBack={() => setScreen("home")} /></Suspense>;
   }
 
+  if (screen === "playfield-test" && level) {
+    return (
+      <Suspense fallback={<LoadingScreen />}>
+        <PlayfieldTestScreen level={level} onBack={() => setScreen("home")} />
+      </Suspense>
+    );
+  }
+
   return (
     <div className="app-shell">
       <header className="app-header">
@@ -70,6 +79,7 @@ export function App() {
           <button className={screen === "home" ? "active" : ""} onClick={() => setScreen("home")}>Play</button>
           <button className={screen === "setup" ? "active" : ""} onClick={() => void openSetup()}>Camera</button>
           <button onClick={() => setScreen("editor")} disabled={!level}>Chart editor</button>
+          <button onClick={() => setScreen("playfield-test")} disabled={!level}>Track test</button>
         </nav>
       </header>
 
@@ -82,6 +92,7 @@ export function App() {
             <div className="hero-actions">
               <button className="primary large" disabled={!level} onClick={play}>Play now</button>
               <button className="secondary large" disabled={!level} onClick={() => setScreen("editor")}>Open chart editor</button>
+              <button className="secondary large" disabled={!level} onClick={() => setScreen("playfield-test")}>Test track</button>
             </div>
             {loadError && <p className="error-message">{loadError}</p>}
           </section>
