@@ -31,8 +31,8 @@ const hitY = 590;
 const laneColors = [0x35dcff, 0x6c82ff, 0xff4fa2, 0xff9b45];
 
 const noteArt = {
-  JUMP: { width: 830, height: 200 },
-  STEP: { width: 152, height: 54 },
+  JUMP: { width: 830 },
+  STEP: { width: 152 },
 } as const;
 
 const footZoneArt = { width: 406, height: 79 };
@@ -41,16 +41,6 @@ const assetUrls = [footUrl, trackUrl];
 
 const jumpBaseHeight = 130;
 const jumpLabelArt = { width: 800, height: 200 };
-
-function mountFootZone(warped: HTMLElement): void {
-  const base = document.createElement("img");
-  base.src = footBaseUrl;
-  base.width = footZoneArt.width;
-  base.height = footZoneArt.height;
-  warped.style.width = `${footZoneArt.width}px`;
-  warped.style.height = `${footZoneArt.height}px`;
-  warped.append(base);
-}
 
 function mountJump(warped: HTMLElement, flat: HTMLElement): void {
   const base = document.createElement("img");
@@ -109,26 +99,20 @@ function mountStep(note: ChartNote, warped: HTMLElement, flat: HTMLElement): voi
   flat.append(label);
 }
 
-const noteMount = {
-  JUMP: (_note: ChartNote, warped: HTMLElement, flat: HTMLElement) => mountJump(warped, flat),
-  STEP: mountStep,
-} as const;
-
 type Point = [number, number];
 
-type NoteView = {
-  container: Container;
+type WarpedView = {
   warped: HTMLElement;
-  flat: HTMLElement;
   warpedWidth: number;
-  warpedHeightRatio: number;
+  warpedHeight: number;
+};
+
+type NoteView = WarpedView & {
+  container: Container;
+  flat: HTMLElement;
   flatWidth: number;
   flatHeight: number;
 };
-
-function flatTransform(centerX: number, bottomY: number, scale: number, width: number, height: number): string {
-  return `translate(${centerX - (width * scale) / 2}px, ${bottomY - height * scale}px) scale(${scale})`;
-}
 
 function perspectiveMatrix3d(width: number, height: number, tl: Point, tr: Point, br: Point, bl: Point): string {
   const h = solveHomography(
@@ -168,7 +152,6 @@ function solveHomography(from: Point[], to: Point[]): number[] {
 export class PixiPlayfield {
   private readonly app = new Application();
   private readonly noteViews = new Map<string, NoteView>();
-  private footZone!: NoteView;
   private readonly laneGlow = new Graphics();
   private readonly laneGlowUntil = [0, 0, 0, 0];
   private readonly feedback = new Graphics();
@@ -223,9 +206,6 @@ export class PixiPlayfield {
   }
 
   render(songTime: number, running: boolean, judged: (noteId: string) => boolean): void {
-    const { lanes } = this.chart.playfield;
-    this.placeWarpedView(this.footZone, 1, lanes, 1);
-
     for (const note of this.chart.notes) {
       const view = this.noteViews.get(note.id)!;
       if (!running || judged(note.id)) {
@@ -240,7 +220,10 @@ export class PixiPlayfield {
 
       const progress = Math.min(1, Math.max(0, 1 - timeUntil / this.chart.playfield.travelTime)) ** 1.65;
       const [startLane, endLane] = this.noteSpan(note);
-      this.placeNoteView(view, startLane, endLane, progress);
+      const bottom = this.placeWarpedView(view, startLane, endLane, progress);
+      const scale = bottom.width / view.warpedWidth;
+      const centerX = (bottom.left + bottom.right) / 2;
+      view.flat.style.transform = `translate(${centerX - (view.flatWidth * scale) / 2}px, ${bottom.y - view.flatHeight * scale}px) scale(${scale})`;
       view.container.visible = true;
     }
 
@@ -297,8 +280,21 @@ export class PixiPlayfield {
     }
     this.app.stage.addChild(highway);
 
-    this.footZone = this.createFootZoneView();
-    this.app.stage.addChild(this.footZone.container);
+    const footZoneRoot = document.createElement("div");
+    footZoneRoot.style.cssText = "position:absolute;top:0;left:0;pointer-events:none";
+    const footZone = document.createElement("img");
+    footZone.src = footBaseUrl;
+    footZone.width = footZoneArt.width;
+    footZone.height = footZoneArt.height;
+    footZone.style.cssText = "position:absolute;top:0;left:0;transform-origin:0 0;pointer-events:none";
+    footZoneRoot.append(footZone);
+    this.placeWarpedView(
+      { warped: footZone, warpedWidth: footZoneArt.width, warpedHeight: footZoneArt.height },
+      1,
+      lanes,
+      1,
+    );
+    this.app.stage.addChild(new DOMContainer({ element: footZoneRoot, anchor: 0 }));
 
     for (const note of this.chart.notes) {
       const view = this.createNoteView(note);
@@ -316,49 +312,28 @@ export class PixiPlayfield {
     this.app.stage.addChild(this.feedback, this.feedbackLabel);
   }
 
-  private createFootZoneView(): NoteView {
-    const root = document.createElement("div");
-    root.style.cssText = "position:absolute;top:0;left:0;pointer-events:none";
-    const warped = document.createElement("div");
-    warped.style.cssText = "position:absolute;top:0;left:0;transform-origin:0 0;pointer-events:none";
-    const flat = document.createElement("div");
-    flat.style.display = "none";
-    mountFootZone(warped);
-    root.append(warped, flat);
-    const container = new Container();
-    container.addChild(new DOMContainer({ element: root, anchor: 0 }));
-    return {
-      container,
-      warped,
-      flat,
-      warpedWidth: footZoneArt.width,
-      warpedHeightRatio: footZoneArt.height / footZoneArt.width,
-      flatWidth: 0,
-      flatHeight: 0,
-    };
-  }
-
   private createNoteView(note: ChartNote): NoteView {
-    const kind = note.type === "JUMP" ? "JUMP" : "STEP";
+    const isJump = note.type === "JUMP";
     const root = document.createElement("div");
     root.style.cssText = "position:absolute;top:0;left:0;pointer-events:none";
     const warped = document.createElement("div");
     warped.style.cssText = "position:absolute;top:0;left:0;transform-origin:0 0;pointer-events:none";
     const flat = document.createElement("div");
     flat.style.cssText = "position:absolute;top:0;left:0;transform-origin:0 0;pointer-events:none";
-    noteMount[kind](note, warped, flat);
+    if (isJump) mountJump(warped, flat);
+    else mountStep(note, warped, flat);
     root.append(warped, flat);
     const container = new Container();
     container.addChild(new DOMContainer({ element: root, anchor: 0 }));
     container.visible = false;
     const stepHeight = note.foot === "left" ? 53 : 54;
-    if (kind === "JUMP") {
+    if (isJump) {
       return {
         container,
         warped,
         flat,
         warpedWidth: noteArt.JUMP.width,
-        warpedHeightRatio: jumpBaseHeight / noteArt.JUMP.width,
+        warpedHeight: jumpBaseHeight,
         flatWidth: jumpLabelArt.width,
         flatHeight: jumpLabelArt.height,
       };
@@ -368,7 +343,7 @@ export class PixiPlayfield {
       warped,
       flat,
       warpedWidth: noteArt.STEP.width,
-      warpedHeightRatio: stepHeight / noteArt.STEP.width,
+      warpedHeight: stepHeight,
       flatWidth: noteArt.STEP.width,
       flatHeight: stepHeight,
     };
@@ -383,39 +358,23 @@ export class PixiPlayfield {
   }
 
   private placeWarpedView(
-    view: Pick<NoteView, "warped" | "warpedWidth" | "warpedHeightRatio">,
+    view: WarpedView,
     startLane: number,
     endLane: number,
     progress: number,
   ): ReturnType<typeof this.laneSpan> {
     const bottom = this.laneSpan(startLane, endLane, progress);
-    const topY = bottom.y - bottom.width * view.warpedHeightRatio;
-    const top = this.laneSpan(startLane, endLane, this.progressAtY(topY));
+    const topY = bottom.y - bottom.width * view.warpedHeight / view.warpedWidth;
+    const top = this.laneSpan(startLane, endLane, (topY - horizonY) / (hitY - horizonY));
     view.warped.style.transform = perspectiveMatrix3d(
       view.warpedWidth,
-      view.warpedWidth * view.warpedHeightRatio,
+      view.warpedHeight,
       [top.left, topY],
       [top.right, topY],
       [bottom.right, bottom.y],
       [bottom.left, bottom.y],
     );
     return bottom;
-  }
-
-  private placeNoteView(view: NoteView, startLane: number, endLane: number, progress: number): void {
-    const bottom = this.placeWarpedView(view, startLane, endLane, progress);
-    const scale = bottom.width / view.warpedWidth;
-    view.flat.style.transform = flatTransform(
-      (bottom.left + bottom.right) / 2,
-      bottom.y,
-      scale,
-      view.flatWidth,
-      view.flatHeight,
-    );
-  }
-
-  private progressAtY(y: number): number {
-    return (y - horizonY) / (hitY - horizonY);
   }
 
   private noteSpan(note: ChartNote): [number, number] {

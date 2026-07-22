@@ -9,11 +9,9 @@ export type FootPose = {
   left: [Keypoint, Keypoint, Keypoint];
   right: [Keypoint, Keypoint, Keypoint];
 };
-export type InputAction = {
-  type: "LEFT_ENTER_LANE" | "RIGHT_ENTER_LANE" | "LEFT_STEP" | "RIGHT_STEP" | "JUMP";
-  lane?: number;
-  foot?: "left" | "right";
-};
+export type InputAction =
+  | { type: "LEFT_ENTER_LANE" | "RIGHT_ENTER_LANE" | "LEFT_STEP" | "RIGHT_STEP"; lane: number }
+  | { type: "JUMP"; lane?: never };
 
 class FootContactState {
   private groundY?: number;
