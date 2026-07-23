@@ -45,6 +45,7 @@ export function judgementForOffset(
   if (offset <= settings[`${prefix}PerfectMs`] + Number.EPSILON) return "perfect";
   if (offset <= settings[`${prefix}GreatMs`] + Number.EPSILON) return "great";
   if (offset <= settings[`${prefix}GoodMs`] + Number.EPSILON) return "good";
+  if (type === "SLIDE" && offsetMs < 0 && offset <= settings.stepGoodMs + settings.stepGreatMs + Number.EPSILON) return "good";
   return null;
 }
 

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { GameSession, playerEventForAction } from "./game-session.ts";
 import { InputActionState } from "./foot-pose.ts";
 import type { LoadedLevel } from "./level.ts";
+import { judgementForOffset } from "./rhythm-engine.ts";
 
 const level: LoadedLevel = {
   path: "/level.json",
@@ -129,6 +130,12 @@ describe("camera timestamp propagation", () => {
 });
 
 describe("slide movement", () => {
+  it("accepts slides slightly before the normal step window", () => {
+    expect(judgementForOffset("SLIDE", -320)).toBe("good");
+    expect(judgementForOffset("SLIDE", -321)).toBeNull();
+    expect(judgementForOffset("STEP", -320)).toBeNull();
+  });
+
   it("emits a slide after a landed foot moves two lanes", () => {
     const state = new InputActionState();
     state.update(1, 4, 0.8, 0.8, false, 0);
