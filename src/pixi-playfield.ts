@@ -141,12 +141,12 @@ export class PixiPlayfield {
     ] as const) {
       marker.hidden = position === null;
       if (position) {
-        const topY = hitY - bottom.width * this.footBase.offsetHeight / this.footBase.offsetWidth * floorDepthScale;
+        const topY = hitY - bottom.width * this.footBase.naturalHeight / this.footBase.naturalWidth * floorDepthScale;
         const top = this.laneSpan(1, this.chart.playfield.lanes, (topY - horizonY) / (hitY - horizonY));
         const bottomCenter = bottom.left + bottom.width * position.x;
         const topCenter = top.left + top.width * position.x;
-        const bottomWidth = marker.offsetWidth * bottom.width / this.footBase.offsetWidth;
-        const topWidth = marker.offsetWidth * top.width / this.footBase.offsetWidth;
+        const bottomWidth = marker.naturalWidth * bottom.width / this.footBase.naturalWidth;
+        const topWidth = marker.naturalWidth * top.width / this.footBase.naturalWidth;
         const corners: [Point, Point, Point, Point] = [
           [topCenter - topWidth / 2, topY],
           [topCenter + topWidth / 2, topY],
@@ -156,7 +156,7 @@ export class PixiPlayfield {
         const [tl, tr, br, bl] = mirrored
           ? [corners[1], corners[0], corners[3], corners[2]]
           : corners;
-        marker.style.transform = perspectiveMatrix3d(marker.offsetWidth, marker.offsetHeight, tl, tr, br, bl);
+        marker.style.transform = perspectiveMatrix3d(marker.naturalWidth, marker.naturalHeight, tl, tr, br, bl);
       }
     }
   }

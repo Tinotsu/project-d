@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CameraPanel } from "./camera-panel.tsx";
-import { initialCameraSnapshot, type CameraInput, type CameraSnapshot } from "./camera-input.ts";
+import { type CameraInput, type CameraSnapshot } from "./camera-input.ts";
 import { GameSession, type GameSnapshot } from "./game-session.ts";
 import type { InputFrame } from "./foot-pose.ts";
 import type { LoadedLevel } from "./level.ts";
@@ -16,7 +16,6 @@ type GameScreenProps = {
 export function GameScreen({ cameraInput, level, onExit, onFinish }: GameScreenProps) {
   const mountRef = useRef<HTMLDivElement>(null);
   const playfieldRef = useRef<PixiPlayfield | undefined>(undefined);
-  const cameraSnapshot = useRef<CameraSnapshot>(initialCameraSnapshot);
   const started = useRef(false);
   const finished = useRef(false);
   const session = useMemo(() => new GameSession(level), [level]);
@@ -57,11 +56,6 @@ export function GameScreen({ cameraInput, level, onExit, onFinish }: GameScreenP
       const playfield = playfieldRef.current;
       if (playfield) {
         const snapshot = session.snapshot();
-        const camera = cameraSnapshot.current;
-        playfield.showTrackedFeet(
-          camera.leftLane === null ? null : camera.leftPosition,
-          camera.rightLane === null ? null : camera.rightPosition,
-        );
         playfield.render(snapshot.time, snapshot.running, (noteId) => session.judged(noteId));
         if (now - lastHudUpdate > 50) {
           setHud(snapshot);
@@ -79,7 +73,10 @@ export function GameScreen({ cameraInput, level, onExit, onFinish }: GameScreenP
   }, [onFinish, session]);
 
   const receiveCameraSnapshot = useCallback((snapshot: CameraSnapshot) => {
-    cameraSnapshot.current = snapshot;
+    playfieldRef.current?.showTrackedFeet(
+      snapshot.leftLane === null ? null : snapshot.leftPosition,
+      snapshot.rightLane === null ? null : snapshot.rightPosition,
+    );
   }, []);
 
   const receiveFrame = useCallback((frame: InputFrame) => {

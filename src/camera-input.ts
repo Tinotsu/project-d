@@ -59,8 +59,6 @@ export class CameraInput {
   private renderGeneration = 0;
   private transform?: Homography;
   private corners: Point[] = [];
-  private smoothedFeet: Partial<Record<"left" | "right", [Point, Point, Point]>> = {};
-  private readonly lastFootTime = { left: 0, right: 0 };
   private readonly jumpDetector = new JumpDetector();
   private readonly inputActions = new InputActionState();
   private snapshot = initialCameraSnapshot;
@@ -131,7 +129,6 @@ export class CameraInput {
     if (!this.stream) return;
     this.corners = [];
     this.transform = undefined;
-    this.smoothedFeet = {};
     this.jumpDetector.reset();
     this.inputActions.reset();
     this.setSnapshot({
@@ -261,29 +258,17 @@ export class CameraInput {
     points: [Keypoint, Keypoint, Keypoint] | null,
     side: "left" | "right",
   ): [Point, Point, Point] | null {
-    const now = performance.now();
-    let pixels = this.smoothedFeet[side];
-    if (points?.every((point) => point.confidence >= 0.5)) {
-      pixels = points.map((point, index) => {
-        const previous = this.smoothedFeet[side]?.[index];
-        return previous
-          ? { x: previous.x + (point.x - previous.x) * 0.35, y: previous.y + (point.y - previous.y) * 0.35 }
-          : point;
-      }) as [Point, Point, Point];
-      this.smoothedFeet[side] = pixels;
-      this.lastFootTime[side] = now;
-    }
-    if (!pixels || now - this.lastFootTime[side] > 250 || !this.context) return null;
+    if (!points?.every((point) => point.confidence >= 0.5) || !this.context) return null;
 
     this.context.beginPath();
-    pixels.forEach((point, index) => index ? this.context!.lineTo(point.x, point.y) : this.context!.moveTo(point.x, point.y));
+    points.forEach((point, index) => index ? this.context!.lineTo(point.x, point.y) : this.context!.moveTo(point.x, point.y));
     this.context.closePath();
     this.context.fillStyle = `${footColors[side]}55`;
     this.context.strokeStyle = footColors[side];
     this.context.lineWidth = 4;
     this.context.fill();
     this.context.stroke();
-    return pixels;
+    return points;
   }
 
   private drawFloor(occupiedLanes: Set<number>): void {
