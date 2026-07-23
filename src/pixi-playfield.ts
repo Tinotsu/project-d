@@ -29,33 +29,16 @@ const horizonY = 100;
 const hitY = 590;
 const laneColors = [0x35dcff, 0x6c82ff, 0xff4fa2, 0xff9b45];
 
-const noteArt = {
-  JUMP: { width: 630, height: 130 },
-  STEP: { width: 152, height: 102 },
-} as const;
-
-const footZoneArt = { width: 606, height: 104, depth: 1 };
-const footMarkerScale = 0.55;
 
 const assetUrls = [trackUrl];
-
-const jumpLabelArt = { width: 600, height: 200 };
 
 function mountJump(warped: HTMLElement, flat: HTMLElement): void {
   const base = document.createElement("img");
   base.src = jumpBaseUrl;
-  base.width = noteArt.JUMP.width;
-  base.height = noteArt.JUMP.height;
-  warped.style.width = `${noteArt.JUMP.width}px`;
-  warped.style.height = `${noteArt.JUMP.height}px`;
   warped.append(base);
 
   const jump = document.createElement("img");
   jump.src = jumpUrl;
-  jump.width = jumpLabelArt.width;
-  jump.height = jumpLabelArt.height;
-  flat.style.width = `${jumpLabelArt.width}px`;
-  flat.style.height = `${jumpLabelArt.height}px`;
   flat.append(jump);
 }
 
@@ -65,16 +48,9 @@ function mountStep(note: ChartNote, warped: HTMLElement): void {
   const pad = document.createElement("object");
   pad.data = stepUrl;
   pad.type = "image/svg+xml";
-  pad.width = String(noteArt.STEP.width);
-  pad.height = String(noteArt.STEP.height);
   pad.addEventListener("load", () => {
-    const doc = pad.contentDocument!;
-    doc.documentElement.querySelectorAll(":scope > g").forEach((group, index) => {
-      if (index > 0) (group as SVGElement).style.display = "none";
-    });
+    pad.contentDocument?.getElementById(note.foot === "left" ? "left_base_2" : "right_base")?.remove();
   });
-  warped.style.width = `${noteArt.STEP.width}px`;
-  warped.style.height = `${noteArt.STEP.height}px`;
   warped.append(pad);
 }
 
@@ -82,15 +58,11 @@ type Point = [number, number];
 
 type WarpedView = {
   warped: HTMLElement;
-  warpedWidth: number;
-  warpedHeight: number;
 };
 
 type NoteView = WarpedView & {
   container: Container;
   flat: HTMLElement;
-  flatWidth: number;
-  flatHeight: number;
 };
 
 function perspectiveMatrix3d(width: number, height: number, tl: Point, tr: Point, br: Point, bl: Point): string {
@@ -165,12 +137,9 @@ export class PixiPlayfield {
     ] as const) {
       marker.hidden = lane === null;
       if (lane !== null) {
-        const baseBottom = this.laneSpan(1, this.chart.playfield.lanes, footZoneArt.depth);
-        const markerY = baseBottom.y - baseBottom.width * footZoneArt.height / footZoneArt.width / 2;
-        const markerDepth = (markerY - horizonY) / (hitY - horizonY);
-        const edges = this.laneSpan(lane, lane, markerDepth);
+        const edges = this.laneSpan(lane, lane, 1);
         marker.style.left = `${(edges.left + edges.right) / 2 + (sameLane ? offset : 0)}px`;
-        marker.style.top = `${markerY}px`;
+        marker.style.top = `${hitY + 3}px`;
       }
     }
   }
@@ -204,12 +173,13 @@ export class PixiPlayfield {
       }
 
       const progress = Math.min(1, Math.max(0, 1 - timeUntil / this.chart.playfield.travelTime)) ** 1.65;
+      view.container.visible = true;
+      if (!view.warped.offsetWidth || !view.warped.offsetHeight) continue;
       const [startLane, endLane] = this.noteSpan(note);
       const bottom = this.placeWarpedView(view, startLane, endLane, progress);
-      const scale = bottom.width / view.warpedWidth;
+      const scale = bottom.width / view.warped.offsetWidth;
       const centerX = (bottom.left + bottom.right) / 2;
-      view.flat.style.transform = `translate(${centerX - (view.flatWidth * scale) / 2}px, ${bottom.y - view.flatHeight * scale}px) scale(${scale})`;
-      view.container.visible = true;
+      view.flat.style.transform = `translate(${centerX - (view.flat.offsetWidth * scale) / 2}px, ${bottom.y - view.flat.offsetHeight * scale}px) scale(${scale})`;
     }
 
     this.laneGlow.clear();
@@ -217,8 +187,6 @@ export class PixiPlayfield {
       if (performance.now() < until) this.drawLane(this.laneGlow, index + 1, laneColors[index], 0.35);
     });
     const pulse = 1 + Math.sin(performance.now() / 90) * 0.04;
-    this.leftFootMarker.style.transform = `translate(-50%, -50%) scale(${footMarkerScale * pulse})`;
-    this.rightFootMarker.style.transform = `translate(-50%, -50%) scale(${-footMarkerScale * pulse}, ${footMarkerScale * pulse})`;
     if (this.feedback.visible && performance.now() > this.feedbackUntil) {
       this.feedback.visible = false;
       this.feedbackLabel.visible = false;
@@ -277,17 +245,12 @@ export class PixiPlayfield {
     this.footZoneResizeObserver.observe(mount);
     this.footZoneRoot = footZoneRoot;
     const footZone = document.createElement("img");
+    footZone.addEventListener("load", () => {
+      this.placeWarpedView({ warped: footZone }, 1, lanes, 1);
+    }, { once: true });
     footZone.src = footBaseUrl;
-    footZone.width = footZoneArt.width;
-    footZone.height = footZoneArt.height;
     footZone.style.cssText = "position:absolute;top:0;left:0;transform-origin:0 0;pointer-events:none";
     footZoneRoot.append(footZone);
-    this.placeWarpedView(
-      { warped: footZone, warpedWidth: footZoneArt.width, warpedHeight: footZoneArt.height },
-      1,
-      lanes,
-      footZoneArt.depth,
-    );
     mount.append(footZoneRoot);
 
     for (const note of this.chart.notes) {
@@ -321,35 +284,13 @@ export class PixiPlayfield {
     const container = new Container();
     container.addChild(new DOMContainer({ element: root, anchor: 0 }));
     container.visible = false;
-    if (isJump) {
-      return {
-        container,
-        warped,
-        flat,
-        warpedWidth: noteArt.JUMP.width,
-        warpedHeight: noteArt.JUMP.height,
-        flatWidth: jumpLabelArt.width,
-        flatHeight: jumpLabelArt.height,
-      };
-    }
-    return {
-      container,
-      warped,
-      flat,
-      warpedWidth: noteArt.STEP.width,
-      warpedHeight: noteArt.STEP.height,
-      flatWidth: noteArt.STEP.width,
-      flatHeight: noteArt.STEP.height,
-    };
+    return { container, warped, flat };
   }
 
   private createFootMarker(mirrored: boolean): HTMLImageElement {
     const marker = document.createElement("img");
     marker.src = footUrl;
-    marker.width = 100;
-    marker.height = 104;
     marker.hidden = true;
-    marker.style.cssText = `position:absolute;top:0;left:0;transform:translate(-50%, -50%) scale(${mirrored ? -footMarkerScale : footMarkerScale}, ${footMarkerScale});pointer-events:none`;
     return marker;
   }
 
@@ -360,11 +301,11 @@ export class PixiPlayfield {
     progress: number,
   ): ReturnType<typeof this.laneSpan> {
     const bottom = this.laneSpan(startLane, endLane, progress);
-    const topY = bottom.y - bottom.width * view.warpedHeight / view.warpedWidth;
+    const topY = bottom.y - bottom.width * view.warped.offsetHeight / view.warped.offsetWidth;
     const top = this.laneSpan(startLane, endLane, (topY - horizonY) / (hitY - horizonY));
     view.warped.style.transform = perspectiveMatrix3d(
-      view.warpedWidth,
-      view.warpedHeight,
+      view.warped.offsetWidth,
+      view.warped.offsetHeight,
       [top.left, topY],
       [top.right, topY],
       [bottom.right, bottom.y],
