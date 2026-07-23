@@ -63,18 +63,12 @@
     { "id": "n62", "time": 35.478, "type": "JUMP", "foot": "both" },
     { "id": "n63", "time": 37.088, "type": "STEP", "lane": 4, "foot": "left" },
     { "id": "n64", "time": 37.491, "type": "STEP", "lane": 1, "foot": "right" },
-    { "id": "n65", "time": 38.296, "type": "SLIDE", "lane": 2, "foot": "left" },
-    { "id": "n66", "time": 39.102, "type": "SLIDE", "lane": 3, "foot": "right" },
     { "id": "n67", "time": 39.907, "type": "JUMP", "foot": "both" },
     { "id": "n68", "time": 40.713, "type": "STEP", "lane": 4, "foot": "left" },
     { "id": "n69", "time": 41.116, "type": "STEP", "lane": 1, "foot": "right" },
-    { "id": "n70", "time": 41.921, "type": "SLIDE", "lane": 2, "foot": "left" },
-    { "id": "n71", "time": 42.726, "type": "SLIDE", "lane": 3, "foot": "right" },
     { "id": "n72", "time": 43.532, "type": "JUMP", "foot": "both" },
     { "id": "n73", "time": 44.337, "type": "STEP", "lane": 4, "foot": "left" },
     { "id": "n74", "time": 44.740, "type": "STEP", "lane": 1, "foot": "right" },
-    { "id": "n75", "time": 45.545, "type": "SLIDE", "lane": 2, "foot": "left" },
-    { "id": "n76", "time": 46.350, "type": "SLIDE", "lane": 3, "foot": "right" },
     { "id": "n77", "time": 47.156, "type": "JUMP", "foot": "both" }
   ],
   "visualEffects": {

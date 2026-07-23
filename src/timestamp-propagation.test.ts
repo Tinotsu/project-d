@@ -112,14 +112,3 @@ describe("camera timestamp propagation", () => {
     expect(session.snapshot().perfect).toBe(0);
   });
 });
-
-describe("slide input", () => {
-  it("turns lane entries into left and right slide events", () => {
-    expect(playerEventForAction({ type: "LEFT_ENTER_LANE", lane: 1 }, 2)).toEqual({
-      time: 2, type: "SLIDE", foot: "left", lane: 1,
-    });
-    expect(playerEventForAction({ type: "RIGHT_ENTER_LANE", lane: 4 }, 2)).toEqual({
-      time: 2, type: "SLIDE", foot: "right", lane: 4,
-    });
-  });
-});

@@ -35,7 +35,7 @@ type MovementTestScreenProps = {
 
 function actionType(action: InputAction): NoteType {
   if (action.type === "JUMP") return "JUMP";
-  return action.type.endsWith("STEP") ? "STEP" : "SLIDE";
+  return "STEP";
 }
 
 function actionDescription(action: InputAction): string {
@@ -51,7 +51,7 @@ function noteDescription(note: ChartNote): string {
 
 function actionMatches(action: InputAction, note: ChartNote): boolean {
   if (note.type === "JUMP") return action.type === "JUMP";
-  const expectedAction = `${note.foot.toUpperCase()}_${note.type === "STEP" ? "STEP" : "ENTER_LANE"}`;
+  const expectedAction = `${note.foot.toUpperCase()}_STEP`;
   return action.type === expectedAction && action.lane === note.lane;
 }
 
@@ -77,17 +77,15 @@ export function MovementTestScreen({
 
   const chart = useMemo(() => {
     const notes: ChartNote[] = [{ id: "JUMP", time: noteTime, type: "JUMP", foot: "both" }];
-    for (const type of ["STEP", "SLIDE"] as const) {
-      for (const side of ["left", "right"] as const) {
-        for (let targetLane = 1; targetLane <= level.chart.playfield.lanes; targetLane++) {
-          notes.push({
-            id: `${type}-${side}-${targetLane}`,
-            time: noteTime,
-            type,
-            foot: side,
-            lane: targetLane,
-          });
-        }
+    for (const side of ["left", "right"] as const) {
+      for (let targetLane = 1; targetLane <= level.chart.playfield.lanes; targetLane++) {
+        notes.push({
+          id: `STEP-${side}-${targetLane}`,
+          time: noteTime,
+          type: "STEP",
+          foot: side,
+          lane: targetLane,
+        });
       }
     }
     return { ...level.chart, notes };
@@ -193,7 +191,7 @@ export function MovementTestScreen({
   }, [onCalibrationChange]);
 
   function startAttempt(type: NoteType): void {
-    const id = type === "JUMP" ? "JUMP" : `${type}-${foot}-${lane}`;
+    const id = type === "JUMP" ? "JUMP" : `STEP-${foot}-${lane}`;
     const expected = chart.notes.find((note) => note.id === id)!;
     const nextAttempt = { expected, hitAt: performance.now() + settings.cueDelayMs, settings };
     cameraInput.resetActions();
@@ -251,7 +249,7 @@ export function MovementTestScreen({
             </label>
           </div>
           <div className="movement-game-buttons">
-            {(["STEP", "SLIDE", "JUMP"] as const).map((type) => (
+            {(["STEP", "JUMP"] as const).map((type) => (
               <button
                 key={type}
                 disabled={!ready || !snapshot.calibrated || Boolean(attempt)}

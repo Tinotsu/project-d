@@ -175,7 +175,7 @@ export function PlayfieldTestScreen({ level, onBack }: PlayfieldTestScreenProps)
           <p className="playfield-test-copy">
             Scrub time or press Space to play and pause. Notes scroll without audio, webcam, or pose model.
           </p>
-          <label className="playfield-test-slider">
+          <label className="playfield-test-scrubber">
             <span>Time</span>
             <input
               type="range"

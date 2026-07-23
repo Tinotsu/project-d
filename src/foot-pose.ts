@@ -11,7 +11,7 @@ export type FootPose = {
   right: [Keypoint, Keypoint, Keypoint];
 };
 export type InputAction =
-  | { type: "LEFT_ENTER_LANE" | "RIGHT_ENTER_LANE" | "LEFT_STEP" | "RIGHT_STEP"; lane: number }
+  | { type: "LEFT_STEP" | "RIGHT_STEP"; lane: number }
   | { type: "JUMP"; lane?: never };
 export type InputFrame = {
   capturedAt: DOMHighResTimeStamp;
@@ -57,8 +57,6 @@ class FootContactState {
 }
 
 export class InputActionState {
-  private leftLane: number | null = null;
-  private rightLane: number | null = null;
   private readonly leftContact: FootContactState;
   private readonly rightContact: FootContactState;
   private jumping = false;
@@ -73,29 +71,17 @@ export class InputActionState {
     if (jumping && !this.jumping) actions.push({ type: "JUMP" });
     this.jumping = jumping;
     if (jumping) {
-      this.leftLane = leftLane;
-      this.rightLane = rightLane;
       this.leftContact.reset();
       this.rightContact.reset();
       return actions;
     }
 
-    for (const [side, lane, previous] of [
-      ["LEFT", leftLane, this.leftLane],
-      ["RIGHT", rightLane, this.rightLane],
-    ] as const) {
-      if (lane === null || lane === previous) continue;
-      actions.push({ type: `${side}_ENTER_LANE`, lane });
-    }
     if (this.leftContact.update(leftY) && leftLane !== null) actions.push({ type: "LEFT_STEP", lane: leftLane });
     if (this.rightContact.update(rightY) && rightLane !== null) actions.push({ type: "RIGHT_STEP", lane: rightLane });
-    this.leftLane = leftLane;
-    this.rightLane = rightLane;
     return actions;
   }
 
   reset(): void {
-    this.leftLane = this.rightLane = null;
     this.leftContact.reset();
     this.rightContact.reset();
     this.jumping = false;

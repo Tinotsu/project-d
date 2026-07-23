@@ -1,6 +1,6 @@
 import { defaultCalibrationSettings, type CalibrationSettings } from "./calibration-settings.ts";
 
-export type NoteType = "STEP" | "SLIDE" | "JUMP";
+export type NoteType = "STEP" | "JUMP";
 export type Foot = "left" | "right" | "both" | "either";
 
 export type ChartNote = {
