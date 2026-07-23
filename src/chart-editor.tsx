@@ -70,6 +70,7 @@ export function ChartEditor({ level, onBack }: ChartEditorProps) {
         <label>Type
           <select value={type} onChange={(event) => setType(event.target.value as NoteType)}>
             <option value="STEP">Step</option>
+            <option value="SLIDE">Slide</option>
             <option value="JUMP">Jump</option>
           </select>
         </label>
@@ -100,6 +101,7 @@ export function ChartEditor({ level, onBack }: ChartEditorProps) {
                 updateNote(note.id, nextType === "JUMP" ? { type: nextType, foot: "both", lane: undefined } : { type: nextType });
               }}>
                 <option value="STEP">STEP</option>
+                <option value="SLIDE">SLIDE</option>
                 <option value="JUMP">JUMP</option>
               </select>
               <select disabled={note.type === "JUMP"} value={note.lane ?? ""} onChange={(event) => updateNote(note.id, { lane: Number(event.target.value) })}>

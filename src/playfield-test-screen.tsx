@@ -73,14 +73,14 @@ export function PlayfieldTestScreen({ level, onBack }: PlayfieldTestScreenProps)
     let lastUiUpdate = 0;
 
     const tick = (now: number) => {
+      const delta = (now - lastTick) / 1000;
+      lastTick = now;
       const playfield = playfieldRef.current;
       if (playfield) {
         if (playingRef.current) {
-          const delta = (now - lastTick) / 1000;
           timeRef.current = Math.min(endTime, timeRef.current + delta);
           if (timeRef.current >= endTime) playingRef.current = false;
         }
-        lastTick = now;
 
         playfield.showTrackedFeet(leftLaneRef.current, rightLaneRef.current);
         playfield.render(timeRef.current, true, () => false);
@@ -100,14 +100,15 @@ export function PlayfieldTestScreen({ level, onBack }: PlayfieldTestScreenProps)
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLButtonElement) return;
-
       if (event.code === "Space") {
+        if (event.repeat) return;
         event.preventDefault();
         playingRef.current = !playingRef.current;
         setPlaying(playingRef.current);
         return;
       }
+
+      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLButtonElement) return;
 
       if (leftLaneKeys[event.code]) {
         event.preventDefault();

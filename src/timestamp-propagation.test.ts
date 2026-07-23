@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { GameSession } from "./game-session.ts";
+import { GameSession, playerEventForAction } from "./game-session.ts";
 import type { LoadedLevel } from "./level.ts";
 
 const level: LoadedLevel = {
@@ -110,5 +110,16 @@ describe("camera timestamp propagation", () => {
       actions: [{ type: "LEFT_STEP", lane: 2 }],
     })).toEqual([]);
     expect(session.snapshot().perfect).toBe(0);
+  });
+});
+
+describe("slide input", () => {
+  it("turns lane entries into left and right slide events", () => {
+    expect(playerEventForAction({ type: "LEFT_ENTER_LANE", lane: 1 }, 2)).toEqual({
+      time: 2, type: "SLIDE", foot: "left", lane: 1,
+    });
+    expect(playerEventForAction({ type: "RIGHT_ENTER_LANE", lane: 4 }, 2)).toEqual({
+      time: 2, type: "SLIDE", foot: "right", lane: 4,
+    });
   });
 });

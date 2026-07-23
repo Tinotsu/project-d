@@ -93,7 +93,7 @@ export function GameScreen({ cameraInput, level, onExit, onFinish }: GameScreenP
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.code !== "Space" || event.repeat || event.target instanceof HTMLButtonElement) return;
+      if (event.code !== "Space" || event.repeat) return;
       event.preventDefault();
       void togglePause();
     };

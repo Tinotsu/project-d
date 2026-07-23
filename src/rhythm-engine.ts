@@ -1,4 +1,4 @@
-export type NoteType = "STEP" | "JUMP";
+export type NoteType = "STEP" | "SLIDE" | "JUMP";
 export type Foot = "left" | "right" | "both" | "either";
 
 export type ChartNote = {
@@ -53,7 +53,7 @@ export class RhythmEngine {
       const offset = event.time - note.time;
       if (
         this.judgements.has(note.id)
-        || Math.abs(offset) > (note.type === "STEP" ? 0.2 : 0.16)
+        || Math.abs(offset) > (note.type === "JUMP" ? 0.16 : 0.2)
         || note.type !== event.type
         || (note.lane !== undefined && note.lane !== event.lane)
         || (note.foot !== "either" && note.foot !== event.foot)
@@ -66,16 +66,16 @@ export class RhythmEngine {
 
     if (!closest) return null;
     const absoluteOffset = Math.abs(closestOffset);
-    const judgement = absoluteOffset <= (closest.type === "STEP" ? 0.06 : 0.05) + Number.EPSILON
+    const judgement = absoluteOffset <= (closest.type === "JUMP" ? 0.05 : 0.06) + Number.EPSILON
       ? "perfect"
-      : absoluteOffset <= (closest.type === "STEP" ? 0.12 : 0.1) + Number.EPSILON ? "great" : "good";
+      : absoluteOffset <= (closest.type === "JUMP" ? 0.1 : 0.12) + Number.EPSILON ? "great" : "good";
     return this.applyJudgement(closest, judgement, closestOffset);
   }
 
   update(songTime: number): JudgementResult[] {
     const misses: JudgementResult[] = [];
     for (const note of this.notes) {
-      if (!this.judgements.has(note.id) && songTime - note.time > (note.type === "STEP" ? 0.24 : 0.2)) {
+      if (!this.judgements.has(note.id) && songTime - note.time > (note.type === "JUMP" ? 0.2 : 0.24)) {
         misses.push(this.applyJudgement(note, "miss", songTime - note.time));
       }
     }

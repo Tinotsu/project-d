@@ -10,8 +10,10 @@ import footUrl from "../assets/foot.svg?url";
 import jumpBaseUrl from "../assets/jump base.svg?url";
 import jumpUrl from "../assets/jump.svg?url";
 import leftStepUrl from "../assets/left base.svg?url";
+import leftSlideUrl from "../assets/left slide.svg?url";
 import trackUrl from "../assets/pist.svg?url";
 import rightStepUrl from "../assets/right base.svg?url";
+import rightSlideUrl from "../assets/right slide.svg?url";
 import type { LevelChart } from "./level.ts";
 import type { ChartNote, JudgementResult } from "./rhythm-engine.ts";
 
@@ -41,6 +43,17 @@ function mountStep(note: ChartNote, warped: HTMLElement): void {
   const pad = document.createElement("img");
   pad.src = note.foot === "left" ? leftStepUrl : rightStepUrl;
   warped.append(pad);
+}
+
+function mountSlide(note: ChartNote, warped: HTMLElement): void {
+  const width = 152 * 2;
+  const height = width * 248 / 332;
+  warped.style.width = `${width}px`;
+  warped.style.height = `${height}px`;
+  const slide = document.createElement("img");
+  slide.src = note.foot === "left" ? leftSlideUrl : rightSlideUrl;
+  slide.style.cssText = `position:absolute;width:${height}px;height:${width}px;left:${(width - height) / 2}px;top:${(height - width) / 2}px;transform:rotate(${note.foot === "left" ? -90 : 90}deg)`;
+  warped.append(slide);
 }
 
 type Point = [number, number];
@@ -260,14 +273,14 @@ export class PixiPlayfield {
   }
 
   private createNoteView(note: ChartNote): NoteView {
-    const isJump = note.type === "JUMP";
     const root = document.createElement("div");
     root.style.cssText = "position:absolute;top:0;left:0;pointer-events:none";
     const warped = document.createElement("div");
     warped.style.cssText = "position:absolute;top:0;left:0;transform-origin:0 0;pointer-events:none";
     const flat = document.createElement("div");
     flat.style.cssText = "position:absolute;top:0;left:0;transform-origin:0 0;pointer-events:none";
-    if (isJump) mountJump(warped, flat);
+    if (note.type === "JUMP") mountJump(warped, flat);
+    else if (note.type === "SLIDE") mountSlide(note, warped);
     else mountStep(note, warped);
     root.append(warped, flat);
     const container = new Container();
@@ -306,6 +319,7 @@ export class PixiPlayfield {
   private noteSpan(note: ChartNote): [number, number] {
     const { lanes } = this.chart.playfield;
     if (note.type === "JUMP") return [1, lanes];
+    if (note.type === "SLIDE") return note.foot === "left" ? [2.5, 3.5] : [1.5, 2.5];
     const lane = note.lane ?? (lanes + 1) / 2;
     return [lane, lane];
   }

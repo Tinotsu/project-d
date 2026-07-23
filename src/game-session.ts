@@ -19,6 +19,8 @@ export type GameSnapshot = {
 export function playerEventForAction(action: InputAction, time: number): PlayerEvent | null {
   if (action.type === "LEFT_STEP") return { time, type: "STEP", foot: "left", lane: action.lane };
   if (action.type === "RIGHT_STEP") return { time, type: "STEP", foot: "right", lane: action.lane };
+  if (action.type === "LEFT_ENTER_LANE") return { time, type: "SLIDE", foot: "left", lane: action.lane };
+  if (action.type === "RIGHT_ENTER_LANE") return { time, type: "SLIDE", foot: "right", lane: action.lane };
   if (action.type === "JUMP") return { time, type: "JUMP", foot: "both" };
   return null;
 }
