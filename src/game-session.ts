@@ -20,6 +20,8 @@ export type GameSnapshot = {
 export function playerEventForAction(action: InputAction, time: number): PlayerEvent | null {
   if (action.type === "LEFT_STEP") return { time, type: "STEP", foot: "left", lane: action.lane };
   if (action.type === "RIGHT_STEP") return { time, type: "STEP", foot: "right", lane: action.lane };
+  if (action.type === "LEFT_SLIDE") return { time, type: "SLIDE", foot: "left", lane: action.lane, endLane: action.endLane };
+  if (action.type === "RIGHT_SLIDE") return { time, type: "SLIDE", foot: "right", lane: action.lane, endLane: action.endLane };
   if (action.type === "JUMP") return { time, type: "JUMP", foot: "both" };
   return null;
 }
@@ -57,7 +59,10 @@ export class GameSession {
     const time = this.clock.timeAt(frame.capturedAt, this.level.chart.level.endTime);
     if (time === null) return [];
     const results = frame.actions.flatMap((action) => {
-      const event = playerEventForAction(action, time);
+      const eventTime = action.type === "LEFT_SLIDE" || action.type === "RIGHT_SLIDE"
+        ? this.clock.timeAt(action.startedAt, this.level.chart.level.endTime) ?? time
+        : time;
+      const event = playerEventForAction(action, eventTime);
       const result = event ? this.engine.submit(event) : null;
       return result ? [result] : [];
     });

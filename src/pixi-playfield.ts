@@ -9,8 +9,10 @@ import footBaseUrl from "../assets/foot base.svg?url";
 import footUrl from "../assets/foot.svg?url";
 import jumpBaseUrl from "../assets/jump base.svg?url";
 import jumpUrl from "../assets/jump.svg?url";
+import leftSlideUrl from "../assets/left slide.svg?url";
 import leftStepUrl from "../assets/left base.svg?url";
 import trackUrl from "../assets/pist.svg?url";
+import rightSlideUrl from "../assets/right slide.svg?url";
 import rightStepUrl from "../assets/right base.svg?url";
 import type { LevelChart } from "./level.ts";
 import type { ChartNote, JudgementResult } from "./rhythm-engine.ts";
@@ -41,6 +43,17 @@ function mountStep(note: ChartNote, warped: HTMLElement): void {
   const pad = document.createElement("img");
   pad.src = note.foot === "left" ? leftStepUrl : rightStepUrl;
   warped.append(pad);
+}
+
+function mountSlide(note: ChartNote, warped: HTMLElement): void {
+  const slide = document.createElement("img");
+  slide.src = note.foot === "left" ? leftSlideUrl : rightSlideUrl;
+  slide.style.cssText = note.endLane! < note.lane!
+    ? "display:block;transform:translateY(200px) rotate(-90deg);transform-origin:0 0"
+    : "display:block;transform:translateX(300px) rotate(90deg);transform-origin:0 0";
+  warped.style.width = "300px";
+  warped.style.height = "200px";
+  warped.append(slide);
 }
 
 type Point = [number, number];
@@ -159,7 +172,9 @@ export class PixiPlayfield {
     this.feedbackLabel.visible = true;
     this.feedback.visible = true;
     this.feedbackUntil = performance.now() + 380;
-    const lanes = result.note.lane ? [result.note.lane] : [1, 2, 3, 4];
+    const lanes = result.note.type === "SLIDE"
+      ? [Math.min(result.note.lane!, result.note.endLane!), (result.note.lane! + result.note.endLane!) / 2, Math.max(result.note.lane!, result.note.endLane!)]
+      : result.note.lane ? [result.note.lane] : [1, 2, 3, 4];
     lanes.forEach((lane) => this.laneGlowUntil[lane - 1] = performance.now() + 180);
   }
 
@@ -286,6 +301,7 @@ export class PixiPlayfield {
     const flat = document.createElement("div");
     flat.style.cssText = "position:absolute;top:0;left:0;transform-origin:0 0;pointer-events:none";
     if (note.type === "JUMP") mountJump(warped, flat);
+    else if (note.type === "SLIDE") mountSlide(note, warped);
     else mountStep(note, warped);
     root.append(warped, flat);
     const container = new Container();
@@ -325,6 +341,9 @@ export class PixiPlayfield {
   private noteSpan(note: ChartNote): [number, number] {
     const { lanes } = this.chart.playfield;
     if (note.type === "JUMP") return [1, lanes];
+    if (note.type === "SLIDE") {
+      return [Math.min(note.lane!, note.endLane!) + 0.5, Math.max(note.lane!, note.endLane!) - 0.5];
+    }
     const lane = note.lane ?? (lanes + 1) / 2;
     return [lane, lane];
   }

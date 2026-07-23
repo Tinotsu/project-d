@@ -242,7 +242,7 @@ export class CameraInput {
 
     let actions: InputAction[] = [];
     if (this.transform) {
-      actions = this.inputActions.update(leftLane, rightLane, leftY, rightY, jumping);
+      actions = this.inputActions.update(leftLane, rightLane, leftY, rightY, jumping, capturedAt);
       if (leftLane) occupiedLanes.add(leftLane);
       if (rightLane) occupiedLanes.add(rightLane);
       this.setSnapshot({

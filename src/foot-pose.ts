@@ -12,6 +12,7 @@ export type FootPose = {
 };
 export type InputAction =
   | { type: "LEFT_STEP" | "RIGHT_STEP"; lane: number }
+  | { type: "LEFT_SLIDE" | "RIGHT_SLIDE"; lane: number; endLane: number; startedAt: DOMHighResTimeStamp }
   | { type: "JUMP"; lane?: never };
 export type InputFrame = {
   capturedAt: DOMHighResTimeStamp;
@@ -59,14 +60,18 @@ class FootContactState {
 export class InputActionState {
   private readonly leftContact: FootContactState;
   private readonly rightContact: FootContactState;
+  private leftLane?: number;
+  private rightLane?: number;
+  private leftLaneAt = 0;
+  private rightLaneAt = 0;
   private jumping = false;
 
-  constructor(settings = defaultCalibrationSettings) {
+  constructor(private readonly settings = defaultCalibrationSettings) {
     this.leftContact = new FootContactState(settings);
     this.rightContact = new FootContactState(settings);
   }
 
-  update(leftLane: number | null, rightLane: number | null, leftY: number | null, rightY: number | null, jumping: boolean): InputAction[] {
+  update(leftLane: number | null, rightLane: number | null, leftY: number | null, rightY: number | null, jumping: boolean, capturedAt: DOMHighResTimeStamp): InputAction[] {
     const actions: InputAction[] = [];
     if (jumping && !this.jumping) actions.push({ type: "JUMP" });
     this.jumping = jumping;
@@ -76,14 +81,45 @@ export class InputActionState {
       return actions;
     }
 
-    if (this.leftContact.update(leftY) && leftLane !== null) actions.push({ type: "LEFT_STEP", lane: leftLane });
-    if (this.rightContact.update(rightY) && rightLane !== null) actions.push({ type: "RIGHT_STEP", lane: rightLane });
+    const leftStep = this.leftContact.update(leftY);
+    const leftSlide = leftLane !== null && this.leftLane !== undefined
+      && Math.abs(leftLane - this.leftLane) >= 2
+      && capturedAt - this.leftLaneAt <= this.settings.responseTimeoutMs;
+    if (leftSlide) {
+      actions.push({ type: "LEFT_SLIDE", lane: this.leftLane!, endLane: this.leftLane! + Math.sign(leftLane! - this.leftLane!) * 2, startedAt: this.leftLaneAt });
+      this.leftLane = leftLane!;
+      this.leftLaneAt = capturedAt;
+    } else if (leftStep && leftLane !== null) {
+      actions.push({ type: "LEFT_STEP", lane: leftLane });
+    }
+    if (leftLane !== null && (this.leftLane === undefined || leftLane === this.leftLane || capturedAt - this.leftLaneAt > this.settings.responseTimeoutMs)) {
+      this.leftLane = leftLane;
+      this.leftLaneAt = capturedAt;
+    }
+
+    const rightStep = this.rightContact.update(rightY);
+    const rightSlide = rightLane !== null && this.rightLane !== undefined
+      && Math.abs(rightLane - this.rightLane) >= 2
+      && capturedAt - this.rightLaneAt <= this.settings.responseTimeoutMs;
+    if (rightSlide) {
+      actions.push({ type: "RIGHT_SLIDE", lane: this.rightLane!, endLane: this.rightLane! + Math.sign(rightLane! - this.rightLane!) * 2, startedAt: this.rightLaneAt });
+      this.rightLane = rightLane!;
+      this.rightLaneAt = capturedAt;
+    } else if (rightStep && rightLane !== null) {
+      actions.push({ type: "RIGHT_STEP", lane: rightLane });
+    }
+    if (rightLane !== null && (this.rightLane === undefined || rightLane === this.rightLane || capturedAt - this.rightLaneAt > this.settings.responseTimeoutMs)) {
+      this.rightLane = rightLane;
+      this.rightLaneAt = capturedAt;
+    }
     return actions;
   }
 
   reset(): void {
     this.leftContact.reset();
     this.rightContact.reset();
+    this.leftLane = this.rightLane = undefined;
+    this.leftLaneAt = this.rightLaneAt = 0;
     this.jumping = false;
   }
 }

@@ -35,22 +35,33 @@ type MovementTestScreenProps = {
 
 function actionType(action: InputAction): NoteType {
   if (action.type === "JUMP") return "JUMP";
+  if (action.type.endsWith("_SLIDE")) return "SLIDE";
   return "STEP";
 }
 
 function actionDescription(action: InputAction): string {
   if (action.type === "JUMP") return "JUMP";
   const foot = action.type.startsWith("LEFT") ? "LEFT" : "RIGHT";
-  return `${foot} ${actionType(action)} · LANE ${action.lane}`;
+  return action.type === "LEFT_SLIDE" || action.type === "RIGHT_SLIDE"
+    ? `${foot} SLIDE · ${action.lane} → ${action.endLane}`
+    : `${foot} STEP · LANE ${action.lane}`;
 }
 
 function noteDescription(note: ChartNote): string {
   if (note.type === "JUMP") return "JUMP";
+  if (note.type === "SLIDE") return `${note.foot.toUpperCase()} SLIDE · ${note.lane} → ${note.endLane}`;
   return `${note.foot.toUpperCase()} ${note.type} · LANE ${note.lane}`;
 }
 
 function actionMatches(action: InputAction, note: ChartNote): boolean {
   if (note.type === "JUMP") return action.type === "JUMP";
+  if (note.type === "SLIDE") {
+    if (action.type !== "LEFT_SLIDE" && action.type !== "RIGHT_SLIDE") return false;
+    const expectedAction = `${note.foot.toUpperCase()}_SLIDE`;
+    return action.type === expectedAction
+      && action.lane === note.lane
+      && action.endLane === note.endLane;
+  }
   const expectedAction = `${note.foot.toUpperCase()}_STEP`;
   return action.type === expectedAction && action.lane === note.lane;
 }
@@ -85,6 +96,14 @@ export function MovementTestScreen({
           type: "STEP",
           foot: side,
           lane: targetLane,
+        });
+        notes.push({
+          id: `SLIDE-${side}-${targetLane}`,
+          time: noteTime,
+          type: "SLIDE",
+          foot: side,
+          lane: targetLane,
+          endLane: targetLane <= 2 ? targetLane + 2 : targetLane - 2,
         });
       }
     }
@@ -161,7 +180,7 @@ export function MovementTestScreen({
     if (!active) return;
     for (const action of frame.actions) {
       if (actionType(action) !== active.expected.type) continue;
-      const offsetMs = frame.capturedAt - active.hitAt;
+      const offsetMs = (action.type === "LEFT_SLIDE" || action.type === "RIGHT_SLIDE" ? action.startedAt : frame.capturedAt) - active.hitAt;
       if (!actionMatches(action, active.expected)) {
         completeAttempt({
           expected: active.expected,
@@ -191,7 +210,7 @@ export function MovementTestScreen({
   }, [onCalibrationChange]);
 
   function startAttempt(type: NoteType): void {
-    const id = type === "JUMP" ? "JUMP" : `STEP-${foot}-${lane}`;
+    const id = type === "JUMP" ? "JUMP" : `${type}-${foot}-${lane}`;
     const expected = chart.notes.find((note) => note.id === id)!;
     const nextAttempt = { expected, hitAt: performance.now() + settings.cueDelayMs, settings };
     cameraInput.resetActions();
@@ -249,7 +268,7 @@ export function MovementTestScreen({
             </label>
           </div>
           <div className="movement-game-buttons">
-            {(["STEP", "JUMP"] as const).map((type) => (
+            {(["STEP", "JUMP", "SLIDE"] as const).map((type) => (
               <button
                 key={type}
                 disabled={!ready || !snapshot.calibrated || Boolean(attempt)}

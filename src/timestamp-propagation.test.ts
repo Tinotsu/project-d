@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { GameSession, playerEventForAction } from "./game-session.ts";
+import { InputActionState } from "./foot-pose.ts";
 import type { LoadedLevel } from "./level.ts";
 
 const level: LoadedLevel = {
@@ -110,5 +111,40 @@ describe("camera timestamp propagation", () => {
       actions: [{ type: "LEFT_STEP", lane: 2 }],
     })).toEqual([]);
     expect(session.snapshot().perfect).toBe(0);
+  });
+
+  it("judges a slide from its starting step after the foot reaches the next lane", async () => {
+    const previousNotes = level.chart.notes;
+    level.chart.notes = [{ id: "slide", time: 0.9, type: "SLIDE", lane: 1, endLane: 3, foot: "left" }];
+    const session = await startSession();
+    level.chart.notes = previousNotes;
+    context.currentTime = 1.5;
+    context.outputPerformanceTime = 1700;
+    vi.spyOn(performance, "now").mockReturnValue(1700);
+
+    expect(session.submit({ capturedAt: 1200, actions: [{ type: "LEFT_STEP", lane: 1 }] })).toEqual([]);
+    expect(session.submit({ capturedAt: 1600, actions: [{ type: "LEFT_SLIDE", lane: 1, endLane: 3, startedAt: 1200 }] })[0]?.judgement).toBe("perfect");
+  });
+});
+
+describe("slide movement", () => {
+  it("emits a slide after a landed foot moves two lanes", () => {
+    const state = new InputActionState();
+    state.update(1, 4, 0.8, 0.8, false, 0);
+    state.update(1, 4, 0.7, 0.8, false, 100);
+    expect(state.update(1, 4, 0.8, 0.8, false, 200)).toContainEqual({ type: "LEFT_STEP", lane: 1 });
+    expect(state.update(2, 4, 0.8, 0.8, false, 300)).toEqual([]);
+    expect(state.update(3, 4, 0.8, 0.8, false, 400)).toContainEqual({ type: "LEFT_SLIDE", lane: 1, endLane: 3, startedAt: 200 });
+
+    const leftward = new InputActionState();
+    leftward.update(3, 4, 0.8, 0.8, false, 0);
+    leftward.update(3, 4, 0.7, 0.8, false, 100);
+    expect(leftward.update(1, 4, 0.8, 0.8, false, 200)).toContainEqual({ type: "LEFT_SLIDE", lane: 3, endLane: 1, startedAt: 100 });
+
+    const noisyRight = new InputActionState();
+    noisyRight.update(4, 1, 0.8, 0.8, false, 0);
+    noisyRight.update(4, 1, 0.8, 0.7, false, 100);
+    expect(noisyRight.update(4, 2, 0.8, 0.8, false, 200)).toContainEqual({ type: "RIGHT_STEP", lane: 2 });
+    expect(noisyRight.update(4, 3, 0.8, 0.8, false, 300)).toContainEqual({ type: "RIGHT_SLIDE", lane: 1, endLane: 3, startedAt: 100 });
   });
 });

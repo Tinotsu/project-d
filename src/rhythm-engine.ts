@@ -1,6 +1,6 @@
 import { defaultCalibrationSettings, type CalibrationSettings } from "./calibration-settings.ts";
 
-export type NoteType = "STEP" | "JUMP";
+export type NoteType = "STEP" | "JUMP" | "SLIDE";
 export type Foot = "left" | "right" | "both" | "either";
 
 export type ChartNote = {
@@ -8,6 +8,7 @@ export type ChartNote = {
   time: number;
   type: NoteType;
   lane?: number;
+  endLane?: number;
   foot: Foot;
 };
 
@@ -15,6 +16,7 @@ export type PlayerEvent = {
   time: number;
   type: NoteType;
   lane?: number;
+  endLane?: number;
   foot: Foot;
 };
 
@@ -71,6 +73,7 @@ export class RhythmEngine {
         || !judgementForOffset(note.type, offset * 1000, this.settings)
         || note.type !== event.type
         || (note.lane !== undefined && note.lane !== event.lane)
+        || (note.endLane !== undefined && note.endLane !== event.endLane)
         || (note.foot !== "either" && note.foot !== event.foot)
       ) continue;
       if (Math.abs(offset) < Math.abs(closestOffset)) {
