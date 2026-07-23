@@ -119,6 +119,7 @@ export class PixiPlayfield {
   });
   private leftFootMarker!: HTMLImageElement;
   private rightFootMarker!: HTMLImageElement;
+  private footBase!: HTMLImageElement;
   private trackRoot?: HTMLDivElement;
   private footZoneRoot?: HTMLDivElement;
   private assetResizeObserver?: ResizeObserver;
@@ -132,17 +133,30 @@ export class PixiPlayfield {
     return playfield;
   }
 
-  showTrackedFeet(leftLane: number | null, rightLane: number | null): void {
-    const sameLane = leftLane !== null && leftLane === rightLane;
-    for (const [marker, lane, offset] of [
-      [this.leftFootMarker, leftLane, -30],
-      [this.rightFootMarker, rightLane, 30],
+  showTrackedFeet(leftPosition: { x: number } | null, rightPosition: { x: number } | null): void {
+    const bottom = this.laneSpan(1, this.chart.playfield.lanes, 1);
+    for (const [marker, position, mirrored] of [
+      [this.leftFootMarker, leftPosition, false],
+      [this.rightFootMarker, rightPosition, true],
     ] as const) {
-      marker.hidden = lane === null;
-      if (lane !== null) {
-        const edges = this.laneSpan(lane, lane, 1);
-        marker.style.left = `${(edges.left + edges.right) / 2 + (sameLane ? offset : 0)}px`;
-        marker.style.top = `${hitY + 3}px`;
+      marker.hidden = position === null;
+      if (position) {
+        const topY = hitY - bottom.width * this.footBase.offsetHeight / this.footBase.offsetWidth * floorDepthScale;
+        const top = this.laneSpan(1, this.chart.playfield.lanes, (topY - horizonY) / (hitY - horizonY));
+        const bottomCenter = bottom.left + bottom.width * position.x;
+        const topCenter = top.left + top.width * position.x;
+        const bottomWidth = marker.offsetWidth * bottom.width / this.footBase.offsetWidth;
+        const topWidth = marker.offsetWidth * top.width / this.footBase.offsetWidth;
+        const corners: [Point, Point, Point, Point] = [
+          [topCenter - topWidth / 2, topY],
+          [topCenter + topWidth / 2, topY],
+          [bottomCenter + bottomWidth / 2, hitY],
+          [bottomCenter - bottomWidth / 2, hitY],
+        ];
+        const [tl, tr, br, bl] = mirrored
+          ? [corners[1], corners[0], corners[3], corners[2]]
+          : corners;
+        marker.style.transform = perspectiveMatrix3d(marker.offsetWidth, marker.offsetHeight, tl, tr, br, bl);
       }
     }
   }
@@ -250,6 +264,7 @@ export class PixiPlayfield {
     const footZone = document.createElement("img");
     footZone.src = footBaseUrl;
     footZone.style.cssText = "position:absolute;top:0;left:0;transform-origin:0 0;pointer-events:none";
+    this.footBase = footZone;
     footZoneRoot.append(footZone);
     mount.append(footZoneRoot);
     await footZone.decode();
@@ -261,9 +276,13 @@ export class PixiPlayfield {
       this.app.stage.addChild(view.container);
     }
 
-    this.leftFootMarker = this.createFootMarker(false);
-    this.rightFootMarker = this.createFootMarker(true);
-    footZoneRoot.append(this.leftFootMarker, this.rightFootMarker);
+    this.leftFootMarker = this.createFootMarker();
+    this.rightFootMarker = this.createFootMarker();
+    await Promise.all([this.leftFootMarker.decode(), this.rightFootMarker.decode()]);
+    const footMarkerRoot = document.createElement("div");
+    footMarkerRoot.style.cssText = "position:absolute;z-index:1;top:0;left:0;pointer-events:none";
+    footMarkerRoot.append(this.leftFootMarker, this.rightFootMarker);
+    this.app.stage.addChild(new DOMContainer({ element: footMarkerRoot, anchor: 0 }));
     this.app.stage.addChild(this.laneGlow);
     this.feedback.visible = false;
     this.feedbackLabel.anchor.set(0.5);
@@ -289,10 +308,11 @@ export class PixiPlayfield {
     return { container, warped, flat };
   }
 
-  private createFootMarker(mirrored: boolean): HTMLImageElement {
+  private createFootMarker(): HTMLImageElement {
     const marker = document.createElement("img");
     marker.src = footUrl;
     marker.hidden = true;
+    marker.style.cssText = "position:absolute;top:0;left:0;transform-origin:0 0;pointer-events:none";
     return marker;
   }
 

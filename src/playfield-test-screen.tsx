@@ -82,7 +82,10 @@ export function PlayfieldTestScreen({ level, onBack }: PlayfieldTestScreenProps)
           if (timeRef.current >= endTime) playingRef.current = false;
         }
 
-        playfield.showTrackedFeet(leftLaneRef.current, rightLaneRef.current);
+        playfield.showTrackedFeet(
+          leftLaneRef.current === null ? null : { x: (leftLaneRef.current - 0.5) / 4 },
+          rightLaneRef.current === null ? null : { x: (rightLaneRef.current - 0.5) / 4 },
+        );
         playfield.render(timeRef.current, true, () => false);
 
         if (now - lastUiUpdate > 80) {
@@ -146,7 +149,7 @@ export function PlayfieldTestScreen({ level, onBack }: PlayfieldTestScreenProps)
           }}>
             {playing ? "Pause" : "Play"}
           </button>
-          <button className="text-button restart-button" onClick={reset}>Reset</button>
+          <button className="text-button" onClick={reset}>Reset</button>
         </div>
         <div className="hud-track"><small>PLAYFIELD TEST</small><strong>{level.song.title}</strong></div>
         <div><small>TIME</small><strong>{time.toFixed(2)}s</strong></div>

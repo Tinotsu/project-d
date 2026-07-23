@@ -57,7 +57,11 @@ export function GameScreen({ cameraInput, level, onExit, onFinish }: GameScreenP
       const playfield = playfieldRef.current;
       if (playfield) {
         const snapshot = session.snapshot();
-        playfield.showTrackedFeet(cameraSnapshot.current.leftLane, cameraSnapshot.current.rightLane);
+        const camera = cameraSnapshot.current;
+        playfield.showTrackedFeet(
+          camera.leftLane === null ? null : camera.leftPosition,
+          camera.rightLane === null ? null : camera.rightPosition,
+        );
         playfield.render(snapshot.time, snapshot.running, (noteId) => session.judged(noteId));
         if (now - lastHudUpdate > 50) {
           setHud(snapshot);
