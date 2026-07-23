@@ -17,6 +17,8 @@ export type InputAction =
 export type InputFrame = {
   capturedAt: DOMHighResTimeStamp;
   actions: InputAction[];
+  leftLane?: number | null;
+  rightLane?: number | null;
 };
 
 class FootContactState {
@@ -64,6 +66,10 @@ export class InputActionState {
   private rightLane?: number;
   private leftLaneAt = 0;
   private rightLaneAt = 0;
+  private leftMissingAt?: number;
+  private rightMissingAt?: number;
+  private leftHiddenMs = 0;
+  private rightHiddenMs = 0;
   private jumping = false;
 
   constructor(private readonly settings = defaultCalibrationSettings) {
@@ -73,6 +79,16 @@ export class InputActionState {
 
   update(leftLane: number | null, rightLane: number | null, leftY: number | null, rightY: number | null, jumping: boolean, capturedAt: DOMHighResTimeStamp): InputAction[] {
     const actions: InputAction[] = [];
+    if (leftLane === null) this.leftMissingAt ??= capturedAt;
+    else if (this.leftMissingAt !== undefined) {
+      if (this.leftLane !== undefined) this.leftHiddenMs += capturedAt - this.leftMissingAt;
+      this.leftMissingAt = undefined;
+    }
+    if (rightLane === null) this.rightMissingAt ??= capturedAt;
+    else if (this.rightMissingAt !== undefined) {
+      if (this.rightLane !== undefined) this.rightHiddenMs += capturedAt - this.rightMissingAt;
+      this.rightMissingAt = undefined;
+    }
     if (jumping && !this.jumping) actions.push({ type: "JUMP" });
     this.jumping = jumping;
     if (jumping) {
@@ -84,33 +100,37 @@ export class InputActionState {
     const leftStep = this.leftContact.update(leftY);
     const leftSlide = leftLane !== null && this.leftLane !== undefined
       && Math.abs(leftLane - this.leftLane) >= 2
-      && capturedAt - this.leftLaneAt <= this.settings.responseTimeoutMs;
+      && capturedAt - this.leftLaneAt - this.leftHiddenMs <= this.settings.responseTimeoutMs;
     if (leftSlide) {
       actions.push({ type: "LEFT_SLIDE", lane: this.leftLane!, endLane: this.leftLane! + Math.sign(leftLane! - this.leftLane!) * 2, startedAt: this.leftLaneAt });
       this.leftLane = leftLane!;
       this.leftLaneAt = capturedAt;
+      this.leftHiddenMs = 0;
     } else if (leftStep && leftLane !== null) {
       actions.push({ type: "LEFT_STEP", lane: leftLane });
     }
-    if (leftLane !== null && (this.leftLane === undefined || leftLane === this.leftLane || capturedAt - this.leftLaneAt > this.settings.responseTimeoutMs)) {
+    if (leftLane !== null && (this.leftLane === undefined || leftLane === this.leftLane || capturedAt - this.leftLaneAt - this.leftHiddenMs > this.settings.responseTimeoutMs)) {
       this.leftLane = leftLane;
       this.leftLaneAt = capturedAt;
+      this.leftHiddenMs = 0;
     }
 
     const rightStep = this.rightContact.update(rightY);
     const rightSlide = rightLane !== null && this.rightLane !== undefined
       && Math.abs(rightLane - this.rightLane) >= 2
-      && capturedAt - this.rightLaneAt <= this.settings.responseTimeoutMs;
+      && capturedAt - this.rightLaneAt - this.rightHiddenMs <= this.settings.responseTimeoutMs;
     if (rightSlide) {
       actions.push({ type: "RIGHT_SLIDE", lane: this.rightLane!, endLane: this.rightLane! + Math.sign(rightLane! - this.rightLane!) * 2, startedAt: this.rightLaneAt });
       this.rightLane = rightLane!;
       this.rightLaneAt = capturedAt;
+      this.rightHiddenMs = 0;
     } else if (rightStep && rightLane !== null) {
       actions.push({ type: "RIGHT_STEP", lane: rightLane });
     }
-    if (rightLane !== null && (this.rightLane === undefined || rightLane === this.rightLane || capturedAt - this.rightLaneAt > this.settings.responseTimeoutMs)) {
+    if (rightLane !== null && (this.rightLane === undefined || rightLane === this.rightLane || capturedAt - this.rightLaneAt - this.rightHiddenMs > this.settings.responseTimeoutMs)) {
       this.rightLane = rightLane;
       this.rightLaneAt = capturedAt;
+      this.rightHiddenMs = 0;
     }
     return actions;
   }
@@ -120,6 +140,8 @@ export class InputActionState {
     this.rightContact.reset();
     this.leftLane = this.rightLane = undefined;
     this.leftLaneAt = this.rightLaneAt = 0;
+    this.leftMissingAt = this.rightMissingAt = undefined;
+    this.leftHiddenMs = this.rightHiddenMs = 0;
     this.jumping = false;
   }
 }

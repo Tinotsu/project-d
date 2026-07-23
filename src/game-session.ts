@@ -58,16 +58,18 @@ export class GameSession {
     if (!this.running || this.paused) return [];
     const time = this.clock.timeAt(frame.capturedAt, this.level.chart.level.endTime);
     if (time === null) return [];
-    const results = frame.actions.flatMap((action) => {
+    const results = this.engine.trackSlides(time, frame.leftLane ?? null, frame.rightLane ?? null);
+    results.push(...frame.actions.flatMap((action) => {
       const eventTime = action.type === "LEFT_SLIDE" || action.type === "RIGHT_SLIDE"
         ? this.clock.timeAt(action.startedAt, this.level.chart.level.endTime) ?? time
         : time;
       const event = playerEventForAction(action, eventTime);
       const result = event ? this.engine.submit(event) : null;
       return result ? [result] : [];
-    });
-    results.push(...this.engine.update(time));
-    if (time >= this.level.chart.level.endTime) this.stop();
+    }));
+    const finished = time >= this.level.chart.level.endTime;
+    results.push(...this.engine.update(time, finished));
+    if (finished) this.stop();
     return results;
   }
 

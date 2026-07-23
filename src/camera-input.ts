@@ -257,7 +257,7 @@ export class CameraInput {
     } else {
       this.inputActions.reset();
     }
-    this.onFrame?.({ capturedAt, actions });
+    this.onFrame?.({ capturedAt, actions, leftLane, rightLane });
 
     this.drawFloor(occupiedLanes);
     this.context.restore();

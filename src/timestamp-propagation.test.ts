@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { GameSession, playerEventForAction } from "./game-session.ts";
 import { InputActionState } from "./foot-pose.ts";
 import type { LoadedLevel } from "./level.ts";
-import { judgementForOffset } from "./rhythm-engine.ts";
+import { judgementForOffset, RhythmEngine } from "./rhythm-engine.ts";
 
 const level: LoadedLevel = {
   path: "/level.json",
@@ -154,5 +154,24 @@ describe("slide movement", () => {
     noisyRight.update(4, 1, 0.8, 0.7, false, 100);
     expect(noisyRight.update(4, 2, 0.8, 0.8, false, 200)).toContainEqual({ type: "RIGHT_STEP", lane: 2 });
     expect(noisyRight.update(4, 3, 0.8, 0.8, false, 300)).toContainEqual({ type: "RIGHT_SLIDE", lane: 1, endLane: 3, startedAt: 100 });
+  });
+
+  it("preserves a slide through occlusion and a swapped foot label", () => {
+    const state = new InputActionState();
+    state.update(1, 4, 0.8, 0.8, false, 0);
+    state.update(null, 4, null, 0.8, false, 100);
+    state.update(null, 4, null, 0.8, false, 2100);
+    expect(state.update(3, 4, 0.8, 0.8, false, 2200)).toContainEqual({
+      type: "LEFT_SLIDE",
+      lane: 1,
+      endLane: 3,
+      startedAt: 0,
+    });
+
+    const engine = new RhythmEngine([{ id: "slide", time: 1, type: "SLIDE", lane: 1, endLane: 3, foot: "left" }]);
+    expect(engine.trackSlides(1, 1, 4)).toEqual([]);
+    expect(engine.trackSlides(1.1, null, null)).toEqual([]);
+    expect(engine.update(3)).toEqual([]);
+    expect(engine.trackSlides(3, 4, 3)[0]?.judgement).toBe("perfect");
   });
 });

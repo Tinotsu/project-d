@@ -51,6 +51,12 @@ export function judgementForOffset(
 
 export class RhythmEngine {
   readonly judgements = new Map<string, JudgementResult>();
+  private readonly pendingSlides = new Map<string, {
+    note: ChartNote;
+    time: number;
+    foot: "left" | "right";
+    otherFootAtEnd: boolean;
+  }>();
   readonly score = {
     total: 0,
     combo: 0,
@@ -62,6 +68,32 @@ export class RhythmEngine {
   };
 
   constructor(readonly notes: ChartNote[], private readonly settings: CalibrationSettings = defaultCalibrationSettings) {}
+
+  trackSlides(time: number, leftLane: number | null, rightLane: number | null): JudgementResult[] {
+    const results: JudgementResult[] = [];
+    for (const [id, pending] of this.pendingSlides) {
+      const expectedLane = pending.foot === "left" ? leftLane : rightLane;
+      const eitherLane = leftLane === pending.note.endLane || rightLane === pending.note.endLane;
+      if (expectedLane !== pending.note.endLane && (pending.otherFootAtEnd || !eitherLane)) continue;
+      this.pendingSlides.delete(id);
+      results.push(this.applyJudgement(
+        pending.note,
+        judgementForOffset("SLIDE", (pending.time - pending.note.time) * 1000, this.settings)!,
+        pending.time - pending.note.time,
+      ));
+    }
+
+    for (const note of this.notes) {
+      if (note.type !== "SLIDE" || this.judgements.has(note.id) || this.pendingSlides.has(note.id)) continue;
+      const foot = note.foot === "right" ? "right" : "left";
+      const lane = foot === "left" ? leftLane : rightLane;
+      const offset = time - note.time;
+      if (lane !== note.lane || !judgementForOffset("SLIDE", offset * 1000, this.settings)) continue;
+      const otherLane = foot === "left" ? rightLane : leftLane;
+      this.pendingSlides.set(note.id, { note, time, foot, otherFootAtEnd: otherLane === note.endLane });
+    }
+    return results;
+  }
 
   submit(event: PlayerEvent): JudgementResult | null {
     let closest: ChartNote | undefined;
@@ -91,13 +123,15 @@ export class RhythmEngine {
     );
   }
 
-  update(songTime: number): JudgementResult[] {
+  update(songTime: number, finish = false): JudgementResult[] {
     const misses: JudgementResult[] = [];
     for (const note of this.notes) {
+      if (!finish && this.pendingSlides.has(note.id)) continue;
       const goodWindow = note.type === "JUMP"
         ? this.settings.jumpGoodMs
         : note.type === "SLIDE" ? this.settings.responseTimeoutMs : this.settings.stepGoodMs;
-      if (!this.judgements.has(note.id) && (songTime - note.time) * 1000 > goodWindow + this.settings.missGraceMs) {
+      if (!this.judgements.has(note.id) && (finish || (songTime - note.time) * 1000 > goodWindow + this.settings.missGraceMs)) {
+        this.pendingSlides.delete(note.id);
         misses.push(this.applyJudgement(note, "miss", songTime - note.time));
       }
     }
@@ -106,6 +140,7 @@ export class RhythmEngine {
 
   private applyJudgement(note: ChartNote, judgement: Judgement, offset: number): JudgementResult {
     const result = { note, judgement, offset };
+    this.pendingSlides.delete(note.id);
     this.judgements.set(note.id, result);
     this.score[judgement]++;
     this.score.total += points[judgement];
