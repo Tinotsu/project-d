@@ -100,8 +100,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, audio:focus-vis
 .game-controls .restart-button { background: #ffe640; color: #08090d; }
 .judgements { color: #aaaab4; font: 10px "DM Mono", monospace; white-space: nowrap; }
 .game-layout { position: absolute; inset: 0; }
-.playfield-shell { position: absolute; inset: 0; overflow: hidden; background: radial-gradient(circle at 50% 14%, #fff9 0, #28e8ff55 3%, transparent 17%), radial-gradient(circle at 12% 36%, #23eaff55, transparent 30%), radial-gradient(circle at 88% 38%, #ff36b855, transparent 30%), linear-gradient(#14102b, #080814 62%, #020207); }
-.playfield-shell::before { position: absolute; inset: 0; content: ""; background: repeating-linear-gradient(70deg, transparent 0 75px, #8df7ff18 76px 78px), repeating-linear-gradient(110deg, transparent 0 75px, #ff71d518 76px 78px); mask-image: linear-gradient(#fff, transparent 66%); }
+.playfield-shell { position: absolute; inset: 0; overflow: hidden; }
 .pixi-stage { position: absolute; inset: 0; }
 .pixi-stage canvas { position: absolute; inset: 0; width: 100% !important; height: 100% !important; }
 .game-overlay { position: absolute; z-index: 2; inset: 0; display: grid; place-content: center; justify-items: center; padding: 24px; background: #08090dcc; text-align: center; }

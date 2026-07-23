@@ -1,4 +1,4 @@
-<svg width="830" height="130" viewBox="0 0 830 130" fill="none" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<svg width="630" height="130" viewBox="0 0 630 130" fill="none" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
 <style>
 svg { overflow: visible; }
 @keyframes kf_Rectangle_16_opacity_0 {
@@ -32,31 +32,31 @@ svg { overflow: visible; }
 </style>
 <g id="jump_base">
 <g id="Rectangle_18">
-<mask id="path-1-outside-1_34_2954" maskUnits="userSpaceOnUse" x="-4" y="0" width="808" height="106" fill="black">
-<rect fill="white" x="-4" width="808" height="106"/>
-<path d="M0 4C0 1.79086 1.79086 0 4 0H796C798.209 0 800 1.79086 800 4V96C800 98.2091 798.209 100 796 100H4C1.79086 100 0 98.2091 0 96V4Z"/>
+<mask id="path-1-outside-1_31_2100" maskUnits="userSpaceOnUse" x="-4" y="0" width="608" height="106" fill="black">
+<rect fill="white" x="-4" width="608" height="106"/>
+<path d="M0 4C0 1.79086 1.79086 0 4 0H596C598.209 0 600 1.79086 600 4V96C600 98.2091 598.209 100 596 100H4C1.79086 100 0 98.2091 0 96V4Z"/>
 </mask>
-<path d="M0 4C0 1.79086 1.79086 0 4 0H796C798.209 0 800 1.79086 800 4V96C800 98.2091 798.209 100 796 100H4C1.79086 100 0 98.2091 0 96V4Z" id="Rectangle_18_bg_0" fill="#0532FA">
+<path d="M0 4C0 1.79086 1.79086 0 4 0H596C598.209 0 600 1.79086 600 4V96C600 98.2091 598.209 100 596 100H4C1.79086 100 0 98.2091 0 96V4Z" id="Rectangle_18_bg_0" fill="#0532FA">
 </path>
-<path d="M0 4C0 1.79086 1.79086 0 4 0H796C798.209 0 800 1.79086 800 4V96C800 98.2091 798.209 100 796 100H4C1.79086 100 0 98.2091 0 96V4Z" fill="url(#pattern0_34_2954)" fill-opacity="0.3"/>
-<path d="M0 0H800H0M804 98C804 102.418 800.418 106 796 106H4C-0.418278 106 -4 102.418 -4 98L4 94H796L804 98ZM4 106C-0.418278 106 -4 102.418 -4 98V8C-4 3.58172 -0.418278 0 4 0C4 0 4 1.79086 4 4V94V106ZM796 0C800.418 0 804 3.58172 804 8V98C804 102.418 800.418 106 796 106V94V4C796 1.79086 796 0 796 0Z" fill="#F9F9F9" mask="url(#path-1-outside-1_34_2954)"/>
+<path d="M0 4C0 1.79086 1.79086 0 4 0H596C598.209 0 600 1.79086 600 4V96C600 98.2091 598.209 100 596 100H4C1.79086 100 0 98.2091 0 96V4Z" fill="url(#pattern0_31_2100)" fill-opacity="0.3"/>
+<path d="M0 0H600H0M604 98C604 102.418 600.418 106 596 106H4C-0.418278 106 -4 102.418 -4 98L4 94H596L604 98ZM4 106C-0.418278 106 -4 102.418 -4 98V8C-4 3.58172 -0.418278 0 4 0C4 0 4 1.79086 4 4V94V106ZM596 0C600.418 0 604 3.58172 604 8V98C604 102.418 600.418 106 596 106V94V4C596 1.79086 596 0 596 0Z" fill="#F9F9F9" mask="url(#path-1-outside-1_31_2100)"/>
 </g>
-<g id="Rectangle_17" filter="url(#filter0_f_34_2954)">
-<mask id="path-12-inside-2_34_2954" fill="white">
-<rect width="800" height="100" rx="4"/>
+<g id="Rectangle_17" filter="url(#filter0_f_31_2100)">
+<mask id="path-12-inside-2_31_2100" fill="white">
+<rect width="600" height="100" rx="4"/>
 </mask>
-<rect width="800" height="100" rx="4" stroke="#00F7FA" stroke-width="20" mask="url(#path-12-inside-2_34_2954)"/>
+<rect width="600" height="100" rx="4" stroke="#00F7FA" stroke-width="20" mask="url(#path-12-inside-2_31_2100)"/>
 </g>
-<path id="Rectangle_16" d="M0 4C0 1.79086 1.79086 0 4 0H796C798.209 0 800 1.79086 800 4V96C800 98.2091 798.209 100 796 100H4C1.79086 100 0 98.2091 0 96V4Z" fill="#00F7FA" fill-opacity="0.8"/>
+<path id="Rectangle_16" d="M0 4C0 1.79086 1.79086 0 4 0H596C598.209 0 600 1.79086 600 4V96C600 98.2091 598.209 100 596 100H4C1.79086 100 0 98.2091 0 96V4Z" fill="#00F7FA" fill-opacity="0.8"/>
 </g>
 <defs>
-<filter id="filter0_f_34_2954" x="-15" y="-15" width="830" height="130" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<filter id="filter0_f_31_2100" x="-15" y="-15" width="630" height="130" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
 <feFlood flood-opacity="0" result="BackgroundImageFix"/>
 <feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
-<feGaussianBlur stdDeviation="7.5" result="effect1_foregroundBlur_34_2954"/>
+<feGaussianBlur stdDeviation="7.5" result="effect1_foregroundBlur_31_2100"/>
 </filter>
-<pattern id="pattern0_34_2954" patternUnits="userSpaceOnUse" patternTransform="matrix(30.16 0 0 30.16 387 37)" preserveAspectRatio="none" viewBox="0 0 15.08 15.08" width="1" height="1">
-<g id="pattern0_34_2954_inner">
+<pattern id="pattern0_31_2100" patternUnits="userSpaceOnUse" patternTransform="matrix(30.16 0 0 30.16 287 37)" preserveAspectRatio="none" viewBox="0 0 15.08 15.08" width="1" height="1">
+<g id="pattern0_31_2100_inner">
 <g id="Group_21">
 <circle id="Ellipse_23" cx="1.5" cy="1.5" r="1.5" fill="#00F7FA"/>
 <circle id="Ellipse_26" transform="translate(0 5)" cx="1.5" cy="1.5" r="1.5" fill="#00F7FA"/>

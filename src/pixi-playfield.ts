@@ -5,7 +5,6 @@ import {
   DOMContainer,
   Graphics,
   PerspectiveMesh,
-  Sprite,
   Text,
   Texture,
 } from "pixi.js";
@@ -31,24 +30,24 @@ const hitY = 590;
 const laneColors = [0x35dcff, 0x6c82ff, 0xff4fa2, 0xff9b45];
 
 const noteArt = {
-  JUMP: { width: 830 },
-  STEP: { width: 152 },
+  JUMP: { width: 630, height: 130 },
+  STEP: { width: 152, height: 102 },
 } as const;
 
-const footZoneArt = { width: 406, height: 79 };
+const footZoneArt = { width: 606, height: 104, depth: 1 };
+const footMarkerScale = 0.55;
 
-const assetUrls = [footUrl, trackUrl];
+const assetUrls = [trackUrl];
 
-const jumpBaseHeight = 130;
-const jumpLabelArt = { width: 800, height: 200 };
+const jumpLabelArt = { width: 600, height: 200 };
 
 function mountJump(warped: HTMLElement, flat: HTMLElement): void {
   const base = document.createElement("img");
   base.src = jumpBaseUrl;
   base.width = noteArt.JUMP.width;
-  base.height = jumpBaseHeight;
+  base.height = noteArt.JUMP.height;
   warped.style.width = `${noteArt.JUMP.width}px`;
-  warped.style.height = `${jumpBaseHeight}px`;
+  warped.style.height = `${noteArt.JUMP.height}px`;
   warped.append(base);
 
   const jump = document.createElement("img");
@@ -60,43 +59,23 @@ function mountJump(warped: HTMLElement, flat: HTMLElement): void {
   flat.append(jump);
 }
 
-function mountStep(note: ChartNote, warped: HTMLElement, flat: HTMLElement): void {
+function mountStep(note: ChartNote, warped: HTMLElement): void {
   const stepUrl = note.foot === "left" ? leftStepUrl : rightStepUrl;
-  const letterId = note.foot === "left" ? "L" : "R";
-  const stepHeight = note.foot === "left" ? 53 : 54;
 
   const pad = document.createElement("object");
   pad.data = stepUrl;
   pad.type = "image/svg+xml";
   pad.width = String(noteArt.STEP.width);
-  pad.height = String(stepHeight);
+  pad.height = String(noteArt.STEP.height);
   pad.addEventListener("load", () => {
     const doc = pad.contentDocument!;
-    (doc.querySelector("svg > rect") as SVGElement).style.display = "none";
-    doc.getElementById(letterId)!.style.display = "none";
-    doc.getElementById("Rectangle 4")!.animate(
-      [{ transform: "translateY(0)" }, { transform: "translateY(-175px)" }],
-      { duration: 500, iterations: Infinity },
-    );
+    doc.documentElement.querySelectorAll(":scope > g").forEach((group, index) => {
+      if (index > 0) (group as SVGElement).style.display = "none";
+    });
   });
   warped.style.width = `${noteArt.STEP.width}px`;
-  warped.style.height = `${stepHeight}px`;
+  warped.style.height = `${noteArt.STEP.height}px`;
   warped.append(pad);
-
-  const label = document.createElement("object");
-  label.data = stepUrl;
-  label.type = "image/svg+xml";
-  label.width = String(noteArt.STEP.width);
-  label.height = String(stepHeight);
-  label.addEventListener("load", () => {
-    const doc = label.contentDocument!;
-    (doc.querySelector("svg > rect") as SVGElement).style.display = "none";
-    doc.querySelector(`[id$=" base"]`)!.setAttribute("display", "none");
-    doc.getElementById(letterId)!.style.display = "";
-  });
-  flat.style.width = `${noteArt.STEP.width}px`;
-  flat.style.height = `${stepHeight}px`;
-  flat.append(label);
 }
 
 type Point = [number, number];
@@ -164,8 +143,10 @@ export class PixiPlayfield {
       fontWeight: "700",
     },
   });
-  private leftFootMarker!: Sprite;
-  private rightFootMarker!: Sprite;
+  private leftFootMarker!: HTMLImageElement;
+  private rightFootMarker!: HTMLImageElement;
+  private footZoneRoot?: HTMLDivElement;
+  private footZoneResizeObserver?: ResizeObserver;
   private feedbackUntil = 0;
 
   private constructor(private readonly chart: LevelChart) {}
@@ -182,10 +163,14 @@ export class PixiPlayfield {
       [this.leftFootMarker, leftLane, -30],
       [this.rightFootMarker, rightLane, 30],
     ] as const) {
-      marker.visible = lane !== null;
+      marker.hidden = lane === null;
       if (lane !== null) {
-        const edges = this.laneSpan(lane, lane, 1);
-        marker.position.set((edges.left + edges.right) / 2 + (sameLane ? offset : 0), hitY + 3);
+        const baseBottom = this.laneSpan(1, this.chart.playfield.lanes, footZoneArt.depth);
+        const markerY = baseBottom.y - baseBottom.width * footZoneArt.height / footZoneArt.width / 2;
+        const markerDepth = (markerY - horizonY) / (hitY - horizonY);
+        const edges = this.laneSpan(lane, lane, markerDepth);
+        marker.style.left = `${(edges.left + edges.right) / 2 + (sameLane ? offset : 0)}px`;
+        marker.style.top = `${markerY}px`;
       }
     }
   }
@@ -232,8 +217,8 @@ export class PixiPlayfield {
       if (performance.now() < until) this.drawLane(this.laneGlow, index + 1, laneColors[index], 0.35);
     });
     const pulse = 1 + Math.sin(performance.now() / 90) * 0.04;
-    this.leftFootMarker.scale.set(0.9 * pulse);
-    this.rightFootMarker.scale.set(-0.9 * pulse, 0.9 * pulse);
+    this.leftFootMarker.style.transform = `translate(-50%, -50%) scale(${footMarkerScale * pulse})`;
+    this.rightFootMarker.style.transform = `translate(-50%, -50%) scale(${-footMarkerScale * pulse}, ${footMarkerScale * pulse})`;
     if (this.feedback.visible && performance.now() > this.feedbackUntil) {
       this.feedback.visible = false;
       this.feedbackLabel.visible = false;
@@ -241,6 +226,8 @@ export class PixiPlayfield {
   }
 
   destroy(): void {
+    this.footZoneResizeObserver?.disconnect();
+    this.footZoneRoot?.remove();
     this.app.destroy({ removeView: true }, { children: true, texture: false });
   }
 
@@ -281,7 +268,14 @@ export class PixiPlayfield {
     this.app.stage.addChild(highway);
 
     const footZoneRoot = document.createElement("div");
-    footZoneRoot.style.cssText = "position:absolute;top:0;left:0;pointer-events:none";
+    footZoneRoot.style.cssText = `position:absolute;top:0;left:0;z-index:1;width:${gameWidth}px;height:${gameHeight}px;transform-origin:0 0;pointer-events:none`;
+    const sizeFootZone = () => {
+      footZoneRoot.style.scale = `${mount.clientWidth / gameWidth} ${mount.clientHeight / gameHeight}`;
+    };
+    sizeFootZone();
+    this.footZoneResizeObserver = new ResizeObserver(sizeFootZone);
+    this.footZoneResizeObserver.observe(mount);
+    this.footZoneRoot = footZoneRoot;
     const footZone = document.createElement("img");
     footZone.src = footBaseUrl;
     footZone.width = footZoneArt.width;
@@ -292,9 +286,9 @@ export class PixiPlayfield {
       { warped: footZone, warpedWidth: footZoneArt.width, warpedHeight: footZoneArt.height },
       1,
       lanes,
-      1,
+      footZoneArt.depth,
     );
-    this.app.stage.addChild(new DOMContainer({ element: footZoneRoot, anchor: 0 }));
+    mount.append(footZoneRoot);
 
     for (const note of this.chart.notes) {
       const view = this.createNoteView(note);
@@ -304,7 +298,8 @@ export class PixiPlayfield {
 
     this.leftFootMarker = this.createFootMarker(false);
     this.rightFootMarker = this.createFootMarker(true);
-    this.app.stage.addChild(this.leftFootMarker, this.rightFootMarker, this.laneGlow);
+    footZoneRoot.append(this.leftFootMarker, this.rightFootMarker);
+    this.app.stage.addChild(this.laneGlow);
     this.feedback.visible = false;
     this.feedbackLabel.anchor.set(0.5);
     this.feedbackLabel.position.set(gameWidth / 2, 316);
@@ -321,19 +316,18 @@ export class PixiPlayfield {
     const flat = document.createElement("div");
     flat.style.cssText = "position:absolute;top:0;left:0;transform-origin:0 0;pointer-events:none";
     if (isJump) mountJump(warped, flat);
-    else mountStep(note, warped, flat);
+    else mountStep(note, warped);
     root.append(warped, flat);
     const container = new Container();
     container.addChild(new DOMContainer({ element: root, anchor: 0 }));
     container.visible = false;
-    const stepHeight = note.foot === "left" ? 53 : 54;
     if (isJump) {
       return {
         container,
         warped,
         flat,
         warpedWidth: noteArt.JUMP.width,
-        warpedHeight: jumpBaseHeight,
+        warpedHeight: noteArt.JUMP.height,
         flatWidth: jumpLabelArt.width,
         flatHeight: jumpLabelArt.height,
       };
@@ -343,17 +337,19 @@ export class PixiPlayfield {
       warped,
       flat,
       warpedWidth: noteArt.STEP.width,
-      warpedHeight: stepHeight,
+      warpedHeight: noteArt.STEP.height,
       flatWidth: noteArt.STEP.width,
-      flatHeight: stepHeight,
+      flatHeight: noteArt.STEP.height,
     };
   }
 
-  private createFootMarker(mirrored: boolean): Sprite {
-    const marker = Sprite.from(footUrl);
-    marker.anchor.set(0.5);
-    marker.scale.set(mirrored ? -0.9 : 0.9, 0.9);
-    marker.visible = false;
+  private createFootMarker(mirrored: boolean): HTMLImageElement {
+    const marker = document.createElement("img");
+    marker.src = footUrl;
+    marker.width = 100;
+    marker.height = 104;
+    marker.hidden = true;
+    marker.style.cssText = `position:absolute;top:0;left:0;transform:translate(-50%, -50%) scale(${mirrored ? -footMarkerScale : footMarkerScale}, ${footMarkerScale});pointer-events:none`;
     return marker;
   }
 

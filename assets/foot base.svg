@@ -1,17 +1,17 @@
-<svg width="406" height="79" viewBox="0 0 406 79" fill="none" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
-<mask id="path-1-outside-1_25_919" maskUnits="userSpaceOnUse" x="0" y="0" width="406" height="79" fill="black">
-<rect fill="white" width="406" height="79"/>
-<path d="M3 4C3 1.79086 4.79086 0 7 0H399C401.209 0 403 1.79086 403 4V71C403 73.2091 401.209 75 399 75H7C4.79086 75 3 73.2091 3 71V4Z"/>
+<svg width="606" height="104" viewBox="0 0 606 104" fill="none" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<mask id="path-1-outside-1_25_919" maskUnits="userSpaceOnUse" x="0" y="0" width="606" height="104" fill="black">
+<rect fill="white" width="606" height="104"/>
+<path d="M3 4C3 1.79086 4.79086 0 7 0H599C601.209 0 603 1.79086 603 4V96C603 98.2091 601.209 100 599 100H7C4.79086 100 3 98.2091 3 96V4Z"/>
 </mask>
-<path d="M3 4C3 1.79086 4.79086 0 7 0H399C401.209 0 403 1.79086 403 4V71C403 73.2091 401.209 75 399 75H7C4.79086 75 3 73.2091 3 71V4Z" fill="url(#paint0_linear_25_919)"/>
-<path d="M3 4C3 1.79086 4.79086 0 7 0H399C401.209 0 403 1.79086 403 4V71C403 73.2091 401.209 75 399 75H7C4.79086 75 3 73.2091 3 71V4Z" fill="url(#pattern0_25_919)" fill-opacity="0.05"/>
-<path d="M3 0H403H3M406 72C406 75.866 402.866 79 399 79H7C3.13401 79 0 75.866 0 72L6 71C6 71 6.44772 71 7 71H399C399.552 71 400 71 400 71L406 72ZM7 79C3.13401 79 0 75.866 0 72V7C0 3.13401 3.13401 0 7 0C6.44772 0 6 1.79086 6 4V71C6 71 6.44772 71 7 71V79ZM399 0C402.866 0 406 3.13401 406 7V72C406 75.866 402.866 79 399 79V71C399.552 71 400 71 400 71V4C400 1.79086 399.552 0 399 0Z" fill="#F9F9F9" mask="url(#path-1-outside-1_25_919)"/>
+<path d="M3 4C3 1.79086 4.79086 0 7 0H599C601.209 0 603 1.79086 603 4V96C603 98.2091 601.209 100 599 100H7C4.79086 100 3 98.2091 3 96V4Z" fill="url(#paint0_linear_25_919)"/>
+<path d="M3 4C3 1.79086 4.79086 0 7 0H599C601.209 0 603 1.79086 603 4V96C603 98.2091 601.209 100 599 100H7C4.79086 100 3 98.2091 3 96V4Z" fill="url(#pattern0_25_919)" fill-opacity="0.05"/>
+<path d="M3 0H603H3M606 97C606 100.866 602.866 104 599 104H7C3.13401 104 0 100.866 0 97L6 96C6 96 6.44772 96 7 96H599C599.552 96 600 96 600 96L606 97ZM7 104C3.13401 104 0 100.866 0 97V7C0 3.13401 3.13401 0 7 0C6.44772 0 6 1.79086 6 4V96C6 96 6.44772 96 7 96V104ZM599 0C602.866 0 606 3.13401 606 7V97C606 100.866 602.866 104 599 104V96C599.552 96 600 96 600 96V4C600 1.79086 599.552 0 599 0Z" fill="#F9F9F9" mask="url(#path-1-outside-1_25_919)"/>
 <defs>
-<linearGradient id="paint0_linear_25_919" x1="203" y1="75" x2="-3.75676" y2="40.5405" gradientUnits="userSpaceOnUse">
+<linearGradient id="paint0_linear_25_919" x1="303" y1="100" x2="-4.92453" y2="42.2642" gradientUnits="userSpaceOnUse">
 <stop/>
 <stop offset="1" stop-color="#929292"/>
 </linearGradient>
-<pattern id="pattern0_25_919" patternUnits="userSpaceOnUse" patternTransform="matrix(30.16 0 0 30.16 190 24.5)" preserveAspectRatio="none" viewBox="0 0 15.08 15.08" width="1" height="1">
+<pattern id="pattern0_25_919" patternUnits="userSpaceOnUse" patternTransform="matrix(30.16 0 0 30.16 290 37)" preserveAspectRatio="none" viewBox="0 0 15.08 15.08" width="1" height="1">
 <g id="pattern0_25_919_inner">
 <circle cx="1.5" cy="1.5" r="1.5" fill="#F9F9F9"/>
 <circle cx="1.5" cy="6.5" r="1.5" fill="#F9F9F9"/>
