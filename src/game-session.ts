@@ -1,4 +1,5 @@
 import { AudioClock } from "./audio-clock.ts";
+import { loadCalibrationSettings, type CalibrationSettings } from "./calibration-settings.ts";
 import type { LoadedLevel } from "./level.ts";
 import { RhythmEngine, type JudgementResult, type PlayerEvent } from "./rhythm-engine.ts";
 import type { InputAction, InputFrame } from "./foot-pose.ts";
@@ -31,8 +32,8 @@ export class GameSession {
   private running = false;
   private paused = false;
 
-  constructor(readonly level: LoadedLevel) {
-    this.engine = new RhythmEngine(level.chart.notes);
+  constructor(readonly level: LoadedLevel, private readonly settings: CalibrationSettings = loadCalibrationSettings()) {
+    this.engine = new RhythmEngine(level.chart.notes, settings);
   }
 
   async load(): Promise<void> {
@@ -40,7 +41,7 @@ export class GameSession {
   }
 
   async start(): Promise<void> {
-    this.engine = new RhythmEngine(this.level.chart.notes);
+    this.engine = new RhythmEngine(this.level.chart.notes, this.settings);
     await this.clock.start();
     this.running = true;
     this.paused = false;

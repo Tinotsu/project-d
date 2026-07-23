@@ -1,4 +1,5 @@
 import * as ort from "onnxruntime-web/webgpu";
+import { defaultCalibrationSettings, type CalibrationSettings } from "./calibration-settings.ts";
 
 const modelSize = 640;
 const outputRowSize = 24;
@@ -22,6 +23,8 @@ class FootContactState {
   private peakY?: number;
   private lifted = false;
 
+  constructor(private readonly settings: CalibrationSettings) {}
+
   update(y: number | null): boolean {
     if (y === null) {
       this.reset();
@@ -31,13 +34,13 @@ class FootContactState {
       this.groundY = y;
       return false;
     }
-    if (!this.lifted && this.groundY - y > 0.02) {
+    if (!this.lifted && this.groundY - y > this.settings.stepLift) {
       this.lifted = true;
       this.peakY = y;
       return false;
     }
     if (this.lifted) this.peakY = Math.min(this.peakY!, y);
-    if (this.lifted && (y > this.groundY - 0.012 || y - this.peakY! > 0.02)) {
+    if (this.lifted && (y > this.groundY - this.settings.stepLanding || y - this.peakY! > this.settings.stepDescent)) {
       this.lifted = false;
       this.groundY = y;
       this.peakY = undefined;
@@ -56,9 +59,14 @@ class FootContactState {
 export class InputActionState {
   private leftLane: number | null = null;
   private rightLane: number | null = null;
-  private readonly leftContact = new FootContactState();
-  private readonly rightContact = new FootContactState();
+  private readonly leftContact: FootContactState;
+  private readonly rightContact: FootContactState;
   private jumping = false;
+
+  constructor(settings = defaultCalibrationSettings) {
+    this.leftContact = new FootContactState(settings);
+    this.rightContact = new FootContactState(settings);
+  }
 
   update(leftLane: number | null, rightLane: number | null, leftY: number | null, rightY: number | null, jumping: boolean): InputAction[] {
     const actions: InputAction[] = [];
@@ -101,6 +109,8 @@ export class JumpDetector {
   private peakRight?: number;
   private jumping = false;
 
+  constructor(private readonly settings = defaultCalibrationSettings) {}
+
   update(leftY: number, rightY: number): boolean {
     if (this.groundLeft === undefined || this.groundRight === undefined) {
       this.groundLeft = leftY;
@@ -108,7 +118,7 @@ export class JumpDetector {
       return false;
     }
 
-    if (!this.jumping && this.groundLeft - leftY > 0.035 && this.groundRight - rightY > 0.035) {
+    if (!this.jumping && this.groundLeft - leftY > this.settings.jumpLift && this.groundRight - rightY > this.settings.jumpLift) {
       this.jumping = true;
       this.peakLeft = leftY;
       this.peakRight = rightY;
@@ -116,8 +126,8 @@ export class JumpDetector {
       this.peakLeft = Math.min(this.peakLeft!, leftY);
       this.peakRight = Math.min(this.peakRight!, rightY);
       if (
-        (leftY > this.groundLeft - 0.015 && rightY > this.groundRight - 0.015)
-        || (leftY - this.peakLeft > 0.025 && rightY - this.peakRight > 0.025)
+        (leftY > this.groundLeft - this.settings.jumpLanding && rightY > this.groundRight - this.settings.jumpLanding)
+        || (leftY - this.peakLeft > this.settings.jumpDescent && rightY - this.peakRight > this.settings.jumpDescent)
       ) {
         this.jumping = false;
         this.groundLeft = leftY;

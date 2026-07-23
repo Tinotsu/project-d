@@ -1,3 +1,5 @@
+import { defaultCalibrationSettings, type CalibrationSettings } from "./calibration-settings.ts";
+
 export type NoteType = "STEP" | "SLIDE" | "JUMP";
 export type Foot = "left" | "right" | "both" | "either";
 
@@ -31,6 +33,19 @@ const points: Record<Judgement, number> = {
   miss: 0,
 };
 
+export function judgementForOffset(
+  type: NoteType,
+  offsetMs: number,
+  settings = defaultCalibrationSettings,
+): Exclude<Judgement, "miss"> | null {
+  const offset = Math.abs(offsetMs);
+  const prefix = type === "JUMP" ? "jump" : "step";
+  if (offset <= settings[`${prefix}PerfectMs`] + Number.EPSILON) return "perfect";
+  if (offset <= settings[`${prefix}GreatMs`] + Number.EPSILON) return "great";
+  if (offset <= settings[`${prefix}GoodMs`] + Number.EPSILON) return "good";
+  return null;
+}
+
 export class RhythmEngine {
   readonly judgements = new Map<string, JudgementResult>();
   readonly score = {
@@ -43,7 +58,7 @@ export class RhythmEngine {
     miss: 0,
   };
 
-  constructor(readonly notes: ChartNote[]) {}
+  constructor(readonly notes: ChartNote[], private readonly settings: CalibrationSettings = defaultCalibrationSettings) {}
 
   submit(event: PlayerEvent): JudgementResult | null {
     let closest: ChartNote | undefined;
@@ -53,7 +68,7 @@ export class RhythmEngine {
       const offset = event.time - note.time;
       if (
         this.judgements.has(note.id)
-        || Math.abs(offset) > (note.type === "JUMP" ? 0.16 : 0.2)
+        || !judgementForOffset(note.type, offset * 1000, this.settings)
         || note.type !== event.type
         || (note.lane !== undefined && note.lane !== event.lane)
         || (note.foot !== "either" && note.foot !== event.foot)
@@ -65,17 +80,18 @@ export class RhythmEngine {
     }
 
     if (!closest) return null;
-    const absoluteOffset = Math.abs(closestOffset);
-    const judgement = absoluteOffset <= (closest.type === "JUMP" ? 0.05 : 0.06) + Number.EPSILON
-      ? "perfect"
-      : absoluteOffset <= (closest.type === "JUMP" ? 0.1 : 0.12) + Number.EPSILON ? "great" : "good";
-    return this.applyJudgement(closest, judgement, closestOffset);
+    return this.applyJudgement(
+      closest,
+      judgementForOffset(closest.type, closestOffset * 1000, this.settings)!,
+      closestOffset,
+    );
   }
 
   update(songTime: number): JudgementResult[] {
     const misses: JudgementResult[] = [];
     for (const note of this.notes) {
-      if (!this.judgements.has(note.id) && songTime - note.time > (note.type === "JUMP" ? 0.2 : 0.24)) {
+      const goodWindow = note.type === "JUMP" ? this.settings.jumpGoodMs : this.settings.stepGoodMs;
+      if (!this.judgements.has(note.id) && (songTime - note.time) * 1000 > goodWindow + this.settings.missGraceMs) {
         misses.push(this.applyJudgement(note, "miss", songTime - note.time));
       }
     }

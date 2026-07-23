@@ -14,6 +14,10 @@ import {
   type InputFrame,
   type Keypoint,
 } from "./foot-pose.ts";
+import {
+  loadCalibrationSettings,
+  type CalibrationSettings,
+} from "./calibration-settings.ts";
 
 const cornerNames = ["A · FAR LEFT", "B · FAR RIGHT", "C · NEAR RIGHT", "D · NEAR LEFT"];
 const footColors = { left: "#35dcff", right: "#ff4fa2" };
@@ -59,8 +63,9 @@ export class CameraInput {
   private renderGeneration = 0;
   private transform?: Homography;
   private corners: Point[] = [];
-  private readonly jumpDetector = new JumpDetector();
-  private readonly inputActions = new InputActionState();
+  private settings = loadCalibrationSettings();
+  private jumpDetector = new JumpDetector(this.settings);
+  private inputActions = new InputActionState(this.settings);
   private snapshot = initialCameraSnapshot;
   private onSnapshot?: (snapshot: CameraSnapshot) => void;
   private onFrame?: (frame: InputFrame) => void;
@@ -186,6 +191,12 @@ export class CameraInput {
     this.jumpDetector.reset();
   }
 
+  setMovementSettings(settings: CalibrationSettings): void {
+    this.settings = settings;
+    this.jumpDetector = new JumpDetector(settings);
+    this.inputActions = new InputActionState(settings);
+  }
+
   destroy(): void {
     this.detach();
     this.stream?.getTracks().forEach((track) => track.stop());
@@ -258,7 +269,7 @@ export class CameraInput {
     points: [Keypoint, Keypoint, Keypoint] | null,
     side: "left" | "right",
   ): [Point, Point, Point] | null {
-    if (!points?.every((point) => point.confidence >= 0.5) || !this.context) return null;
+    if (!points?.every((point) => point.confidence >= this.settings.minimumFootConfidence) || !this.context) return null;
 
     this.context.beginPath();
     points.forEach((point, index) => index ? this.context!.lineTo(point.x, point.y) : this.context!.moveTo(point.x, point.y));

@@ -5,12 +5,13 @@ import type { CameraInput } from "./camera-input.ts";
 import type { GameSnapshot } from "./game-session.ts";
 import { loadLevel, type LoadedLevel } from "./level.ts";
 
-type Screen = "home" | "setup" | "game" | "results" | "editor" | "playfield-test";
+type Screen = "home" | "setup" | "game" | "results" | "editor" | "playfield-test" | "movement-setup" | "movement-test";
 
 const SetupScreen = lazy(() => import("./setup-screen.tsx").then((module) => ({ default: module.SetupScreen })));
 const GameScreen = lazy(() => import("./game-screen.tsx").then((module) => ({ default: module.GameScreen })));
 const ChartEditor = lazy(() => import("./chart-editor.tsx").then((module) => ({ default: module.ChartEditor })));
 const PlayfieldTestScreen = lazy(() => import("./playfield-test-screen.tsx").then((module) => ({ default: module.PlayfieldTestScreen })));
+const MovementTestScreen = lazy(() => import("./movement-test-screen.tsx").then((module) => ({ default: module.MovementTestScreen })));
 
 export function App() {
   const [screen, setScreen] = useState<Screen>("home");
@@ -34,14 +35,14 @@ export function App() {
     setScreen("results");
   }, []);
 
-  async function openSetup(): Promise<void> {
+  async function openSetup(destination: "setup" | "movement-setup" = "setup"): Promise<void> {
     if (!cameraInput) {
       const { CameraInput } = await import("./camera-input.ts");
       const input = new CameraInput();
       cameraInputRef.current = input;
       setCameraInput(input);
     }
-    setScreen("setup");
+    setScreen(destination);
   }
 
   function play(): void {
@@ -69,6 +70,20 @@ export function App() {
     );
   }
 
+  if (screen === "movement-test" && cameraInput) {
+    return (
+      <Suspense fallback={<LoadingScreen />}>
+        <MovementTestScreen
+          cameraInput={cameraInput}
+          level={level!}
+          onBack={() => setScreen("home")}
+          onRecalibrate={() => setScreen("movement-setup")}
+          onCalibrationChange={setCameraCalibrated}
+        />
+      </Suspense>
+    );
+  }
+
   return (
     <div className="app-shell">
       <header className="app-header">
@@ -78,6 +93,7 @@ export function App() {
         <nav>
           <button className={screen === "home" ? "active" : ""} onClick={() => setScreen("home")}>Play</button>
           <button className={screen === "setup" ? "active" : ""} onClick={() => void openSetup()}>Camera</button>
+          <button className={screen === "movement-setup" ? "active" : ""} onClick={() => void openSetup("movement-setup")}>Movement test</button>
           <button onClick={() => setScreen("editor")} disabled={!level}>Chart editor</button>
           <button onClick={() => setScreen("playfield-test")} disabled={!level}>Track test</button>
         </nav>
@@ -93,6 +109,7 @@ export function App() {
               <button className="primary large" disabled={!level} onClick={play}>Play now</button>
               <button className="secondary large" disabled={!level} onClick={() => setScreen("editor")}>Open chart editor</button>
               <button className="secondary large" disabled={!level} onClick={() => setScreen("playfield-test")}>Test track</button>
+              <button className="secondary large" onClick={() => void openSetup("movement-setup")}>Test movements</button>
             </div>
             {loadError && <p className="error-message">{loadError}</p>}
           </section>
@@ -116,13 +133,14 @@ export function App() {
         </main>
       )}
 
-      {screen === "setup" && cameraInput && (
+      {(screen === "setup" || screen === "movement-setup") && cameraInput && (
         <Suspense fallback={<LoadingScreen />}>
           <SetupScreen
             cameraInput={cameraInput}
             levelReady={Boolean(level)}
+            mode={screen === "movement-setup" ? "movement-test" : "play"}
             onCalibrationChange={setCameraCalibrated}
-            onContinue={() => setScreen("game")}
+            onContinue={() => setScreen(screen === "movement-setup" ? "movement-test" : "game")}
           />
         </Suspense>
       )}
