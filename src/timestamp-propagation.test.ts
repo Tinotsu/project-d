@@ -123,6 +123,7 @@ describe("camera timestamp propagation", () => {
     vi.spyOn(performance, "now").mockReturnValue(1700);
 
     expect(session.submit({ capturedAt: 1200, actions: [{ type: "LEFT_STEP", lane: 1 }] })).toEqual([]);
+    expect(session.submit({ capturedAt: 1500, actions: [] })).toEqual([]);
     expect(session.submit({ capturedAt: 1600, actions: [{ type: "LEFT_SLIDE", lane: 1, endLane: 3, startedAt: 1200 }] })[0]?.judgement).toBe("perfect");
   });
 });

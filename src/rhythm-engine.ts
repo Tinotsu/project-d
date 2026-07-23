@@ -93,7 +93,9 @@ export class RhythmEngine {
   update(songTime: number): JudgementResult[] {
     const misses: JudgementResult[] = [];
     for (const note of this.notes) {
-      const goodWindow = note.type === "JUMP" ? this.settings.jumpGoodMs : this.settings.stepGoodMs;
+      const goodWindow = note.type === "JUMP"
+        ? this.settings.jumpGoodMs
+        : note.type === "SLIDE" ? this.settings.responseTimeoutMs : this.settings.stepGoodMs;
       if (!this.judgements.has(note.id) && (songTime - note.time) * 1000 > goodWindow + this.settings.missGraceMs) {
         misses.push(this.applyJudgement(note, "miss", songTime - note.time));
       }
