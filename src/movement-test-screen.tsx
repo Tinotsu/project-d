@@ -73,7 +73,6 @@ export function MovementTestScreen({
   const [attempt, setAttempt] = useState<Attempt | null>(null);
   const [latest, setLatest] = useState<TestResult>();
   const [clock, setClock] = useState(0);
-  const [saved, setSaved] = useState(true);
   const [error, setError] = useState("");
 
   const chart = useMemo(() => {
@@ -205,7 +204,6 @@ export function MovementTestScreen({
 
   function updateSetting(key: keyof CalibrationSettings, value: number): void {
     setSettings((current) => ({ ...current, [key]: value }));
-    setSaved(false);
   }
 
   const remaining = attempt ? attempt.hitAt - clock : 0;
@@ -238,11 +236,6 @@ export function MovementTestScreen({
         </section>
 
         <aside className="movement-game-panel panel">
-          <div className="section-heading">
-            <small>TEST A MOVEMENT</small>
-            <span>{saved ? "SAVED" : "UNSAVED"}</span>
-          </div>
-          <p className="movement-game-copy">Click a movement to send it down the track, then reproduce it at the floor line.</p>
           <div className="movement-game-target">
             <label>Foot
               <select value={foot} onChange={(event) => setFoot(event.target.value as "left" | "right")}>
@@ -280,7 +273,6 @@ export function MovementTestScreen({
               <small>SETTINGS</small>
               <button onClick={() => {
                 setSettings(defaultCalibrationSettings);
-                setSaved(false);
               }}>Reset</button>
             </div>
             <NumberSetting label="Note travel time" unit="ms" value={settings.cueDelayMs} min={500} step={100} onChange={(value) => updateSetting("cueDelayMs", value)} />
@@ -301,7 +293,6 @@ export function MovementTestScreen({
             <PercentSetting label="Jump descent" value={settings.jumpDescent} onChange={(value) => updateSetting("jumpDescent", value)} />
             <button className="primary movement-save" onClick={() => {
               saveCalibrationSettings(settings);
-              setSaved(true);
             }}>Save settings</button>
           </div>
         </aside>

@@ -19,14 +19,14 @@ export function SetupScreen({ cameraInput, levelReady, mode = "play", onCalibrat
 
   return (
     <main className="setup-screen">
-      <div className="screen-heading">
-        <div>
-          <p className="eyebrow">{mode === "play" ? "CAMERA INPUT" : "MOVEMENT LAB · STEP 1 OF 2"}</p>
-          <h2>Calibrate your floor</h2>
-          <p>{mode === "play"
-            ? "Keep the full play area and both feet visible, then mark its corners."
-            : "Use the same floor setup as Play Now. The next page lets you send movements down the game track."}</p>
-        </div>
+      <div className={`screen-heading${mode === "movement-test" ? " movement-setup-heading" : ""}`}>
+        {mode === "play" && (
+          <div>
+            <p className="eyebrow">CAMERA INPUT</p>
+            <h2>Calibrate your floor</h2>
+            <p>Keep the full play area and both feet visible, then mark its corners.</p>
+          </div>
+        )}
         <button className="primary" disabled={!snapshot.calibrated || !levelReady} onClick={onContinue}>
           {mode === "play" ? "Continue to level" : "Continue to playfield"}
         </button>

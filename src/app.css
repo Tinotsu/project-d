@@ -51,6 +51,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, audio:focus-vis
 .song-meta span { border: 1px solid #353640; border-radius: 99px; padding: 6px 9px; color: #b3b3bc; font: 10px "DM Mono", monospace; text-transform: uppercase; }
 
 .screen-heading { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 28px; }
+.movement-setup-heading { justify-content: flex-end; margin-bottom: 14px; }
 .screen-heading h2 { margin: 0; font-size: clamp(32px, 5vw, 58px); letter-spacing: -.06em; }
 .screen-heading > div > p:last-child { margin: 10px 0 0; color: #92929d; }
 
@@ -124,9 +125,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, audio:focus-vis
 .playfield-test-keys span { color: #ffe640; font: 600 11px "DM Mono", monospace; }
 
 .movement-game-hud { grid-template-columns: auto minmax(150px, 1fr) minmax(180px, auto) auto minmax(190px, auto); }
-.movement-game-panel { position: absolute; z-index: 3; top: 18px; left: 18px; width: min(370px, calc(100% - 36px)); max-height: calc(100dvh - 114px); overflow-y: auto; padding: 16px; background: #0c0d13e8; backdrop-filter: blur(12px); }
-.movement-game-panel > .section-heading span { color: #777782; font: 9px "DM Mono", monospace; }
-.movement-game-copy { margin: 12px 0; color: #9a9aa5; font-size: 12px; line-height: 1.45; }
+.movement-game-panel { position: absolute; z-index: 3; top: 18px; left: 18px; width: min(370px, calc(100% - 36px)); max-height: min(500px, calc(100dvh - 114px)); overflow-y: auto; padding: 16px; background: #0c0d13e8; backdrop-filter: blur(12px); }
 .movement-game-target { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .movement-game-target label { display: grid; gap: 5px; color: #888893; font: 9px "DM Mono", monospace; text-transform: uppercase; }
 .movement-game-target select, .number-setting input { border: 1px solid #383943; border-radius: 7px; padding: 8px; background: #0c0d12; color: #f5f5f2; }
