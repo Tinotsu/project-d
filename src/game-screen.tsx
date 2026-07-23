@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CameraPanel } from "./camera-panel.tsx";
 import { initialCameraSnapshot, type CameraInput, type CameraSnapshot } from "./camera-input.ts";
 import { GameSession, type GameSnapshot } from "./game-session.ts";
-import type { InputAction } from "./foot-pose.ts";
+import type { InputFrame } from "./foot-pose.ts";
 import type { LoadedLevel } from "./level.ts";
 import { PixiPlayfield } from "./pixi-playfield.ts";
 
@@ -56,7 +56,6 @@ export function GameScreen({ cameraInput, level, onExit, onFinish }: GameScreenP
     const tick = (now: number) => {
       const playfield = playfieldRef.current;
       if (playfield) {
-        session.update().forEach((result) => playfield.showResult(result));
         const snapshot = session.snapshot();
         playfield.showTrackedFeet(cameraSnapshot.current.leftLane, cameraSnapshot.current.rightLane);
         playfield.render(snapshot.time, snapshot.running, (noteId) => session.judged(noteId));
@@ -79,10 +78,10 @@ export function GameScreen({ cameraInput, level, onExit, onFinish }: GameScreenP
     cameraSnapshot.current = snapshot;
   }, []);
 
-  const receiveAction = useCallback((action: InputAction) => {
-    const result = session.submit(action);
-    if (result) {
-      playfieldRef.current?.showResult(result);
+  const receiveFrame = useCallback((frame: InputFrame) => {
+    const results = session.submit(frame);
+    if (results.length) {
+      results.forEach((result) => playfieldRef.current?.showResult(result));
       setHud(session.snapshot());
     }
   }, [session]);
@@ -153,7 +152,7 @@ export function GameScreen({ cameraInput, level, onExit, onFinish }: GameScreenP
         <CameraPanel
           compact
           input={cameraInput}
-          onAction={receiveAction}
+          onFrame={receiveFrame}
           onSnapshot={receiveCameraSnapshot}
         />
       </div>

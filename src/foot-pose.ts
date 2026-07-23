@@ -12,6 +12,10 @@ export type FootPose = {
 export type InputAction =
   | { type: "LEFT_ENTER_LANE" | "RIGHT_ENTER_LANE" | "LEFT_STEP" | "RIGHT_STEP"; lane: number }
   | { type: "JUMP"; lane?: never };
+export type InputFrame = {
+  capturedAt: DOMHighResTimeStamp;
+  actions: InputAction[];
+};
 
 class FootContactState {
   private groundY?: number;

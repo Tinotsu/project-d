@@ -11,6 +11,7 @@ import {
   InputActionState,
   JumpDetector,
   type InputAction,
+  type InputFrame,
   type Keypoint,
 } from "./foot-pose.ts";
 
@@ -55,7 +56,7 @@ export class CameraInput {
   private canvas?: HTMLCanvasElement;
   private context?: CanvasRenderingContext2D;
   private frame = 0;
-  private lastVideoTime = -1;
+  private renderGeneration = 0;
   private transform?: Homography;
   private corners: Point[] = [];
   private smoothedFeet: Partial<Record<"left" | "right", [Point, Point, Point]>> = {};
@@ -64,31 +65,32 @@ export class CameraInput {
   private readonly inputActions = new InputActionState();
   private snapshot = initialCameraSnapshot;
   private onSnapshot?: (snapshot: CameraSnapshot) => void;
-  private onAction?: (action: InputAction) => void;
+  private onFrame?: (frame: InputFrame) => void;
 
   attach(
     video: HTMLVideoElement,
     canvas: HTMLCanvasElement,
     onSnapshot: (snapshot: CameraSnapshot) => void,
-    onAction: (action: InputAction) => void,
+    onFrame: (frame: InputFrame) => void,
   ): void {
     this.video = video;
     this.canvas = canvas;
     this.context = canvas.getContext("2d")!;
     this.onSnapshot = onSnapshot;
-    this.onAction = onAction;
+    this.onFrame = onFrame;
     onSnapshot(this.snapshot);
     if (this.stream) void this.connectVideo();
   }
 
   detach(): void {
-    cancelAnimationFrame(this.frame);
+    if (this.video && this.frame) this.video.cancelVideoFrameCallback(this.frame);
     this.frame = 0;
+    this.renderGeneration++;
     this.video = undefined;
     this.canvas = undefined;
     this.context = undefined;
     this.onSnapshot = undefined;
-    this.onAction = undefined;
+    this.onFrame = undefined;
   }
 
   async start(): Promise<void> {
@@ -202,20 +204,17 @@ export class CameraInput {
     await this.video.play();
     this.canvas.width = this.video.videoWidth;
     this.canvas.height = this.video.videoHeight;
-    this.lastVideoTime = -1;
-    cancelAnimationFrame(this.frame);
-    this.frame = requestAnimationFrame(() => void this.render());
+    if (this.frame) this.video.cancelVideoFrameCallback(this.frame);
+    const generation = ++this.renderGeneration;
+    this.frame = this.video.requestVideoFrameCallback((_, metadata) => void this.render(metadata, generation));
   }
 
-  private async render(): Promise<void> {
+  private async render(metadata: VideoFrameCallbackMetadata, generation: number): Promise<void> {
     if (!this.detector || !this.video || !this.canvas || !this.context) return;
-    if (this.video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA || this.video.currentTime === this.lastVideoTime) {
-      this.frame = requestAnimationFrame(() => void this.render());
-      return;
-    }
-
-    this.lastVideoTime = this.video.currentTime;
-    const pose = await this.detector.detect(this.video);
+    const video = this.video;
+    const capturedAt = metadata.captureTime ?? metadata.presentationTime;
+    const pose = await this.detector.detect(video);
+    if (generation !== this.renderGeneration || video !== this.video || !this.canvas || !this.context) return;
     const occupiedLanes = new Set<number>();
     this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
     this.context.save();
@@ -233,8 +232,9 @@ export class CameraInput {
     const leftLane = leftPosition ? floorLane(leftPosition) : null;
     const rightLane = rightPosition ? floorLane(rightPosition) : null;
 
+    let actions: InputAction[] = [];
     if (this.transform) {
-      this.inputActions.update(leftLane, rightLane, leftY, rightY, jumping).forEach((action) => this.onAction?.(action));
+      actions = this.inputActions.update(leftLane, rightLane, leftY, rightY, jumping);
       if (leftLane) occupiedLanes.add(leftLane);
       if (rightLane) occupiedLanes.add(rightLane);
       this.setSnapshot({
@@ -249,11 +249,12 @@ export class CameraInput {
     } else {
       this.inputActions.reset();
     }
+    this.onFrame?.({ capturedAt, actions });
 
     this.drawFloor(occupiedLanes);
     this.context.restore();
     this.drawCalibrationPoints();
-    this.frame = requestAnimationFrame(() => void this.render());
+    this.frame = video.requestVideoFrameCallback((_, nextMetadata) => void this.render(nextMetadata, generation));
   }
 
   private readFoot(

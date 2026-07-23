@@ -4,16 +4,16 @@ import {
   type CameraInput,
   type CameraSnapshot,
 } from "./camera-input.ts";
-import type { InputAction } from "./foot-pose.ts";
+import type { InputAction, InputFrame } from "./foot-pose.ts";
 
 type CameraPanelProps = {
   input: CameraInput;
   compact?: boolean;
-  onAction?: (action: InputAction) => void;
+  onFrame?: (frame: InputFrame) => void;
   onSnapshot?: (snapshot: CameraSnapshot) => void;
 };
 
-export function CameraPanel({ input, compact = false, onAction, onSnapshot }: CameraPanelProps) {
+export function CameraPanel({ input, compact = false, onFrame, onSnapshot }: CameraPanelProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [snapshot, setSnapshot] = useState(initialCameraSnapshot);
@@ -24,15 +24,15 @@ export function CameraPanel({ input, compact = false, onAction, onSnapshot }: Ca
     onSnapshot?.(next);
   }, [onSnapshot]);
 
-  const receiveAction = useCallback((action: InputAction) => {
-    setActions((current) => [...current.slice(-7), action]);
-    onAction?.(action);
-  }, [onAction]);
+  const receiveFrame = useCallback((frame: InputFrame) => {
+    if (frame.actions.length) setActions((current) => [...current, ...frame.actions].slice(-8));
+    onFrame?.(frame);
+  }, [onFrame]);
 
   useEffect(() => {
-    input.attach(videoRef.current!, canvasRef.current!, receiveSnapshot, receiveAction);
+    input.attach(videoRef.current!, canvasRef.current!, receiveSnapshot, receiveFrame);
     return () => input.detach();
-  }, [input, receiveAction, receiveSnapshot]);
+  }, [input, receiveFrame, receiveSnapshot]);
 
   function markCorner(event: MouseEvent<HTMLCanvasElement>): void {
     input.markCorner(event.clientX, event.clientY, event.currentTarget.getBoundingClientRect());

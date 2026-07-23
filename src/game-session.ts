@@ -1,7 +1,7 @@
 import { AudioClock } from "./audio-clock.ts";
 import type { LoadedLevel } from "./level.ts";
 import { RhythmEngine, type JudgementResult, type PlayerEvent } from "./rhythm-engine.ts";
-import type { InputAction } from "./foot-pose.ts";
+import type { InputAction, InputFrame } from "./foot-pose.ts";
 
 export type GameSnapshot = {
   running: boolean;
@@ -51,18 +51,18 @@ export class GameSession {
     this.paused = !this.paused;
   }
 
-  submit(action: InputAction): JudgementResult | null {
-    if (!this.running || this.paused) return null;
-    const event = playerEventForAction(action, this.currentTime());
-    return event ? this.engine.submit(event) : null;
-  }
-
-  update(): JudgementResult[] {
+  submit(frame: InputFrame): JudgementResult[] {
     if (!this.running || this.paused) return [];
-    const time = this.currentTime();
-    const misses = this.engine.update(time);
+    const time = this.clock.timeAt(frame.capturedAt, this.level.chart.level.endTime);
+    if (time === null) return [];
+    const results = frame.actions.flatMap((action) => {
+      const event = playerEventForAction(action, time);
+      const result = event ? this.engine.submit(event) : null;
+      return result ? [result] : [];
+    });
+    results.push(...this.engine.update(time));
     if (time >= this.level.chart.level.endTime) this.stop();
-    return misses;
+    return results;
   }
 
   currentTime(): number {
