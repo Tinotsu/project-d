@@ -27,7 +27,7 @@ svg { overflow: visible; }
 }
 </style>
 <g id="right_base">
-<g id="Frame_3">
+<g id="Frame_3" display="none">
 <g clip-path="url(#clip0_56_166)">
 <mask id="path-1-outside-1_56_166" maskUnits="userSpaceOnUse" x="0" y="0" width="152" height="102" fill="black">
 <rect fill="white" width="152" height="102"/>

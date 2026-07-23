@@ -1,12 +1,9 @@
 import {
   Application,
-  Assets,
   Container,
   DOMContainer,
   Graphics,
-  PerspectiveMesh,
   Text,
-  Texture,
 } from "pixi.js";
 import footBaseUrl from "../assets/foot base.svg?url";
 import footUrl from "../assets/foot.svg?url";
@@ -28,9 +25,7 @@ const nearRight = 1260;
 const horizonY = 100;
 const hitY = 590;
 const laneColors = [0x35dcff, 0x6c82ff, 0xff4fa2, 0xff9b45];
-
-
-const assetUrls = [trackUrl];
+const floorDepthScale = 1 / 3;
 
 function mountJump(warped: HTMLElement, flat: HTMLElement): void {
   const base = document.createElement("img");
@@ -43,14 +38,8 @@ function mountJump(warped: HTMLElement, flat: HTMLElement): void {
 }
 
 function mountStep(note: ChartNote, warped: HTMLElement): void {
-  const stepUrl = note.foot === "left" ? leftStepUrl : rightStepUrl;
-
-  const pad = document.createElement("object");
-  pad.data = stepUrl;
-  pad.type = "image/svg+xml";
-  pad.addEventListener("load", () => {
-    pad.contentDocument?.getElementById(note.foot === "left" ? "left_base_2" : "right_base")?.remove();
-  });
+  const pad = document.createElement("img");
+  pad.src = note.foot === "left" ? leftStepUrl : rightStepUrl;
   warped.append(pad);
 }
 
@@ -117,8 +106,9 @@ export class PixiPlayfield {
   });
   private leftFootMarker!: HTMLImageElement;
   private rightFootMarker!: HTMLImageElement;
+  private trackRoot?: HTMLDivElement;
   private footZoneRoot?: HTMLDivElement;
-  private footZoneResizeObserver?: ResizeObserver;
+  private assetResizeObserver?: ResizeObserver;
   private feedbackUntil = 0;
 
   private constructor(private readonly chart: LevelChart) {}
@@ -194,64 +184,63 @@ export class PixiPlayfield {
   }
 
   destroy(): void {
-    this.footZoneResizeObserver?.disconnect();
+    this.assetResizeObserver?.disconnect();
+    this.trackRoot?.remove();
     this.footZoneRoot?.remove();
     this.app.destroy({ removeView: true }, { children: true, texture: false });
   }
 
   private async init(mount: HTMLElement): Promise<void> {
-    await Promise.all([
-      this.app.init({
-        width: gameWidth,
-        height: gameHeight,
-        antialias: true,
-        autoDensity: true,
-        resolution: Math.min(window.devicePixelRatio, 2),
-        backgroundAlpha: 0,
-        preference: "webgl",
-      }),
-      Assets.load(assetUrls),
-    ]);
+    await this.app.init({
+      width: gameWidth,
+      height: gameHeight,
+      antialias: true,
+      autoDensity: true,
+      resolution: Math.min(window.devicePixelRatio, 2),
+      backgroundAlpha: 0,
+      preference: "webgl",
+    });
     this.app.canvas.setAttribute("aria-label", "Four-lane rhythm game playfield");
     mount.append(this.app.canvas);
 
-    const track = new PerspectiveMesh({ texture: Texture.from(trackUrl), verticesX: 16, verticesY: 16 });
-    track.setCorners(farLeft, horizonY, farRight, horizonY, 1400, gameHeight, -120, gameHeight);
-    track.alpha = 0.78;
-    this.app.stage.addChild(track);
+    const trackRoot = document.createElement("div");
+    trackRoot.style.cssText = `position:absolute;top:0;left:0;z-index:0;width:${gameWidth}px;height:${gameHeight}px;transform-origin:0 0;pointer-events:none`;
+    this.trackRoot = trackRoot;
+    const track = document.createElement("img");
+    track.src = trackUrl;
+    track.style.cssText = "position:absolute;top:0;left:0;transform-origin:0 0;pointer-events:none";
+    trackRoot.append(track);
+    mount.insertBefore(trackRoot, this.app.canvas);
+    await track.decode();
+    track.style.transform = perspectiveMatrix3d(
+      track.naturalWidth,
+      track.naturalHeight,
+      [farLeft, horizonY],
+      [farRight, horizonY],
+      [1400, gameHeight],
+      [-120, gameHeight],
+    );
 
-    const highway = new Graphics();
     const { lanes } = this.chart.playfield;
-    for (let lane = 1; lane <= lanes; lane++) this.drawLane(highway, lane, laneColors[lane - 1], 0.06);
-    for (let boundary = 0; boundary <= lanes; boundary++) {
-      const farX = farLeft + (farRight - farLeft) * boundary / lanes;
-      const nearX = nearLeft + (nearRight - nearLeft) * boundary / lanes;
-      highway.moveTo(farX, horizonY).lineTo(nearX, hitY).stroke({ color: 0xffffff, alpha: 0.38, width: 2 });
-    }
-    for (let depth = 0.14; depth < 1; depth += 0.14) {
-      const span = this.laneSpan(1, lanes, depth);
-      const y = horizonY + (hitY - horizonY) * depth;
-      highway.moveTo(span.left, y).lineTo(span.right, y).stroke({ color: 0xffffff, alpha: 0.16, width: 2 });
-    }
-    this.app.stage.addChild(highway);
 
     const footZoneRoot = document.createElement("div");
     footZoneRoot.style.cssText = `position:absolute;top:0;left:0;z-index:1;width:${gameWidth}px;height:${gameHeight}px;transform-origin:0 0;pointer-events:none`;
     const sizeFootZone = () => {
-      footZoneRoot.style.scale = `${mount.clientWidth / gameWidth} ${mount.clientHeight / gameHeight}`;
+      const scale = `${mount.clientWidth / gameWidth} ${mount.clientHeight / gameHeight}`;
+      trackRoot.style.scale = scale;
+      footZoneRoot.style.scale = scale;
     };
     sizeFootZone();
-    this.footZoneResizeObserver = new ResizeObserver(sizeFootZone);
-    this.footZoneResizeObserver.observe(mount);
+    this.assetResizeObserver = new ResizeObserver(sizeFootZone);
+    this.assetResizeObserver.observe(mount);
     this.footZoneRoot = footZoneRoot;
     const footZone = document.createElement("img");
-    footZone.addEventListener("load", () => {
-      this.placeWarpedView({ warped: footZone }, 1, lanes, 1);
-    }, { once: true });
     footZone.src = footBaseUrl;
     footZone.style.cssText = "position:absolute;top:0;left:0;transform-origin:0 0;pointer-events:none";
     footZoneRoot.append(footZone);
     mount.append(footZoneRoot);
+    await footZone.decode();
+    this.placeWarpedView({ warped: footZone }, 1, lanes, 1);
 
     for (const note of this.chart.notes) {
       const view = this.createNoteView(note);
@@ -301,7 +290,7 @@ export class PixiPlayfield {
     progress: number,
   ): ReturnType<typeof this.laneSpan> {
     const bottom = this.laneSpan(startLane, endLane, progress);
-    const topY = bottom.y - bottom.width * view.warped.offsetHeight / view.warped.offsetWidth;
+    const topY = bottom.y - bottom.width * view.warped.offsetHeight / view.warped.offsetWidth * floorDepthScale;
     const top = this.laneSpan(startLane, endLane, (topY - horizonY) / (hitY - horizonY));
     view.warped.style.transform = perspectiveMatrix3d(
       view.warped.offsetWidth,

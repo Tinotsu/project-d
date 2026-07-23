@@ -45,7 +45,7 @@ svg { overflow: visible; }
 </g>
 <path d="M0 0H150H0M152 96C152 99.3137 149.314 102 146 102H6C2.68629 102 0 99.3137 0 96C0 97.1046 1.79086 98 4 98H146C147.105 98 148 97.1046 148 96H152ZM148 96M0 100V0V100M146 0C149.314 0 152 2.68629 152 6V96C152 99.3137 149.314 102 146 102V98C147.105 98 148 97.1046 148 96V4C148 1.79086 147.105 0 146 0Z" fill="#F9F9F9" mask="url(#path-1-outside-1_56_158)"/>
 </g>
-<g id="left_base_2">
+<g id="left_base_2" display="none">
 <g id="Frame_3_2">
 <g clip-path="url(#clip1_56_158)">
 <mask id="path-14-outside-2_56_158" maskUnits="userSpaceOnUse" x="0" y="0" width="152" height="102" fill="black">
