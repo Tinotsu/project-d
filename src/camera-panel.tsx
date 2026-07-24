@@ -4,6 +4,7 @@ import {
   type CameraInput,
   type CameraSnapshot,
 } from "./camera-input.ts";
+import { Button } from "./components/ui/button.tsx";
 import type { InputAction, InputFrame } from "./foot-pose.ts";
 
 type CameraPanelProps = {
@@ -70,14 +71,14 @@ export function CameraPanel({ input, compact = false, onFrame, onSnapshot }: Cam
         <p className="camera-hint">{snapshot.hint}</p>
         <div className="camera-actions">
           {!snapshot.started && (
-            <button className="primary" disabled={snapshot.starting} onClick={() => void input.start()}>
+            <Button disabled={snapshot.starting} onClick={() => void input.start()}>
               {snapshot.starting ? "Loading model…" : "Start camera"}
-            </button>
+            </Button>
           )}
           {snapshot.started && (
-            <button className="secondary" disabled={snapshot.calibrating} onClick={() => input.beginCalibration()}>
+            <Button variant="outline" disabled={snapshot.calibrating} onClick={() => input.beginCalibration()}>
               Recalibrate
-            </button>
+            </Button>
           )}
         </div>
       </div>
@@ -104,7 +105,7 @@ export function CameraPanel({ input, compact = false, onFrame, onSnapshot }: Cam
         <div className="input-events">
           <div className="section-heading">
             <small>INPUT EVENTS</small>
-            <button onClick={resetActions}>Reset</button>
+            <Button size="sm" variant="ghost" onClick={resetActions}>Reset</Button>
           </div>
           <div className="event-log" aria-live="polite">
             {actions.length === 0

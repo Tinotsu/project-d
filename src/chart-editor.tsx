@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { Button } from "./components/ui/button.tsx";
 import type { LoadedLevel, LevelChart } from "./level.ts";
 import type { ChartNote, Foot, NoteType } from "./rhythm-engine.ts";
 
@@ -44,22 +45,19 @@ export function ChartEditor({ level, onBack }: ChartEditorProps) {
 
   return (
     <main className="editor-screen">
-      <div className="screen-heading">
-        <div>
-          <p className="eyebrow">CHART EDITOR</p>
-          <h2>{level.song.title}</h2>
-        </div>
+      <div className="page-toolbar">
+        <strong>Chart editor · {level.song.title}</strong>
         <div className="heading-actions">
-          <button className="secondary" onClick={onBack}>Back</button>
-          <button className="primary" onClick={downloadChart}>Download JSON</button>
+          <Button variant="outline" onClick={onBack}>Back</Button>
+          <Button onClick={downloadChart}>Download JSON</Button>
         </div>
       </div>
 
       <section className="editor-transport panel">
         <audio ref={audioRef} src={level.song.audio} controls />
-        <button className="secondary" onClick={() => setTime(Number((audioRef.current?.currentTime ?? 0).toFixed(3)))}>
+        <Button variant="outline" onClick={() => setTime(Number((audioRef.current?.currentTime ?? 0).toFixed(3)))}>
           Capture current time
-        </button>
+        </Button>
         <label>Time<input type="number" min="0" step="0.001" value={time} onChange={(event) => setTime(event.target.valueAsNumber)} /></label>
         <label>BPM<input type="number" min="1" value={chart.timing.bpm} onChange={(event) => setChart({ ...chart, timing: { ...chart.timing, bpm: event.target.valueAsNumber } })} /></label>
         <label>Offset<input type="number" step="0.001" value={chart.timing.offset} onChange={(event) => setChart({ ...chart, timing: { ...chart.timing, offset: event.target.valueAsNumber } })} /></label>
@@ -81,13 +79,13 @@ export function ChartEditor({ level, onBack }: ChartEditorProps) {
             <option value="either">Either</option>
           </select>
         </label>
-        <button className="primary" onClick={addNote}>Add note at {time.toFixed(3)}s</button>
+        <Button onClick={addNote}>Add note at {time.toFixed(3)}s</Button>
       </section>
 
       <section className="chart-table panel">
         <div className="section-heading">
           <small>{chart.notes.length} NOTES</small>
-          <button onClick={() => setChart(structuredClone(level.chart))}>Reset chart</button>
+          <Button size="sm" variant="ghost" onClick={() => setChart(structuredClone(level.chart))}>Reset chart</Button>
         </div>
         <div className="chart-rows">
           <div className="chart-row chart-labels"><span>ID</span><span>Time</span><span>Type</span><span>Lane</span><span>Foot</span><span /></div>
@@ -112,7 +110,7 @@ export function ChartEditor({ level, onBack }: ChartEditorProps) {
                 <option value="right">Right</option>
                 <option value="either">Either</option>
               </select>
-              <button className="danger" onClick={() => setChart((current) => ({ ...current, notes: current.notes.filter((candidate) => candidate.id !== note.id) }))}>Remove</button>
+              <Button size="sm" variant="destructive" onClick={() => setChart((current) => ({ ...current, notes: current.notes.filter((candidate) => candidate.id !== note.id) }))}>Remove</Button>
             </div>
           ))}
         </div>

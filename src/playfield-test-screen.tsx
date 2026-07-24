@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Button } from "./components/ui/button.tsx";
 import type { LoadedLevel } from "./level.ts";
 import { PixiPlayfield } from "./pixi-playfield.ts";
 
@@ -142,14 +143,14 @@ export function PlayfieldTestScreen({ level, onBack }: PlayfieldTestScreenProps)
     <main className="game-screen playfield-test-screen">
       <header className="game-hud playfield-test-hud">
         <div className="game-controls">
-          <button className="text-button" onClick={onBack}>Back</button>
-          <button className="text-button" onClick={() => {
+          <Button size="sm" variant="ghost" onClick={onBack}>Back</Button>
+          <Button size="sm" variant="ghost" onClick={() => {
             playingRef.current = !playingRef.current;
             setPlaying(playingRef.current);
           }}>
             {playing ? "Pause" : "Play"}
-          </button>
-          <button className="text-button" onClick={reset}>Reset</button>
+          </Button>
+          <Button size="sm" variant="ghost" onClick={reset}>Reset</Button>
         </div>
         <div className="hud-track"><small>PLAYFIELD TEST</small><strong>{level.song.title}</strong></div>
         <div><small>TIME</small><strong>{time.toFixed(2)}s</strong></div>
@@ -163,18 +164,14 @@ export function PlayfieldTestScreen({ level, onBack }: PlayfieldTestScreenProps)
           <div ref={mountRef} className="pixi-stage" />
           {!ready && (
             <div className="game-overlay">
-              <h2>{error ? "Playfield unavailable" : "Loading playfield…"}</h2>
-              <span>{error || "Track, lanes, and chart notes only."}</span>
+              <strong>{error ? "Playfield unavailable" : "Loading playfield…"}</strong>
+              {error && <span>{error}</span>}
             </div>
           )}
         </section>
 
         <aside className="playfield-test-panel panel">
-          <p className="eyebrow">CONTROLS</p>
-          <h3>Preview the track</h3>
-          <p className="playfield-test-copy">
-            Scrub time or press Space to play and pause. Notes scroll without audio, webcam, or pose model.
-          </p>
+          <strong>Controls</strong>
           <label className="playfield-test-scrubber">
             <span>Time</span>
             <input

@@ -242,7 +242,7 @@ export class FootPoseDetector {
     const height = video.videoHeight * scale;
     const paddingX = (modelSize - width) / 2;
     const paddingY = (modelSize - height) / 2;
-    this.context.fillStyle = "rgb(114, 114, 114)";
+    this.context.fillStyle = "#929292";
     this.context.fillRect(0, 0, modelSize, modelSize);
     this.context.drawImage(video, paddingX, paddingY, width, height);
 

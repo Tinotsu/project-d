@@ -34,7 +34,7 @@ svg { overflow: visible; }
 <path d="M0 4C0 1.79086 1.79086 0 4 0H146C148.209 0 150 1.79086 150 4V96C150 98.2091 148.209 100 146 100H4C1.79086 100 0 98.2091 0 96V4Z"/>
 </mask>
 <mask id="mask0_56_158" style="mask-type:alpha" maskUnits="userSpaceOnUse" x="0" y="0" width="152" height="102">
-<rect id="Rectangle_5" width="150" height="100" fill="#D9D9D9"/>
+<rect id="Rectangle_5" width="150" height="100" fill="#929292"/>
 </mask>
 <g mask="url(#mask0_56_158)">
 <g id="Rectangle_4">
@@ -53,7 +53,7 @@ svg { overflow: visible; }
 <path d="M0 4C0 1.79086 1.79086 0 4 0H146C148.209 0 150 1.79086 150 4V96C150 98.2091 148.209 100 146 100H4C1.79086 100 0 98.2091 0 96V4Z"/>
 </mask>
 <mask id="mask1_56_158" style="mask-type:alpha" maskUnits="userSpaceOnUse" x="0" y="0" width="152" height="102">
-<rect id="Rectangle_5_2" width="150" height="100" fill="#D9D9D9"/>
+<rect id="Rectangle_5_2" width="150" height="100" fill="#929292"/>
 </mask>
 <g mask="url(#mask1_56_158)">
 <g id="Rectangle_4_2">

@@ -7,6 +7,7 @@ import {
 } from "./calibration-settings.ts";
 import { CameraPanel } from "./camera-panel.tsx";
 import { initialCameraSnapshot, type CameraInput, type CameraSnapshot } from "./camera-input.ts";
+import { Button } from "./components/ui/button.tsx";
 import type { InputAction, InputFrame } from "./foot-pose.ts";
 import type { LoadedLevel } from "./level.ts";
 import { PixiPlayfield } from "./pixi-playfield.ts";
@@ -230,8 +231,8 @@ export function MovementTestScreen({
     <main className="game-screen movement-game-screen">
       <header className="game-hud movement-game-hud">
         <div className="game-controls">
-          <button className="text-button" onClick={onBack}>Back</button>
-          <button className="text-button" onClick={onRecalibrate}>Recalibrate</button>
+          <Button size="sm" variant="ghost" onClick={onBack}>Back</Button>
+          <Button size="sm" variant="ghost" onClick={onRecalibrate}>Recalibrate</Button>
         </div>
         <div className="hud-track"><small>MOVEMENT TEST</small><strong>{level.song.title}</strong></div>
         <div><small>TARGET</small><strong>{attempt ? noteDescription(attempt.expected) : "Choose a move"}</strong></div>
@@ -246,8 +247,8 @@ export function MovementTestScreen({
           <div ref={mountRef} className="pixi-stage" />
           {!ready && (
             <div className="game-overlay">
-              <h2>{error ? "Playfield unavailable" : "Loading playfield…"}</h2>
-              <span>{error || "Preparing movement test."}</span>
+              <strong>{error ? "Playfield unavailable" : "Loading playfield…"}</strong>
+              {error && <span>{error}</span>}
             </div>
           )}
         </section>
@@ -269,13 +270,13 @@ export function MovementTestScreen({
           </div>
           <div className="movement-game-buttons">
             {(["STEP", "JUMP", "SLIDE"] as const).map((type) => (
-              <button
+              <Button
                 key={type}
                 disabled={!ready || !snapshot.calibrated || Boolean(attempt)}
                 onClick={() => startAttempt(type)}
               >
                 {type}
-              </button>
+              </Button>
             ))}
           </div>
           {latest && (
@@ -288,9 +289,9 @@ export function MovementTestScreen({
           <div className="movement-game-settings">
             <div className="section-heading">
               <small>SETTINGS</small>
-              <button onClick={() => {
+              <Button size="sm" variant="ghost" onClick={() => {
                 setSettings(defaultCalibrationSettings);
-              }}>Reset</button>
+              }}>Reset</Button>
             </div>
             <NumberSetting label="Note travel time" unit="ms" value={settings.cueDelayMs} min={500} step={100} onChange={(value) => updateSetting("cueDelayMs", value)} />
             <NumberSetting label="Listen after hit" unit="ms" value={settings.responseTimeoutMs} min={100} step={100} onChange={(value) => updateSetting("responseTimeoutMs", value)} />
@@ -308,9 +309,9 @@ export function MovementTestScreen({
             <PercentSetting label="Jump lift" value={settings.jumpLift} onChange={(value) => updateSetting("jumpLift", value)} />
             <PercentSetting label="Jump near ground" value={settings.jumpLanding} onChange={(value) => updateSetting("jumpLanding", value)} />
             <PercentSetting label="Jump descent" value={settings.jumpDescent} onChange={(value) => updateSetting("jumpDescent", value)} />
-            <button className="primary movement-save" onClick={() => {
+            <Button className="movement-save" onClick={() => {
               saveCalibrationSettings(settings);
-            }}>Save settings</button>
+            }}>Save settings</Button>
           </div>
         </aside>
 

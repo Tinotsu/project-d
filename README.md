@@ -1,4 +1,4 @@
-# FloorRush
+# Project D
 
 A browser MVP for a DanceRush-style floor game. It tracks both feet with a custom YOLO Pose model, maps camera coordinates onto a calibrated floor, and reports which of four lanes each foot occupies.
 
@@ -111,4 +111,4 @@ The browser app includes camera capture, pose landmarks, calibration, lane detec
 
 ## License
 
-FloorRush, including its Ultralytics YOLO model, is licensed under the [GNU Affero General Public License v3.0](LICENSE). The CMU foot annotations are licensed separately under CC BY 4.0. COCO images and the Second Heaven recording are not distributed by this project.
+Project D, including its Ultralytics YOLO model, is licensed under the [GNU Affero General Public License v3.0](LICENSE). The CMU foot annotations are licensed separately under CC BY 4.0. COCO images and the Second Heaven recording are not distributed by this project.

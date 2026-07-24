@@ -26,7 +26,7 @@ const nearLeft = 20;
 const nearRight = 1260;
 const horizonY = 100;
 const hitY = 590;
-const laneColors = [0x35dcff, 0x6c82ff, 0xff4fa2, 0xff9b45];
+const laneColors = [0x00f300, 0x00f7fa, 0x9c45fa, 0xd52ba2];
 const floorDepthScale = 1 / 3;
 
 function mountJump(warped: HTMLElement, flat: HTMLElement): void {
@@ -111,7 +111,7 @@ export class PixiPlayfield {
   private readonly feedbackLabel = new Text({
     text: "",
     style: {
-      fill: 0xffffff,
+      fill: 0xf9f9f9,
       fontFamily: "Space Grotesk",
       fontSize: 42,
       fontWeight: "700",
@@ -163,10 +163,10 @@ export class PixiPlayfield {
 
   showResult(result: JudgementResult): void {
     this.feedback.clear();
-    const color = result.judgement === "perfect" ? 0xffe640 : result.judgement === "great" ? 0x35dcff : result.judgement === "good" ? 0xffffff : 0xff4fa2;
+    const color = result.judgement === "perfect" ? 0x00f300 : result.judgement === "great" ? 0x00f7fa : result.judgement === "good" ? 0xfaf600 : 0xfc2500;
     this.feedback
       .roundRect(gameWidth / 2 - 145, 275, 290, 82, 18)
-      .fill({ color: 0x08090d, alpha: 0.82 })
+      .fill({ color: 0x000000, alpha: 0.82 })
       .stroke({ color, width: 5 });
     this.feedbackLabel.text = result.judgement.toUpperCase();
     this.feedbackLabel.visible = true;

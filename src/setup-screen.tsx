@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 import { CameraPanel } from "./camera-panel.tsx";
 import { initialCameraSnapshot, type CameraInput, type CameraSnapshot } from "./camera-input.ts";
+import { Button } from "./components/ui/button.tsx";
 
 type SetupScreenProps = {
   cameraInput: CameraInput;
@@ -19,17 +20,11 @@ export function SetupScreen({ cameraInput, levelReady, mode = "play", onCalibrat
 
   return (
     <main className="setup-screen">
-      <div className={`screen-heading${mode === "movement-test" ? " movement-setup-heading" : ""}`}>
-        {mode === "play" && (
-          <div>
-            <p className="eyebrow">CAMERA INPUT</p>
-            <h2>Calibrate your floor</h2>
-            <p>Keep the full play area and both feet visible, then mark its corners.</p>
-          </div>
-        )}
-        <button className="primary" disabled={!snapshot.calibrated || !levelReady} onClick={onContinue}>
+      <div className="page-toolbar">
+        <strong>{mode === "play" ? "Camera" : "Movement test"}</strong>
+        <Button disabled={!snapshot.calibrated || !levelReady} onClick={onContinue}>
           {mode === "play" ? "Continue to level" : "Continue to playfield"}
-        </button>
+        </Button>
       </div>
       <CameraPanel input={cameraInput} onSnapshot={receiveSnapshot} />
     </main>

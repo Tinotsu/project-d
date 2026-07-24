@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CameraPanel } from "./camera-panel.tsx";
 import { type CameraInput, type CameraSnapshot } from "./camera-input.ts";
+import { Button } from "./components/ui/button.tsx";
 import { GameSession, type GameSnapshot } from "./game-session.ts";
 import type { InputFrame } from "./foot-pose.ts";
 import type { LoadedLevel } from "./level.ts";
@@ -120,11 +121,11 @@ export function GameScreen({ cameraInput, level, onExit, onFinish }: GameScreenP
     <main className="game-screen">
       <header className="game-hud">
         <div className="game-controls">
-          <button className="text-button" onClick={onExit}>Exit</button>
-          <button className="text-button" disabled={!hud.running || starting} onClick={() => void togglePause()}>
+          <Button size="sm" variant="ghost" onClick={onExit}>Exit</Button>
+          <Button size="sm" variant="ghost" disabled={!hud.running || starting} onClick={() => void togglePause()}>
             {hud.paused ? "Resume" : "Pause"}
-          </button>
-          <button className="text-button restart-button" disabled={!ready || starting} onClick={() => void startLevel()}>Restart</button>
+          </Button>
+          <Button size="sm" disabled={!ready || starting} onClick={() => void startLevel()}>Restart</Button>
         </div>
         <div className="hud-track"><small>TRACK</small><strong>{level.song.title}</strong></div>
         <div><small>SCORE</small><strong className="accent">{hud.score.toString().padStart(6, "0")}</strong></div>
@@ -138,13 +139,12 @@ export function GameScreen({ cameraInput, level, onExit, onFinish }: GameScreenP
           <div ref={mountRef} className="pixi-stage" />
           {!hud.running && (
             <div className="game-overlay">
-              <p>{level.chart.level.difficulty.toUpperCase()} · RATING {level.chart.level.rating}</p>
-              <h2>{error ? "Level unavailable" : ready ? "Ready?" : "Loading level…"}</h2>
-              <span>{error || "Step on the matching lanes as notes cross the floor line."}</span>
+              <strong>{error ? "Level unavailable" : ready ? "Ready" : "Loading level…"}</strong>
+              {error && <span>{error}</span>}
               {!error && (
-                <button disabled={!ready || starting} onClick={() => void startLevel()}>
+                <Button size="lg" disabled={!ready || starting} onClick={() => void startLevel()}>
                   {starting ? "Starting…" : "Start level"}
-                </button>
+                </Button>
               )}
             </div>
           )}

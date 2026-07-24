@@ -20,7 +20,7 @@ import {
 } from "./calibration-settings.ts";
 
 const cornerNames = ["A · FAR LEFT", "B · FAR RIGHT", "C · NEAR RIGHT", "D · NEAR LEFT"];
-const footColors = { left: "#35dcff", right: "#ff4fa2" };
+const footColors = { left: "#FAF600", right: "#00F7FA" };
 
 export type CameraSnapshot = {
   status: string;
@@ -296,8 +296,8 @@ export class CameraInput {
       this.context.beginPath();
       points.forEach((point, index) => index ? this.context!.lineTo(point.x, point.y) : this.context!.moveTo(point.x, point.y));
       this.context.closePath();
-      this.context.fillStyle = occupiedLanes.has(lane + 1) ? "rgba(255, 230, 64, .24)" : "rgba(10, 13, 19, .18)";
-      this.context.strokeStyle = occupiedLanes.has(lane + 1) ? "#ffe640" : "rgba(255, 255, 255, .55)";
+      this.context.fillStyle = occupiedLanes.has(lane + 1) ? "#00692B" : "#000000";
+      this.context.strokeStyle = occupiedLanes.has(lane + 1) ? "#00F300" : "#929292";
       this.context.lineWidth = occupiedLanes.has(lane + 1) ? 4 : 2;
       this.context.fill();
       this.context.stroke();
@@ -309,9 +309,9 @@ export class CameraInput {
     this.corners.forEach((point, index) => {
       this.context!.beginPath();
       this.context!.arc(this.canvas!.width - point.x, point.y, 11, 0, Math.PI * 2);
-      this.context!.fillStyle = "#ffe640";
+      this.context!.fillStyle = "#FAF600";
       this.context!.fill();
-      this.context!.fillStyle = "#08090d";
+      this.context!.fillStyle = "#000000";
       this.context!.font = "700 12px sans-serif";
       this.context!.textAlign = "center";
       this.context!.textBaseline = "middle";
