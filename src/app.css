@@ -52,7 +52,6 @@ button:focus-visible, input:focus-visible, select:focus-visible, audio:focus-vis
 .camera-empty span, .camera-hint { color: #929292; font-size: 12px; }
 .camera-icon { position: relative; width: 48px; height: 34px; margin-bottom: 8px; border: 2px solid #929292; border-radius: 6px; }
 .camera-icon::before { position: absolute; inset: 0; width: 14px; height: 14px; margin: auto; border: 2px solid #929292; border-radius: 50%; content: ""; }
-.corner-prompt { position: absolute; z-index: 3; top: 12px; left: 50%; transform: translateX(-50%); border-radius: 6px; padding: 8px 10px; background: #faf600; color: #000000; font-size: 12px; font-weight: 600; }
 .camera-details, .camera-readout, .input-events { padding: 14px; }
 .camera-details, .camera-readout { display: grid; align-content: start; gap: 10px; }
 .camera-status { display: flex; align-items: center; gap: 8px; font-size: 13px; }

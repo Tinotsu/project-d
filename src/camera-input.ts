@@ -296,7 +296,7 @@ export class CameraInput {
       this.context.beginPath();
       points.forEach((point, index) => index ? this.context!.lineTo(point.x, point.y) : this.context!.moveTo(point.x, point.y));
       this.context.closePath();
-      this.context.fillStyle = occupiedLanes.has(lane + 1) ? "#00692B" : "#000000";
+      this.context.fillStyle = occupiedLanes.has(lane + 1) ? "rgba(0, 105, 43, .24)" : "rgba(0, 0, 0, .18)";
       this.context.strokeStyle = occupiedLanes.has(lane + 1) ? "#00F300" : "#929292";
       this.context.lineWidth = occupiedLanes.has(lane + 1) ? 4 : 2;
       this.context.fill();

@@ -60,7 +60,6 @@ export function CameraPanel({ input, compact = false, onFrame, onSnapshot }: Cam
             <span>Start tracking to calibrate your floor</span>
           </div>
         )}
-        {snapshot.cornerPrompt && <div className="corner-prompt">{snapshot.cornerPrompt}</div>}
       </div>
 
       <div className="camera-details">
