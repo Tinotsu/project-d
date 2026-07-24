@@ -15,7 +15,7 @@ import trackUrl from "../assets/pist.svg?url";
 import rightSlideUrl from "../assets/right slide.svg?url";
 import rightStepUrl from "../assets/right base.svg?url";
 import type { LevelChart } from "./level.ts";
-import { slideBounds, type ChartNote, type JudgementResult } from "./rhythm-engine.ts";
+import { slideBounds, stepBounds, type ChartNote, type JudgementResult } from "./rhythm-engine.ts";
 
 export const gameWidth = 1280;
 export const gameHeight = 720;
@@ -343,6 +343,10 @@ export class PixiPlayfield {
     if (note.type === "JUMP") return [1, lanes];
     if (note.type === "SLIDE") {
       const bounds = slideBounds(note);
+      return [bounds.left + 1, bounds.right];
+    }
+    if (note.type === "STEP") {
+      const bounds = stepBounds(note);
       return [bounds.left + 1, bounds.right];
     }
     const lane = note.lane ?? (lanes + 1) / 2;

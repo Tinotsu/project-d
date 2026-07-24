@@ -11,6 +11,7 @@ export type ChartNote = {
   laneOffset?: 0 | 0.5;
   endLane?: number;
   slidePosition?: number;
+  stepPosition?: number;
   foot: Foot;
 };
 
@@ -35,6 +36,11 @@ export function slideBounds(note: ChartNote): { left: number; right: number } {
   const end = note.endLane! - 0.5;
   const left = Math.max(0, Math.min(2, note.slidePosition ?? Math.min(start, end)));
   return { left, right: left + 2 };
+}
+
+export function stepBounds(note: ChartNote): { left: number; right: number } {
+  const left = Math.max(0, Math.min(3, note.stepPosition ?? note.lane! - 1));
+  return { left, right: left + 1 };
 }
 
 const points: Record<Judgement, number> = {

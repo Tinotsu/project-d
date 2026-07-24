@@ -9,7 +9,7 @@ import {
   timelineScrollTopAfterZoom,
   turnTimelineSlide,
 } from "./level-builder.tsx";
-import { slideBounds } from "./rhythm-engine.ts";
+import { slideBounds, stepBounds } from "./rhythm-engine.ts";
 
 describe("level builder", () => {
   it("creates the requested move at an exact lane and time", () => {
@@ -18,6 +18,7 @@ describe("level builder", () => {
       time: 12.375,
       type: "STEP",
       lane: 3,
+      stepPosition: 2,
       foot: "right",
     });
     expect(createTimelineNote("n005", "SLIDE_LEFT", 3, 13, 0)).toMatchObject({
@@ -46,6 +47,13 @@ describe("level builder", () => {
       -10,
       30,
     )).toMatchObject({ lane: 3, endLane: 1, time: 0 });
+  });
+
+  it("moves steps in half-lane steps and keeps the whole step inside the track", () => {
+    const step = createTimelineNote("n001", "LEFT_STEP", 2, 4);
+
+    expect(stepBounds(moveTimelineNote(step, 0.5, 0, 30))).toEqual({ left: 1.5, right: 2.5 });
+    expect(stepBounds(moveTimelineNote(step, 10, 0, 30))).toEqual({ left: 3, right: 4 });
   });
 
   it("keeps every slide the same size and inside the lane borders", () => {

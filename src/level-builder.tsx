@@ -6,7 +6,7 @@ import rightStepUrl from "../assets/right base.svg?url";
 import rightSlideUrl from "../assets/right slide.svg?url";
 import { Button } from "./components/ui/button.tsx";
 import type { LoadedLevel, LevelChart, SongMetadata } from "./level.ts";
-import { slideBounds, type ChartNote } from "./rhythm-engine.ts";
+import { slideBounds, stepBounds, type ChartNote } from "./rhythm-engine.ts";
 
 type LevelBuilderProps = {
   level: LoadedLevel;
@@ -47,12 +47,12 @@ export function createTimelineNote(
   type: AddNoteType,
   lane: number,
   time: number,
-  laneOffset: 0 | 0.5 = 0.5,
+  laneOffset?: 0 | 0.5,
 ): ChartNote {
   if (type === "JUMP") return { id, time, type: "JUMP", foot: "both" };
   if (type === "SLIDE_LEFT" || type === "SLIDE_RIGHT") {
     const pointsRight = type === "SLIDE_RIGHT";
-    const slidePosition = Math.max(0, Math.min(2, lane - 1 + laneOffset - (pointsRight ? 0 : 2)));
+    const slidePosition = Math.max(0, Math.min(2, lane - 1 + (laneOffset ?? 0.5) - (pointsRight ? 0 : 2)));
     const firstLane = Math.min(2, Math.floor(slidePosition + 1));
     return {
       id,
@@ -64,11 +64,13 @@ export function createTimelineNote(
       foot: pointsRight ? "right" : "left",
     };
   }
+  const stepPosition = Math.max(0, Math.min(3, lane - 1 + (laneOffset ?? 0)));
   return {
     id,
     time,
     type: "STEP",
-    lane,
+    lane: Math.min(4, Math.floor(stepPosition + 1)),
+    stepPosition,
     foot: type === "LEFT_STEP" ? "left" : "right",
   };
 }
@@ -77,7 +79,6 @@ export function moveTimelineNote(note: ChartNote, laneDelta: number, timeDelta: 
   const time = Number(Math.max(0, Math.min(duration, note.time + timeDelta)).toFixed(3));
   if (note.type === "JUMP") return { ...note, time };
 
-  let lane = Math.max(1, Math.min(4, note.lane! + laneDelta));
   if (note.type === "SLIDE") {
     const slidePosition = Math.max(0, Math.min(2, slideBounds(note).left + laneDelta));
     const firstLane = Math.min(2, Math.floor(slidePosition + 1));
@@ -86,7 +87,8 @@ export function moveTimelineNote(note: ChartNote, laneDelta: number, timeDelta: 
       : { ...note, time, lane: firstLane, endLane: firstLane + 2, slidePosition };
   }
 
-  return { ...note, time, lane };
+  const stepPosition = Math.max(0, Math.min(3, stepBounds(note).left + laneDelta));
+  return { ...note, time, lane: Math.min(4, Math.floor(stepPosition + 1)), stepPosition };
 }
 
 export function turnTimelineSlide(note: ChartNote): ChartNote {
@@ -323,9 +325,9 @@ export function LevelBuilder({ level, onBack, onPublish, onSave, onTest }: Level
     const drag = noteDragRef.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
     const laneWidth = event.currentTarget.parentElement!.getBoundingClientRect().width / 4;
-    const laneDelta = drag.note.type === "SLIDE"
+    const laneDelta = drag.note.type !== "JUMP"
       ? Math.round((event.clientX - drag.x) / (laneWidth / 2)) * 0.5
-      : Math.round((event.clientX - drag.x) / laneWidth);
+      : 0;
     const movedNote = moveTimelineNote(
       drag.note,
       laneDelta,
@@ -493,8 +495,9 @@ export function LevelBuilder({ level, onBack, onPublish, onSave, onTest }: Level
                   let left = 0;
                   let width = 100;
                   if (note.type === "STEP") {
-                    left = (note.lane! - 1) * 25;
-                    width = 25;
+                    const bounds = stepBounds(note);
+                    left = bounds.left * 25;
+                    width = (bounds.right - bounds.left) * 25;
                   } else if (note.type === "SLIDE") {
                     const bounds = slideBounds(note);
                     left = bounds.left * 25;
