@@ -186,6 +186,10 @@ button:focus-visible, input:focus-visible, select:focus-visible, audio:focus-vis
 .zoom-controls button:hover { background: #2b2b2b; }
 .zoom-controls .zoom-normal { border-right: 1px solid #292929; border-left: 1px solid #292929; color: #aaa; font-size: 9px; }
 .zoom-controls output { color: #aaa; font-family: monospace; font-size: 9px; text-align: center; }
+.timeline-navigation { display: grid; grid-template-columns: repeat(2, 42px); overflow: hidden; border: 1px solid #3c3c3c; border-radius: 4px; }
+.timeline-navigation button { height: 26px; border: 0; background: #111; color: #aaa; font-size: 9px; }
+.timeline-navigation button + button { border-left: 1px solid #292929; }
+.timeline-navigation button:hover:not(:disabled) { background: #2b2b2b; color: #fff; }
 .lane-headings { display: grid; grid-template-columns: 92px repeat(4, 1fr); border-bottom: 1px solid #343434; color: #686868; font-size: 8px; font-weight: 800; letter-spacing: .1em; text-align: center; }
 .lane-headings span { display: grid; place-items: center; border-right: 1px solid #222; }
 .timeline-scroll { min-height: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; scrollbar-color: #00f300 #111; }

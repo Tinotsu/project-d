@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { createTimelineNote, moveTimelineNote, sampleWaveform, timelinePixelsPerSecond } from "./level-builder.tsx";
+import {
+  createTimelineNote,
+  moveTimelineNote,
+  sampleWaveform,
+  timelineNavigationNotes,
+  timelinePixelsPerSecond,
+} from "./level-builder.tsx";
 
 describe("level builder", () => {
   it("creates the requested move at an exact lane and time", () => {
@@ -42,5 +48,14 @@ describe("level builder", () => {
     expect(timelinePixelsPerSecond(0.5)).toBe(360);
     expect(timelinePixelsPerSecond(1)).toBe(720);
     expect(timelinePixelsPerSecond(2)).toBe(1440);
+  });
+
+  it("navigates to the first and last chronological notes", () => {
+    const middle = createTimelineNote("n002", "LEFT_STEP", 2, 10);
+    const last = createTimelineNote("n003", "RIGHT_STEP", 3, 20);
+    const first = createTimelineNote("n001", "LEFT_STEP", 1, 5);
+
+    expect(timelineNavigationNotes([middle, last, first])).toEqual({ first, last });
+    expect(timelineNavigationNotes([])).toEqual({ first: undefined, last: undefined });
   });
 });

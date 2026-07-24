@@ -78,6 +78,14 @@ export function timelinePixelsPerSecond(zoom: number): number {
   return normalPixelsPerSecond * zoom;
 }
 
+export function timelineNavigationNotes(notes: ChartNote[]): {
+  first: ChartNote | undefined;
+  last: ChartNote | undefined;
+} {
+  const chronological = [...notes].sort((left, right) => left.time - right.time);
+  return { first: chronological[0], last: chronological.at(-1) };
+}
+
 export function LevelBuilder({ level, onBack, onPublish, onSave, onTest }: LevelBuilderProps) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
@@ -98,12 +106,13 @@ export function LevelBuilder({ level, onBack, onPublish, onSave, onTest }: Level
   const pixelsPerSecond = timelinePixelsPerSecond(zoom);
   const timelineHeight = Math.max(1500, duration * pixelsPerSecond);
   const notes = useMemo(() => [...chart.notes].sort((left, right) => right.time - left.time), [chart.notes]);
+  const navigationNotes = useMemo(() => timelineNavigationNotes(chart.notes), [chart.notes]);
   const selectedNote = chart.notes.find((note) => note.id === selectedNoteId);
   const markers = Array.from({ length: Math.floor(duration / 5) + 1 }, (_, index) => index * 5);
 
   useEffect(() => {
-    if (timelineRef.current) timelineRef.current.scrollTop = timelineRef.current.scrollHeight;
-  }, [duration]);
+    navigateToNote(navigationNotes.first);
+  }, []);
 
   useEffect(() => {
     const dismissMenu = () => setMenu(undefined);
@@ -230,6 +239,18 @@ export function LevelBuilder({ level, onBack, onPublish, onSave, onTest }: Level
     setSelectedNoteId(note.id);
     if (audioRef.current) audioRef.current.currentTime = note.time;
     setPlayhead(note.time);
+  }
+
+  function navigateToNote(note: ChartNote | undefined): void {
+    const timeline = timelineRef.current;
+    if (!timeline) return;
+    if (!note) {
+      timeline.scrollTop = timeline.scrollHeight;
+      return;
+    }
+
+    selectNote(note);
+    timeline.scrollTop = timeline.scrollHeight - note.time * pixelsPerSecond - timeline.clientHeight / 2;
   }
 
   function startNoteDrag(event: React.PointerEvent<HTMLButtonElement>, note: ChartNote): void {
@@ -381,6 +402,10 @@ export function LevelBuilder({ level, onBack, onPublish, onSave, onTest }: Level
                 <output>{Math.round(zoom * 100)}%</output>
                 <button type="button" className="zoom-normal" onClick={() => setZoom(1)}>Normal</button>
                 <button type="button" aria-label="Zoom in" onClick={() => setZoom((current) => Math.min(3, current + 0.25))}>＋</button>
+              </div>
+              <div className="timeline-navigation" aria-label="Timeline navigation">
+                <button type="button" disabled={!navigationNotes.first} onClick={() => navigateToNote(navigationNotes.first)}>Start</button>
+                <button type="button" disabled={!navigationNotes.last} onClick={() => navigateToNote(navigationNotes.last)}>End</button>
               </div>
             </div>
           </div>
