@@ -202,6 +202,12 @@ export function LevelBuilder({ level, onBack, onPublish, onSave, onTest }: Level
     setMenu({ x: event.clientX, y: event.clientY, mode: "note", noteId });
   }
 
+  function zoomTimeline(event: React.WheelEvent<HTMLDivElement>): void {
+    if (!event.ctrlKey && !event.metaKey) return;
+    event.preventDefault();
+    setZoom((current) => Math.max(0.5, Math.min(3, current + (event.deltaY < 0 ? 0.25 : -0.25))));
+  }
+
   function selectNote(note: ChartNote): void {
     setSelectedNoteId(note.id);
     if (audioRef.current) audioRef.current.currentTime = note.time;
@@ -351,7 +357,7 @@ export function LevelBuilder({ level, onBack, onPublish, onSave, onTest }: Level
               <span>{notes.length} moves · {formatTime(duration)}</span>
             </div>
             <div className="timeline-toolbar-actions">
-              <span className="scroll-hint">SCROLL ↑ TO MOVE FORWARD</span>
+              <span className="scroll-hint">CTRL + SCROLL TO ZOOM</span>
               <div className="zoom-controls" aria-label="Timeline zoom">
                 <button type="button" aria-label="Zoom out" onClick={() => setZoom((current) => Math.max(0.5, current - 0.25))}>−</button>
                 <output>{Math.round(zoom * 100)}%</output>
@@ -363,7 +369,7 @@ export function LevelBuilder({ level, onBack, onPublish, onSave, onTest }: Level
             <span>WAVE</span>
             {[1, 2, 3, 4].map((lane) => <span key={lane}>LANE {lane}</span>)}
           </div>
-          <div ref={timelineRef} className="timeline-scroll">
+          <div ref={timelineRef} className="timeline-scroll" onWheel={zoomTimeline}>
             <div className="timeline-canvas" style={{ height: timelineHeight }}>
               <div className="timeline-wave">
                 {(peaks.length ? peaks : Array(240).fill(0.08)).map((peak, index) => (
