@@ -108,6 +108,26 @@ export function LevelBuilder({ level, onBack, onPublish, onSave, onTest }: Level
   }, []);
 
   useEffect(() => {
+    const timeline = timelineRef.current;
+    if (!timeline) return;
+    const zoomTimeline = (event: WheelEvent) => {
+      if (!event.ctrlKey && !event.metaKey) return;
+      event.preventDefault();
+      const pointerY = event.clientY - timeline.getBoundingClientRect().top;
+      const anchor = (timeline.scrollTop + pointerY) / timeline.scrollHeight;
+      setZoom((current) => {
+        const nextZoom = Math.max(0.5, Math.min(3, current + (event.deltaY < 0 ? 0.25 : -0.25)));
+        requestAnimationFrame(() => {
+          timeline.scrollTop = anchor * timeline.scrollHeight - pointerY;
+        });
+        return nextZoom;
+      });
+    };
+    timeline.addEventListener("wheel", zoomTimeline, { passive: false });
+    return () => timeline.removeEventListener("wheel", zoomTimeline);
+  }, []);
+
+  useEffect(() => {
     if (!song.audio) return;
     let cancelled = false;
     (audioBlob ? audioBlob.arrayBuffer() : fetch(song.audio).then((response) => response.arrayBuffer()))
@@ -200,12 +220,6 @@ export function LevelBuilder({ level, onBack, onPublish, onSave, onTest }: Level
     event.stopPropagation();
     setSelectedNoteId(noteId);
     setMenu({ x: event.clientX, y: event.clientY, mode: "note", noteId });
-  }
-
-  function zoomTimeline(event: React.WheelEvent<HTMLDivElement>): void {
-    if (!event.ctrlKey && !event.metaKey) return;
-    event.preventDefault();
-    setZoom((current) => Math.max(0.5, Math.min(3, current + (event.deltaY < 0 ? 0.25 : -0.25))));
   }
 
   function selectNote(note: ChartNote): void {
@@ -369,7 +383,7 @@ export function LevelBuilder({ level, onBack, onPublish, onSave, onTest }: Level
             <span>WAVE</span>
             {[1, 2, 3, 4].map((lane) => <span key={lane}>LANE {lane}</span>)}
           </div>
-          <div ref={timelineRef} className="timeline-scroll" onWheel={zoomTimeline}>
+          <div ref={timelineRef} className="timeline-scroll">
             <div className="timeline-canvas" style={{ height: timelineHeight }}>
               <div className="timeline-wave">
                 {(peaks.length ? peaks : Array(240).fill(0.08)).map((peak, index) => (
