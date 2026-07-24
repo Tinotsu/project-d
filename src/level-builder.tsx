@@ -29,7 +29,7 @@ type NoteDrag = {
   y: number;
 };
 
-const basePixelsPerSecond = 30;
+const normalPixelsPerSecond = 720;
 
 export function sampleWaveform(channel: Float32Array, barCount: number): number[] {
   const blockSize = Math.max(1, Math.floor(channel.length / barCount));
@@ -74,6 +74,10 @@ export function moveTimelineNote(note: ChartNote, laneDelta: number, timeDelta: 
   return { ...note, time, lane };
 }
 
+export function timelinePixelsPerSecond(zoom: number): number {
+  return normalPixelsPerSecond * zoom;
+}
+
 export function LevelBuilder({ level, onBack, onPublish, onSave, onTest }: LevelBuilderProps) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
@@ -91,7 +95,7 @@ export function LevelBuilder({ level, onBack, onPublish, onSave, onTest }: Level
   const [status, setStatus] = useState("");
 
   const duration = Math.max(30, Math.ceil(song.duration || chart.level.endTime || 60));
-  const pixelsPerSecond = basePixelsPerSecond * zoom;
+  const pixelsPerSecond = timelinePixelsPerSecond(zoom);
   const timelineHeight = Math.max(1500, duration * pixelsPerSecond);
   const notes = useMemo(() => [...chart.notes].sort((left, right) => right.time - left.time), [chart.notes]);
   const selectedNote = chart.notes.find((note) => note.id === selectedNoteId);
@@ -375,6 +379,7 @@ export function LevelBuilder({ level, onBack, onPublish, onSave, onTest }: Level
               <div className="zoom-controls" aria-label="Timeline zoom">
                 <button type="button" aria-label="Zoom out" onClick={() => setZoom((current) => Math.max(0.5, current - 0.25))}>−</button>
                 <output>{Math.round(zoom * 100)}%</output>
+                <button type="button" className="zoom-normal" onClick={() => setZoom(1)}>Normal</button>
                 <button type="button" aria-label="Zoom in" onClick={() => setZoom((current) => Math.min(3, current + 0.25))}>＋</button>
               </div>
             </div>
@@ -430,8 +435,9 @@ export function LevelBuilder({ level, onBack, onPublish, onSave, onTest }: Level
                       key={note.id}
                       style={{
                         bottom: note.time * pixelsPerSecond,
-                        left: `calc(${left}% + 4px)`,
-                        width: `calc(${width}% - 8px)`,
+                        left: `${left}%`,
+                        width: `${width}%`,
+                        transform: `translateY(50%) scaleY(${zoom})`,
                       }}
                       onClick={(event) => {
                         event.stopPropagation();

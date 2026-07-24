@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createTimelineNote, moveTimelineNote, sampleWaveform } from "./level-builder.tsx";
+import { createTimelineNote, moveTimelineNote, sampleWaveform, timelinePixelsPerSecond } from "./level-builder.tsx";
 
 describe("level builder", () => {
   it("creates the requested move at an exact lane and time", () => {
@@ -36,5 +36,11 @@ describe("level builder", () => {
       -10,
       30,
     )).toMatchObject({ lane: 3, endLane: 1, time: 0 });
+  });
+
+  it("keeps timestamp distance proportional while zooming", () => {
+    expect(timelinePixelsPerSecond(0.5)).toBe(360);
+    expect(timelinePixelsPerSecond(1)).toBe(720);
+    expect(timelinePixelsPerSecond(2)).toBe(1440);
   });
 });
