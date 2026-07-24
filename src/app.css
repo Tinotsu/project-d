@@ -1,7 +1,7 @@
 :root {
   color: #f9f9f9;
   background: #000000;
-  font-family: Inter, Arial, Helvetica, sans-serif;
+  font-family: Arial, Helvetica, sans-serif;
   font-synthesis: none;
 }
 
@@ -27,35 +27,17 @@ button:focus-visible, input:focus-visible, select:focus-visible, audio:focus-vis
 .app-header { display: flex; align-items: center; justify-content: space-between; height: 64px; padding: 0 24px; border-bottom: 1px solid #929292; }
 .brand { height: 40px; padding: 0; font-size: 20px; }
 
-.home-screen { position: relative; width: min(1280px, 100%); height: calc(100dvh - 64px); margin: auto; padding: 52px 32px 28px; overflow-y: auto; }
-.home-screen::before { position: fixed; z-index: 0; top: 64px; right: 0; width: 46vw; height: 44vh; background: radial-gradient(circle at 60% 30%, rgba(0, 243, 0, .18), transparent 64%); pointer-events: none; content: ""; }
-.home-hero, .level-library, .home-tools, .home-screen > .error-message { position: relative; z-index: 1; }
-.home-hero { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 48px; min-height: 290px; border-bottom: 1px solid #343434; padding: 24px 0 52px; }
-.home-hero small, .library-heading small { color: #00f300; font-size: 10px; font-weight: 800; letter-spacing: .18em; }
-.home-hero h1 { margin: 15px 0 18px; font-size: clamp(46px, 7vw, 88px); line-height: .9; letter-spacing: -.065em; text-transform: uppercase; }
-.home-hero h1 span { color: #00f300; }
-.home-hero p { max-width: 600px; margin: 0; color: #929292; font-size: 15px; line-height: 1.6; }
-.home-hero > .button { min-width: 210px; box-shadow: 0 0 36px rgba(0, 243, 0, .16); }
-.level-library { padding: 38px 0 28px; }
-.library-heading { display: flex; align-items: end; justify-content: space-between; gap: 20px; margin-bottom: 20px; }
-.library-heading h2 { margin: 6px 0 0; font-size: 25px; letter-spacing: -.03em; }
-.library-heading > span { color: #666; font-size: 10px; font-weight: 700; letter-spacing: .12em; }
-.level-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.level-card { display: grid; grid-template-columns: 116px minmax(0, 1fr) auto; align-items: center; gap: 18px; min-height: 130px; border: 1px solid #343434; border-radius: 8px; padding: 12px; background: #080808; transition: border-color .16s, transform .16s; }
-.level-card:hover { border-color: #707070; transform: translateY(-2px); }
-.level-art { position: relative; display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px; height: 104px; overflow: hidden; border: 1px solid #343434; border-radius: 5px; background: linear-gradient(165deg, #121212, #020202); }
-.level-art > span { position: absolute; z-index: 2; top: 8px; left: 9px; color: #fff; font-size: 11px; font-weight: 800; }
-.level-art > i { position: relative; border-left: 1px solid #242424; background: linear-gradient(to top, rgba(0, 243, 0, .2), transparent 62%); }
-.level-art > i::after { position: absolute; right: 5px; bottom: 12px; left: 5px; height: 5px; border-radius: 2px; background: #00f300; box-shadow: 0 -24px 0 #00f7fa, 0 -48px 0 #9c45fa; content: ""; transform: rotate(-4deg); }
-.level-card-copy { min-width: 0; }
-.level-status { display: flex; align-items: center; gap: 6px; color: #00f300; font-size: 9px; font-weight: 800; letter-spacing: .1em; }
-.level-status i { width: 5px; height: 5px; border-radius: 50%; background: #00f300; box-shadow: 0 0 8px #00f300; }
-.level-card h3 { margin: 7px 0 6px; overflow: hidden; font-size: 18px; text-overflow: ellipsis; white-space: nowrap; }
-.level-card p { margin: 0; color: #777; font-size: 11px; text-transform: capitalize; }
-.level-card-actions { display: grid; gap: 6px; }
-.home-tools { display: flex; gap: 4px; border-top: 1px solid #202020; padding-top: 16px; }
-.home-tools .button { color: #777; font-size: 11px; }
-.library-loading { grid-column: 1 / -1; padding: 36px; color: #666; text-align: center; }
+.menu-screen { display: grid; align-content: center; width: min(760px, 100%); height: calc(100dvh - 64px); margin: auto; padding: 24px; overflow-y: auto; }
+.menu-screen h1 { margin: 0 0 24px; font-size: clamp(30px, 5vw, 46px); }
+.menu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.menu-item { height: 72px; justify-content: flex-start; font-size: 18px; }
+.menu-item:first-child { grid-column: 1 / -1; }
+.published-levels { margin-top: 16px; padding: 12px; }
+.published-levels .section-heading { margin-bottom: 4px; }
+.published-level { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 8px; border-top: 1px solid #929292; padding: 10px 0; }
+.published-level > div { display: grid; gap: 3px; min-width: 0; }
+.published-level > div strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.published-level > div span { color: #929292; font-size: 11px; text-transform: capitalize; }
 .error-message { margin: 16px 0 0; color: #fc2500; }
 
 .setup-screen { width: min(1440px, 100%); height: calc(100dvh - 64px); margin: auto; padding: 16px 24px; overflow: hidden; }
@@ -248,14 +230,12 @@ button:focus-visible, input:focus-visible, select:focus-visible, audio:focus-vis
 
 @media (max-width: 720px) {
   .app-header { height: 56px; padding: 0 12px; }
-  .home-screen { height: calc(100dvh - 56px); padding: 16px; }
-  .home-hero { grid-template-columns: 1fr; gap: 24px; padding-bottom: 32px; }
-  .home-hero h1 { font-size: 48px; }
-  .level-cards { grid-template-columns: 1fr; }
-  .level-card { grid-template-columns: 90px minmax(0, 1fr); }
-  .level-art { height: 90px; }
-  .level-card-actions { grid-column: 1 / -1; grid-template-columns: 1fr 1fr; }
-  .home-tools { flex-wrap: wrap; }
+  .menu-screen { height: calc(100dvh - 56px); padding: 16px; }
+  .menu-screen h1 { margin-bottom: 16px; }
+  .menu-grid { grid-template-columns: 1fr; gap: 8px; }
+  .menu-item, .menu-item:first-child { grid-column: auto; height: 52px; }
+  .published-level { grid-template-columns: minmax(0, 1fr) auto; }
+  .published-level > .button:last-child { grid-column: 1 / -1; }
   .setup-screen { height: calc(100dvh - 56px); padding: 8px; }
   .camera-panel:not(.compact) { grid-template-columns: 1fr 1fr; grid-template-rows: minmax(0, 1fr) auto auto; gap: 8px; }
   .camera-panel:not(.compact) .camera-stage { grid-column: 1 / -1; grid-row: 1; min-height: 120px; }

@@ -90,6 +90,11 @@ export function App() {
     navigate(destination);
   }
 
+  function play(): void {
+    if (cameraCalibrated && cameraInput) navigate("game");
+    else void openSetup();
+  }
+
   if (screen === "game") {
     if (!level || !cameraInput) return <LoadingScreen />;
     return (
@@ -158,82 +163,54 @@ export function App() {
       </header>
 
       {screen === "menu" && (
-        <main className="home-screen">
-          <section className="home-hero">
-            <div>
-              <small>RHYTHM · MOVEMENT · CREATION</small>
-              <h1>Build the beat.<br /><span>Move the room.</span></h1>
-              <p>Create four-lane movement levels, shape every step against the music, then play them with your whole body.</p>
-            </div>
-            <Button
-              size="lg"
-              disabled={!level}
-              onClick={() => {
-                if (!level) return;
-                const draft = structuredClone(level);
-                draft.song = { ...draft.song, id: "untitled-level", title: "Untitled level", audio: "", duration: 60 };
-                draft.chart = {
-                  ...draft.chart,
-                  song: "",
-                  level: { ...draft.chart.level, id: "untitled-level", difficulty: "Normal", endTime: 60 },
-                  notes: [],
-                };
-                setBuilderLevel(draft);
-                navigate("builder");
-              }}
-            >
-              ＋ Build a new level
-            </Button>
-          </section>
-
-          <section className="level-library">
-            <div className="library-heading">
-              <div>
-                <small>YOUR LIBRARY</small>
-                <h2>Published levels</h2>
-              </div>
-              <span>{publishedLevels.length} LEVEL{publishedLevels.length === 1 ? "" : "S"}</span>
-            </div>
-            <div className="level-cards">
-              {publishedLevels.map((libraryLevel, index) => (
-                <article className="level-card" key={`${libraryLevel.song.id}-${index}`}>
-                  <div className="level-art" aria-hidden="true">
-                    <span>{String(index + 1).padStart(2, "0")}</span>
-                    <i />
-                    <i />
-                    <i />
-                    <i />
-                  </div>
-                  <div className="level-card-copy">
-                    <span className="level-status"><i /> PUBLISHED</span>
-                    <h3>{libraryLevel.song.title}</h3>
-                    <p>{libraryLevel.chart.level.difficulty} · {libraryLevel.chart.notes.length} moves · {Math.ceil(libraryLevel.song.duration)} sec</p>
-                  </div>
-                  <div className="level-card-actions">
-                    <Button size="sm" onClick={() => {
-                      setLevel(libraryLevel);
-                      if (cameraCalibrated && cameraInput) navigate("game");
-                      else void openSetup();
-                    }}>Play</Button>
-                    <Button size="sm" variant="outline" onClick={() => {
-                      setBuilderLevel(structuredClone(libraryLevel));
-                      navigate("builder");
-                    }}>Edit</Button>
-                  </div>
-                </article>
-              ))}
-              {!publishedLevels.length && !loadError && <div className="library-loading">Loading your levels…</div>}
-            </div>
-          </section>
-
-          <nav className="home-tools" aria-label="Developer tools">
-            <Button variant="ghost" onClick={() => void openSetup()}>Camera setup</Button>
-            <Button variant="ghost" onClick={() => void openSetup("movement-setup")}>Movement test</Button>
-            <Button variant="ghost" disabled={!level} onClick={() => {
+        <main className="menu-screen">
+          <h1>Project D</h1>
+          <div className="menu-grid">
+            <Button className="menu-item" size="lg" disabled={!level} onClick={play}>Play</Button>
+            <Button className="menu-item" size="lg" variant="outline" onClick={() => void openSetup()}>Camera</Button>
+            <Button className="menu-item" size="lg" variant="outline" onClick={() => void openSetup("movement-setup")}>Movement test</Button>
+            <Button className="menu-item" size="lg" variant="outline" disabled={!level} onClick={() => {
+              if (!level) return;
+              const draft = structuredClone(level);
+              draft.song = { ...draft.song, id: "untitled-level", title: "Untitled level", audio: "", duration: 60 };
+              draft.chart = {
+                ...draft.chart,
+                song: "",
+                level: { ...draft.chart.level, id: "untitled-level", difficulty: "Normal", endTime: 60 },
+                notes: [],
+              };
+              setBuilderLevel(draft);
+              navigate("builder");
+            }}>Level builder</Button>
+            <Button className="menu-item" size="lg" variant="outline" disabled={!level} onClick={() => {
               setTrackReturn("menu");
               navigate("track");
             }}>Playfield test</Button>
-          </nav>
+          </div>
+
+          <section className="published-levels panel">
+            <div className="section-heading">
+              <strong>Published levels</strong>
+              <small>{publishedLevels.length}</small>
+            </div>
+            {publishedLevels.map((libraryLevel) => (
+              <div className="published-level" key={libraryLevel.song.id}>
+                <div>
+                  <strong>{libraryLevel.song.title}</strong>
+                  <span>{libraryLevel.chart.level.difficulty} · {libraryLevel.chart.notes.length} moves</span>
+                </div>
+                <Button size="sm" onClick={() => {
+                  setLevel(libraryLevel);
+                  if (cameraCalibrated && cameraInput) navigate("game");
+                  else void openSetup();
+                }}>Play</Button>
+                <Button size="sm" variant="outline" onClick={() => {
+                  setBuilderLevel(structuredClone(libraryLevel));
+                  navigate("builder");
+                }}>Edit</Button>
+              </div>
+            ))}
+          </section>
           {loadError && <p className="error-message">{loadError}</p>}
         </main>
       )}
