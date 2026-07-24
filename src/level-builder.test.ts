@@ -7,7 +7,9 @@ import {
   timelineNavigationNotes,
   timelinePixelsPerSecond,
   timelineScrollTopAfterZoom,
+  turnTimelineSlide,
 } from "./level-builder.tsx";
+import { slideBounds } from "./rhythm-engine.ts";
 
 describe("level builder", () => {
   it("creates the requested move at an exact lane and time", () => {
@@ -20,8 +22,8 @@ describe("level builder", () => {
     });
     expect(createTimelineNote("n005", "SLIDE_LEFT", 3, 13, 0)).toMatchObject({
       lane: 3,
-      laneOffset: 0,
       endLane: 1,
+      slidePosition: 0,
       type: "SLIDE",
     });
   });
@@ -44,6 +46,31 @@ describe("level builder", () => {
       -10,
       30,
     )).toMatchObject({ lane: 3, endLane: 1, time: 0 });
+  });
+
+  it("keeps every slide the same size and inside the lane borders", () => {
+    const leftAtStart = createTimelineNote("n001", "SLIDE_LEFT", 1, 1, 0);
+    const rightAtEnd = createTimelineNote("n002", "SLIDE_RIGHT", 4, 1, 0.5);
+
+    expect(slideBounds(leftAtStart)).toEqual({ left: 0, right: 2 });
+    expect(slideBounds(rightAtEnd)).toEqual({ left: 2, right: 4 });
+    expect(rightAtEnd).toMatchObject({ lane: 2, endLane: 4 });
+  });
+
+  it("moves slides in half-lane steps without changing their size", () => {
+    const slide = createTimelineNote("n001", "SLIDE_RIGHT", 1, 4);
+    const moved = moveTimelineNote(slide, 0.5, 0, 30);
+
+    expect(slideBounds(moved)).toEqual({ left: 1, right: 3 });
+    expect(moved).toMatchObject({ lane: 2, endLane: 4, slidePosition: 1 });
+  });
+
+  it("turns a slide around without moving or changing its foot", () => {
+    const slide = createTimelineNote("n001", "SLIDE_RIGHT", 2, 4);
+    const turned = turnTimelineSlide(slide);
+
+    expect(turned).toMatchObject({ lane: 4, endLane: 2, foot: "right" });
+    expect(slideBounds(turned)).toEqual(slideBounds(slide));
   });
 
   it("keeps timestamp distance proportional while zooming", () => {

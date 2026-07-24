@@ -179,7 +179,9 @@ export function App() {
   return (
     <div className="app-shell">
       <header className="app-header">
-        <Button className="brand" variant="ghost" onClick={() => navigate("menu")}>Project D</Button>
+        <Button className="brand" variant="ghost" onClick={() => navigate("menu")}>
+          <img src="/icon-d.png" alt="Project D" />
+        </Button>
         {screen !== "menu" && <Button variant="outline" size="sm" onClick={() => navigate("menu")}>Menu</Button>}
       </header>
 

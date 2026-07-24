@@ -25,7 +25,8 @@ button:focus-visible, input:focus-visible, select:focus-visible, audio:focus-vis
 .app-shell, .loading-screen { width: 100%; height: 100dvh; overflow: hidden; }
 .loading-screen { display: grid; place-items: center; color: #929292; }
 .app-header { display: flex; align-items: center; justify-content: space-between; height: 64px; padding: 0 24px; border-bottom: 1px solid #929292; }
-.brand { height: 40px; padding: 0; font-size: 20px; }
+.brand { width: 40px; height: 40px; padding: 0; overflow: hidden; }
+.brand img { display: block; width: 100%; height: 100%; }
 
 .menu-screen { display: grid; align-content: center; width: min(760px, 100%); height: calc(100dvh - 64px); margin: auto; padding: 24px; overflow-y: auto; }
 .menu-screen h1 { margin: 0 0 24px; font-size: clamp(30px, 5vw, 46px); }
