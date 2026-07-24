@@ -22,6 +22,13 @@ type BuilderMenu =
   | { x: number; y: number; mode: "lane"; lane: number; laneOffset: 0 | 0.5; time: number }
   | { x: number; y: number; mode: "note"; noteId: string };
 
+type NoteDrag = {
+  note: ChartNote;
+  pointerId: number;
+  x: number;
+  y: number;
+};
+
 const basePixelsPerSecond = 30;
 
 export function sampleWaveform(channel: Float32Array, barCount: number): number[] {
@@ -53,9 +60,24 @@ export function createTimelineNote(
   };
 }
 
+export function moveTimelineNote(note: ChartNote, laneDelta: number, timeDelta: number, duration: number): ChartNote {
+  const time = Number(Math.max(0, Math.min(duration, note.time + timeDelta)).toFixed(3));
+  if (note.type === "JUMP") return { ...note, time };
+
+  let lane = Math.max(1, Math.min(4, note.lane! + laneDelta));
+  if (note.type === "SLIDE") {
+    const direction = note.endLane! < note.lane! ? -2 : 2;
+    lane = Math.max(direction < 0 ? 3 : 1, Math.min(direction < 0 ? 4 : 2, lane));
+    return { ...note, time, lane, endLane: lane + direction };
+  }
+
+  return { ...note, time, lane };
+}
+
 export function LevelBuilder({ level, onBack, onPublish, onSave, onTest }: LevelBuilderProps) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
+  const noteDragRef = useRef<NoteDrag | undefined>(undefined);
   const [chart, setChart] = useState<LevelChart>(() => structuredClone(level.chart));
   const [song, setSong] = useState<SongMetadata>(() => ({ ...level.song }));
   const [audioBlob, setAudioBlob] = useState(level.audioBlob);
@@ -65,6 +87,7 @@ export function LevelBuilder({ level, onBack, onPublish, onSave, onTest }: Level
   const [zoom, setZoom] = useState(1);
   const [menu, setMenu] = useState<BuilderMenu>();
   const [selectedNoteId, setSelectedNoteId] = useState<string>();
+  const [draggingNoteId, setDraggingNoteId] = useState<string>();
   const [status, setStatus] = useState("");
 
   const duration = Math.max(30, Math.ceil(song.duration || chart.level.endTime || 60));
@@ -185,6 +208,42 @@ export function LevelBuilder({ level, onBack, onPublish, onSave, onTest }: Level
     setPlayhead(note.time);
   }
 
+  function startNoteDrag(event: React.PointerEvent<HTMLButtonElement>, note: ChartNote): void {
+    if (event.button !== 0) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    noteDragRef.current = {
+      note,
+      pointerId: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+    };
+    setSelectedNoteId(note.id);
+    setDraggingNoteId(note.id);
+    setMenu(undefined);
+  }
+
+  function dragNote(event: React.PointerEvent<HTMLButtonElement>): void {
+    const drag = noteDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    const laneWidth = event.currentTarget.parentElement!.getBoundingClientRect().width / 4;
+    const movedNote = moveTimelineNote(
+      drag.note,
+      Math.round((event.clientX - drag.x) / laneWidth),
+      (drag.y - event.clientY) / pixelsPerSecond,
+      duration,
+    );
+    setChart((current) => ({
+      ...current,
+      notes: current.notes.map((note) => note.id === movedNote.id ? movedNote : note),
+    }));
+  }
+
+  function endNoteDrag(event: React.PointerEvent<HTMLButtonElement>): void {
+    if (noteDragRef.current?.pointerId !== event.pointerId) return;
+    noteDragRef.current = undefined;
+    setDraggingNoteId(undefined);
+  }
+
   async function save(): Promise<void> {
     setStatus("Saving…");
     try {
@@ -279,6 +338,7 @@ export function LevelBuilder({ level, onBack, onPublish, onSave, onTest }: Level
           <section className="builder-legend">
             <div className="builder-section-heading"><span>QUICK GUIDE</span></div>
             <p><strong>Right-click</strong> any lane to add a move.</p>
+            <p><strong>Drag</strong> a move to change its lane and time.</p>
             <p><strong>Right-click</strong> a move to edit or delete it.</p>
             <div><i className="legend-left" />Left <i className="legend-right" />Right <i className="legend-jump" />Jump</div>
           </section>
@@ -345,7 +405,7 @@ export function LevelBuilder({ level, onBack, onPublish, onSave, onTest }: Level
                     <button
                       type="button"
                       aria-label={`${note.type} at ${note.time.toFixed(3)} seconds`}
-                      className={`timeline-note ${note.type.toLowerCase()} ${note.foot} ${selectedNoteId === note.id ? "selected" : ""}`}
+                      className={`timeline-note ${note.type.toLowerCase()} ${note.foot} ${selectedNoteId === note.id ? "selected" : ""} ${draggingNoteId === note.id ? "dragging" : ""}`}
                       data-direction={note.type === "SLIDE" && note.endLane! < note.lane! ? "left" : "right"}
                       key={note.id}
                       style={{
@@ -358,6 +418,10 @@ export function LevelBuilder({ level, onBack, onPublish, onSave, onTest }: Level
                         selectNote(note);
                       }}
                       onContextMenu={(event) => openNoteMenu(event, note.id)}
+                      onPointerDown={(event) => startNoteDrag(event, note)}
+                      onPointerMove={dragNote}
+                      onPointerUp={endNoteDrag}
+                      onPointerCancel={endNoteDrag}
                     >
                       <img src={asset} alt="" />
                       {note.type === "SLIDE" && <span>{note.endLane! < note.lane! ? "↖" : "↗"}</span>}
