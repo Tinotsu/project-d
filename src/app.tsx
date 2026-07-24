@@ -4,14 +4,14 @@ import { Button } from "./components/ui/button.tsx";
 import type { GameSnapshot } from "./game-session.ts";
 import { loadLevel, type LoadedLevel } from "./level.ts";
 
-type Screen = "menu" | "camera" | "game" | "results" | "editor" | "track" | "movement-setup" | "movement-test";
+type Screen = "menu" | "camera" | "game" | "results" | "builder" | "track" | "movement-setup" | "movement-test";
 
 const screenPaths: Record<Screen, string> = {
   menu: "/",
   camera: "/camera",
   game: "/game",
   results: "/results",
-  editor: "/editor",
+  builder: "/builder",
   track: "/track",
   "movement-setup": "/movement/setup",
   "movement-test": "/movement/test",
@@ -23,13 +23,16 @@ export function screenFromPath(pathname: string): Screen {
 
 const SetupScreen = lazy(() => import("./setup-screen.tsx").then((module) => ({ default: module.SetupScreen })));
 const GameScreen = lazy(() => import("./game-screen.tsx").then((module) => ({ default: module.GameScreen })));
-const ChartEditor = lazy(() => import("./chart-editor.tsx").then((module) => ({ default: module.ChartEditor })));
+const LevelBuilder = lazy(() => import("./level-builder.tsx").then((module) => ({ default: module.LevelBuilder })));
 const PlayfieldTestScreen = lazy(() => import("./playfield-test-screen.tsx").then((module) => ({ default: module.PlayfieldTestScreen })));
 const MovementTestScreen = lazy(() => import("./movement-test-screen.tsx").then((module) => ({ default: module.MovementTestScreen })));
 
 export function App() {
   const [screen, setScreen] = useState<Screen>(() => screenFromPath(window.location.pathname));
   const [level, setLevel] = useState<LoadedLevel>();
+  const [builderLevel, setBuilderLevel] = useState<LoadedLevel>();
+  const [publishedLevels, setPublishedLevels] = useState<LoadedLevel[]>([]);
+  const [trackReturn, setTrackReturn] = useState<"menu" | "builder">("menu");
   const [loadError, setLoadError] = useState("");
   const [cameraCalibrated, setCameraCalibrated] = useState(false);
   const [result, setResult] = useState<GameSnapshot>();
@@ -37,7 +40,11 @@ export function App() {
   const cameraInputRef = useRef<CameraInput | undefined>(undefined);
 
   useEffect(() => {
-    loadLevel("/levels/second-heaven/test.json").then(setLevel).catch((error: unknown) => {
+    loadLevel("/levels/second-heaven/test.json").then((loadedLevel) => {
+      setLevel(loadedLevel);
+      setPublishedLevels([loadedLevel]);
+      if (window.location.pathname === screenPaths.builder) setBuilderLevel(loadedLevel);
+    }).catch((error: unknown) => {
       setLoadError(error instanceof Error ? error.message : "Could not load levels");
     });
   }, []);
@@ -83,11 +90,6 @@ export function App() {
     navigate(destination);
   }
 
-  function play(): void {
-    if (cameraCalibrated && cameraInput) navigate("game");
-    else void openSetup();
-  }
-
   if (screen === "game") {
     if (!level || !cameraInput) return <LoadingScreen />;
     return (
@@ -97,16 +99,38 @@ export function App() {
     );
   }
 
-  if (screen === "editor") {
-    if (!level) return <LoadingScreen />;
-    return <Suspense fallback={<LoadingScreen />}><ChartEditor level={level} onBack={() => navigate("menu")} /></Suspense>;
+  if (screen === "builder") {
+    if (!builderLevel) return <LoadingScreen />;
+    return (
+      <Suspense fallback={<LoadingScreen />}>
+        <LevelBuilder
+          level={builderLevel}
+          onBack={() => navigate("menu")}
+          onSave={setBuilderLevel}
+          onPublish={(publishedLevel) => {
+            setBuilderLevel(publishedLevel);
+            setLevel(publishedLevel);
+            setPublishedLevels((current) => [
+              publishedLevel,
+              ...current.filter((candidate) => candidate.song.id !== publishedLevel.song.id),
+            ]);
+          }}
+          onTest={(testLevel) => {
+            setBuilderLevel(testLevel);
+            setLevel(testLevel);
+            setTrackReturn("builder");
+            navigate("track");
+          }}
+        />
+      </Suspense>
+    );
   }
 
   if (screen === "track") {
     if (!level) return <LoadingScreen />;
     return (
       <Suspense fallback={<LoadingScreen />}>
-        <PlayfieldTestScreen level={level} onBack={() => navigate("menu")} />
+        <PlayfieldTestScreen level={level} onBack={() => navigate(trackReturn)} />
       </Suspense>
     );
   }
@@ -134,15 +158,82 @@ export function App() {
       </header>
 
       {screen === "menu" && (
-        <main className="menu-screen">
-          <h1>Project D</h1>
-          <div className="menu-grid">
-            <Button className="menu-item" size="lg" disabled={!level} onClick={play}>Play</Button>
-            <Button className="menu-item" size="lg" variant="outline" onClick={() => void openSetup()}>Camera</Button>
-            <Button className="menu-item" size="lg" variant="outline" onClick={() => void openSetup("movement-setup")}>Movement test</Button>
-            <Button className="menu-item" size="lg" variant="outline" disabled={!level} onClick={() => navigate("editor")}>Chart editor</Button>
-            <Button className="menu-item" size="lg" variant="outline" disabled={!level} onClick={() => navigate("track")}>Track test</Button>
-          </div>
+        <main className="home-screen">
+          <section className="home-hero">
+            <div>
+              <small>RHYTHM · MOVEMENT · CREATION</small>
+              <h1>Build the beat.<br /><span>Move the room.</span></h1>
+              <p>Create four-lane movement levels, shape every step against the music, then play them with your whole body.</p>
+            </div>
+            <Button
+              size="lg"
+              disabled={!level}
+              onClick={() => {
+                if (!level) return;
+                const draft = structuredClone(level);
+                draft.song = { ...draft.song, id: "untitled-level", title: "Untitled level", audio: "", duration: 60 };
+                draft.chart = {
+                  ...draft.chart,
+                  song: "",
+                  level: { ...draft.chart.level, id: "untitled-level", difficulty: "Normal", endTime: 60 },
+                  notes: [],
+                };
+                setBuilderLevel(draft);
+                navigate("builder");
+              }}
+            >
+              ＋ Build a new level
+            </Button>
+          </section>
+
+          <section className="level-library">
+            <div className="library-heading">
+              <div>
+                <small>YOUR LIBRARY</small>
+                <h2>Published levels</h2>
+              </div>
+              <span>{publishedLevels.length} LEVEL{publishedLevels.length === 1 ? "" : "S"}</span>
+            </div>
+            <div className="level-cards">
+              {publishedLevels.map((libraryLevel, index) => (
+                <article className="level-card" key={`${libraryLevel.song.id}-${index}`}>
+                  <div className="level-art" aria-hidden="true">
+                    <span>{String(index + 1).padStart(2, "0")}</span>
+                    <i />
+                    <i />
+                    <i />
+                    <i />
+                  </div>
+                  <div className="level-card-copy">
+                    <span className="level-status"><i /> PUBLISHED</span>
+                    <h3>{libraryLevel.song.title}</h3>
+                    <p>{libraryLevel.chart.level.difficulty} · {libraryLevel.chart.notes.length} moves · {Math.ceil(libraryLevel.song.duration)} sec</p>
+                  </div>
+                  <div className="level-card-actions">
+                    <Button size="sm" onClick={() => {
+                      setLevel(libraryLevel);
+                      if (cameraCalibrated && cameraInput) navigate("game");
+                      else void openSetup();
+                    }}>Play</Button>
+                    <Button size="sm" variant="outline" onClick={() => {
+                      setBuilderLevel(structuredClone(libraryLevel));
+                      navigate("builder");
+                    }}>Edit</Button>
+                  </div>
+                </article>
+              ))}
+              {!publishedLevels.length && !loadError && <div className="library-loading">Loading your levels…</div>}
+            </div>
+          </section>
+
+          <nav className="home-tools" aria-label="Developer tools">
+            <Button variant="ghost" onClick={() => void openSetup()}>Camera setup</Button>
+            <Button variant="ghost" onClick={() => void openSetup("movement-setup")}>Movement test</Button>
+            <Button variant="ghost" disabled={!level} onClick={() => {
+              setTrackReturn("menu");
+              navigate("track");
+            }}>Playfield test</Button>
+          </nav>
           {loadError && <p className="error-message">{loadError}</p>}
         </main>
       )}

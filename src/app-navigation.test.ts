@@ -4,7 +4,7 @@ import { screenFromPath } from "./app.tsx";
 describe("screenFromPath", () => {
   it("opens each menu destination as its own SPA page", () => {
     expect(screenFromPath("/camera")).toBe("camera");
-    expect(screenFromPath("/editor")).toBe("editor");
+    expect(screenFromPath("/builder")).toBe("builder");
     expect(screenFromPath("/track")).toBe("track");
     expect(screenFromPath("/movement/setup")).toBe("movement-setup");
     expect(screenFromPath("/movement/test")).toBe("movement-test");

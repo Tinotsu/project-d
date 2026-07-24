@@ -1,0 +1,388 @@
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Button } from "./components/ui/button.tsx";
+import type { LoadedLevel, LevelChart, SongMetadata } from "./level.ts";
+import type { ChartNote } from "./rhythm-engine.ts";
+
+type LevelBuilderProps = {
+  level: LoadedLevel;
+  onBack: () => void;
+  onPublish: (level: LoadedLevel) => void;
+  onSave: (level: LoadedLevel) => void;
+  onTest: (level: LoadedLevel) => void;
+};
+
+type AddNoteType = "LEFT_STEP" | "RIGHT_STEP" | "JUMP" | "SLIDE_LEFT" | "SLIDE_RIGHT";
+
+type BuilderMenu =
+  | { x: number; y: number; mode: "lane"; lane: number; time: number }
+  | { x: number; y: number; mode: "note"; noteId: string };
+
+const pixelsPerSecond = 30;
+
+export function sampleWaveform(channel: Float32Array, barCount: number): number[] {
+  const blockSize = Math.max(1, Math.floor(channel.length / barCount));
+  return Array.from({ length: barCount }, (_, index) => {
+    let peak = 0;
+    const end = Math.min(channel.length, (index + 1) * blockSize);
+    for (let sample = index * blockSize; sample < end; sample++) peak = Math.max(peak, Math.abs(channel[sample]));
+    return peak;
+  });
+}
+
+export function createTimelineNote(id: string, type: AddNoteType, lane: number, time: number): ChartNote {
+  if (type === "JUMP") return { id, time, type: "JUMP", foot: "both" };
+  if (type === "SLIDE_LEFT") return { id, time, type: "SLIDE", lane, endLane: Math.max(1, lane - 1), foot: "left" };
+  if (type === "SLIDE_RIGHT") return { id, time, type: "SLIDE", lane, endLane: Math.min(4, lane + 1), foot: "right" };
+  return {
+    id,
+    time,
+    type: "STEP",
+    lane,
+    foot: type === "LEFT_STEP" ? "left" : "right",
+  };
+}
+
+export function LevelBuilder({ level, onBack, onPublish, onSave, onTest }: LevelBuilderProps) {
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const timelineRef = useRef<HTMLDivElement>(null);
+  const [chart, setChart] = useState<LevelChart>(() => structuredClone(level.chart));
+  const [song, setSong] = useState<SongMetadata>(() => ({ ...level.song }));
+  const [title, setTitle] = useState(level.song.title);
+  const [peaks, setPeaks] = useState<number[]>([]);
+  const [playhead, setPlayhead] = useState(0);
+  const [menu, setMenu] = useState<BuilderMenu>();
+  const [selectedNoteId, setSelectedNoteId] = useState<string>();
+  const [status, setStatus] = useState("");
+
+  const duration = Math.max(30, Math.ceil(song.duration || chart.level.endTime || 60));
+  const timelineHeight = Math.max(1500, duration * pixelsPerSecond);
+  const notes = useMemo(() => [...chart.notes].sort((left, right) => right.time - left.time), [chart.notes]);
+  const selectedNote = chart.notes.find((note) => note.id === selectedNoteId);
+  const markers = Array.from({ length: Math.floor(duration / 5) + 1 }, (_, index) => index * 5);
+
+  useEffect(() => {
+    if (timelineRef.current) timelineRef.current.scrollTop = timelineRef.current.scrollHeight;
+  }, [duration]);
+
+  useEffect(() => {
+    const dismissMenu = () => setMenu(undefined);
+    window.addEventListener("click", dismissMenu);
+    return () => window.removeEventListener("click", dismissMenu);
+  }, []);
+
+  useEffect(() => {
+    if (!song.audio || song.audio.startsWith("blob:")) return;
+    let cancelled = false;
+    fetch(song.audio)
+      .then((response) => response.arrayBuffer())
+      .then(async (data) => {
+        const context = new AudioContext();
+        const buffer = await context.decodeAudioData(data);
+        if (!cancelled) setPeaks(sampleWaveform(buffer.getChannelData(0), 240));
+        await context.close();
+      })
+      .catch(() => setPeaks([]));
+    return () => {
+      cancelled = true;
+    };
+  }, [song.audio]);
+
+  function builtLevel(): LoadedLevel {
+    const id = title.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "untitled-level";
+    return {
+      path: level.path,
+      song: { ...song, id, title },
+      chart: {
+        ...chart,
+        level: { ...chart.level, id, endTime: song.duration || chart.level.endTime },
+        notes: [...chart.notes].sort((left, right) => left.time - right.time),
+      },
+    };
+  }
+
+  async function uploadMusic(file: File): Promise<void> {
+    const audioUrl = URL.createObjectURL(file);
+    const context = new AudioContext();
+    const buffer = await context.decodeAudioData(await file.arrayBuffer());
+    const nextTitle = title === "Untitled level" ? file.name.replace(/\.mp3$/i, "") : title;
+    setSong((current) => ({ ...current, title: nextTitle, audio: audioUrl, duration: buffer.duration }));
+    setTitle(nextTitle);
+    setChart((current) => ({ ...current, level: { ...current.level, endTime: buffer.duration } }));
+    setPeaks(sampleWaveform(buffer.getChannelData(0), 240));
+    setStatus(`${file.name} ready`);
+    await context.close();
+  }
+
+  function addNote(type: AddNoteType, lane: number, time: number): void {
+    const nextNumber = Math.max(0, ...chart.notes.map((note) => Number(note.id.match(/\d+/)?.[0] ?? 0))) + 1;
+    const note = createTimelineNote(`n${String(nextNumber).padStart(3, "0")}`, type, lane, Number(time.toFixed(3)));
+    setChart((current) => ({ ...current, notes: [...current.notes, note] }));
+    setSelectedNoteId(note.id);
+    setMenu(undefined);
+  }
+
+  function updateNote(id: string, patch: Partial<ChartNote>): void {
+    setChart((current) => ({
+      ...current,
+      notes: current.notes.map((note) => note.id === id ? { ...note, ...patch } : note),
+    }));
+  }
+
+  function removeNote(id: string): void {
+    setChart((current) => ({ ...current, notes: current.notes.filter((note) => note.id !== id) }));
+    if (selectedNoteId === id) setSelectedNoteId(undefined);
+    setMenu(undefined);
+  }
+
+  function changeSlideDirection(note: ChartNote, direction: "left" | "right"): void {
+    const change = direction === "left" ? -1 : 1;
+    updateNote(note.id, {
+      endLane: Math.max(1, Math.min(4, note.lane! + change)),
+      foot: direction,
+    });
+    setMenu(undefined);
+  }
+
+  function openLaneMenu(event: React.MouseEvent, lane: number): void {
+    event.preventDefault();
+    const laneBox = event.currentTarget.getBoundingClientRect();
+    const time = Math.max(0, Math.min(duration, (laneBox.bottom - event.clientY) / pixelsPerSecond));
+    setMenu({ x: event.clientX, y: event.clientY, mode: "lane", lane, time });
+  }
+
+  function openNoteMenu(event: React.MouseEvent, noteId: string): void {
+    event.preventDefault();
+    event.stopPropagation();
+    setSelectedNoteId(noteId);
+    setMenu({ x: event.clientX, y: event.clientY, mode: "note", noteId });
+  }
+
+  function selectNote(note: ChartNote): void {
+    setSelectedNoteId(note.id);
+    if (audioRef.current) audioRef.current.currentTime = note.time;
+    setPlayhead(note.time);
+  }
+
+  function save(): void {
+    onSave(builtLevel());
+    setStatus("Saved just now");
+  }
+
+  function publish(): void {
+    onPublish(builtLevel());
+    setStatus("Published to your level library");
+  }
+
+  const menuNote = menu?.mode === "note" ? chart.notes.find((note) => note.id === menu.noteId) : undefined;
+
+  return (
+    <main className="builder-screen">
+      <header className="builder-header">
+        <div className="builder-title">
+          <Button variant="ghost" size="sm" onClick={onBack}>← Home</Button>
+          <span>LEVEL BUILDER</span>
+          <input aria-label="Level title" value={title} onChange={(event) => setTitle(event.target.value)} />
+          {status && <small>{status}</small>}
+        </div>
+        <div className="builder-actions">
+          <Button variant="outline" onClick={() => onTest(builtLevel())}>▶ Test level</Button>
+          <Button variant="outline" onClick={save}>Save</Button>
+          <Button onClick={publish}>Publish</Button>
+        </div>
+      </header>
+
+      <div className="builder-workspace">
+        <aside className="builder-side builder-audio">
+          <section>
+            <div className="builder-section-heading">
+              <span>MUSIC</span>
+              <small>MP3</small>
+            </div>
+            <label className="music-drop">
+              <input
+                type="file"
+                accept=".mp3,audio/mpeg"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) void uploadMusic(file);
+                }}
+              />
+              <strong>＋ Upload music</strong>
+              <span>Choose an MP3 from your computer</span>
+            </label>
+            {song.audio && (
+              <audio
+                ref={audioRef}
+                src={song.audio}
+                controls
+                onTimeUpdate={(event) => setPlayhead(event.currentTarget.currentTime)}
+              />
+            )}
+          </section>
+
+          <section>
+            <div className="builder-section-heading"><span>AMPLITUDE</span><small>{formatTime(playhead)}</small></div>
+            <div className="waveform-overview" aria-label="Music amplitude overview">
+              {(peaks.length ? peaks.slice(0, 72) : Array(72).fill(0.08)).map((peak, index) => (
+                <i key={index} style={{ height: `${Math.max(8, peak * 100)}%` }} />
+              ))}
+              <b style={{ left: `${Math.min(100, playhead / duration * 100)}%` }} />
+            </div>
+          </section>
+
+          <section className="builder-details">
+            <div className="builder-section-heading"><span>LEVEL DETAILS</span></div>
+            <label>BPM<input type="number" min="1" value={chart.timing.bpm} onChange={(event) => setChart({ ...chart, timing: { ...chart.timing, bpm: event.target.valueAsNumber } })} /></label>
+            <label>Offset<input type="number" step="0.001" value={chart.timing.offset} onChange={(event) => setChart({ ...chart, timing: { ...chart.timing, offset: event.target.valueAsNumber } })} /></label>
+            <label>Difficulty
+              <select value={chart.level.difficulty} onChange={(event) => setChart({ ...chart, level: { ...chart.level, difficulty: event.target.value } })}>
+                <option>Easy</option>
+                <option>Normal</option>
+                <option>Hard</option>
+                <option>Expert</option>
+              </select>
+            </label>
+          </section>
+
+          <section className="builder-legend">
+            <div className="builder-section-heading"><span>QUICK GUIDE</span></div>
+            <p><strong>Right-click</strong> any lane to add a move.</p>
+            <p><strong>Right-click</strong> a move to edit or delete it.</p>
+            <div><i className="legend-left" />Left <i className="legend-right" />Right <i className="legend-jump" />Jump</div>
+          </section>
+        </aside>
+
+        <section className="timeline-panel">
+          <div className="timeline-toolbar">
+            <div>
+              <strong>LEVEL TIMELINE</strong>
+              <span>{notes.length} moves · {formatTime(duration)}</span>
+            </div>
+            <span className="scroll-hint">SCROLL ↑ TO MOVE FORWARD</span>
+          </div>
+          <div className="lane-headings">
+            <span>WAVE</span>
+            {[1, 2, 3, 4].map((lane) => <span key={lane}>LANE {lane}</span>)}
+          </div>
+          <div ref={timelineRef} className="timeline-scroll">
+            <div className="timeline-canvas" style={{ height: timelineHeight }}>
+              <div className="timeline-wave">
+                {(peaks.length ? peaks : Array(240).fill(0.08)).map((peak, index) => (
+                  <i
+                    key={index}
+                    style={{
+                      bottom: `${index / 239 * 100}%`,
+                      width: `${Math.max(8, peak * 100)}%`,
+                    }}
+                  />
+                ))}
+                {markers.map((time) => <span key={time} style={{ bottom: time * pixelsPerSecond }}>{formatTime(time)}</span>)}
+              </div>
+
+              <div className="timeline-lanes">
+                {markers.map((time) => <i className="time-gridline" key={time} style={{ bottom: time * pixelsPerSecond }} />)}
+                <div className="timeline-playhead" style={{ bottom: playhead * pixelsPerSecond }}><span>{formatTime(playhead)}</span></div>
+                {[1, 2, 3, 4].map((lane) => (
+                  <div className="timeline-lane" key={lane} onContextMenu={(event) => openLaneMenu(event, lane)}>
+                    {notes.filter((note) => (note.type === "JUMP" ? lane === 1 : note.lane === lane)).map((note) => (
+                      <button
+                        type="button"
+                        aria-label={`${note.type} at ${note.time.toFixed(3)} seconds`}
+                        className={`timeline-note ${note.type.toLowerCase()} ${note.foot} ${selectedNoteId === note.id ? "selected" : ""}`}
+                        key={note.id}
+                        style={{ bottom: note.time * pixelsPerSecond }}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          selectNote(note);
+                        }}
+                        onContextMenu={(event) => openNoteMenu(event, note.id)}
+                      >
+                        <span>{note.type === "JUMP" ? "JUMP" : note.type === "SLIDE" ? note.endLane! < note.lane! ? "SLIDE ↖" : "SLIDE ↗" : note.foot === "left" ? "L" : "R"}</span>
+                      </button>
+                    ))}
+                  </div>
+                ))}
+              </div>
+              <div className="timeline-start"><span>START</span><b>0:00</b></div>
+            </div>
+          </div>
+        </section>
+
+        <aside className="builder-side note-inspector">
+          <div className="builder-section-heading">
+            <span>ALL MOVES</span>
+            <small>{notes.length}</small>
+          </div>
+          <div className="note-list">
+            {notes.length === 0 && <p className="empty-notes">Right-click the timeline to add your first move.</p>}
+            {notes.map((note, index) => (
+              <article className={selectedNoteId === note.id ? "selected" : ""} key={note.id} onClick={() => selectNote(note)}>
+                <div className={`note-index ${note.type.toLowerCase()} ${note.foot}`}>{String(notes.length - index).padStart(2, "0")}</div>
+                <div>
+                  <strong>{note.type === "STEP" ? `${note.foot} step` : note.type.toLowerCase()}</strong>
+                  <span>{note.type === "JUMP" ? "All lanes" : `Lane ${note.lane}${note.type === "SLIDE" ? ` → ${note.endLane}` : ""}`}</span>
+                </div>
+                <label>
+                  <span>TIME</span>
+                  <input
+                    aria-label={`Time for ${note.id}`}
+                    type="number"
+                    min="0"
+                    max={duration}
+                    step="0.001"
+                    value={note.time}
+                    onClick={(event) => event.stopPropagation()}
+                    onChange={(event) => updateNote(note.id, { time: event.target.valueAsNumber })}
+                  />
+                </label>
+                {note.type === "SLIDE" && (
+                  <label>
+                    <span>DIRECTION</span>
+                    <select
+                      value={note.endLane! < note.lane! ? "left" : "right"}
+                      onClick={(event) => event.stopPropagation()}
+                      onChange={(event) => changeSlideDirection(note, event.target.value as "left" | "right")}
+                    >
+                      {note.lane! > 1 && <option value="left">Left</option>}
+                      {note.lane! < 4 && <option value="right">Right</option>}
+                    </select>
+                  </label>
+                )}
+              </article>
+            ))}
+          </div>
+          {selectedNote && (
+            <Button className="inspector-delete" variant="destructive" size="sm" onClick={() => removeNote(selectedNote.id)}>
+              Delete selected move
+            </Button>
+          )}
+        </aside>
+      </div>
+
+      {menu?.mode === "lane" && (
+        <div className="builder-context-menu" style={{ left: menu.x, top: menu.y }} onClick={(event) => event.stopPropagation()}>
+          <small>ADD AT {formatTime(menu.time)} · LANE {menu.lane}</small>
+          <button onClick={() => addNote("LEFT_STEP", menu.lane, menu.time)}><i className="left" /> Left step</button>
+          <button onClick={() => addNote("RIGHT_STEP", menu.lane, menu.time)}><i className="right" /> Right step</button>
+          <button onClick={() => addNote("JUMP", menu.lane, menu.time)}><i className="jump" /> Jump</button>
+          <button disabled={menu.lane === 1} onClick={() => addNote("SLIDE_LEFT", menu.lane, menu.time)}>↙ Slide left</button>
+          <button disabled={menu.lane === 4} onClick={() => addNote("SLIDE_RIGHT", menu.lane, menu.time)}>↗ Slide right</button>
+        </div>
+      )}
+
+      {menuNote && (
+        <div className="builder-context-menu" style={{ left: menu!.x, top: menu!.y }} onClick={(event) => event.stopPropagation()}>
+          <small>{menuNote.type} · {formatTime(menuNote.time)}</small>
+          {menuNote.type === "SLIDE" && menuNote.lane! > 1 && <button onClick={() => changeSlideDirection(menuNote, "left")}>↙ Point slide left</button>}
+          {menuNote.type === "SLIDE" && menuNote.lane! < 4 && <button onClick={() => changeSlideDirection(menuNote, "right")}>↗ Point slide right</button>}
+          <button className="danger" onClick={() => removeNote(menuNote.id)}>× Delete move</button>
+        </div>
+      )}
+    </main>
+  );
+}
+
+function formatTime(seconds: number): string {
+  const minutes = Math.floor(seconds / 60);
+  return `${minutes}:${Math.floor(seconds % 60).toString().padStart(2, "0")}.${Math.floor(seconds % 1 * 10)}`;
+}
