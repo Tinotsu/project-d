@@ -22,6 +22,7 @@ export type LoadedLevel = {
   path: string;
   chart: LevelChart;
   song: SongMetadata;
+  audioBlob?: Blob;
 };
 
 export async function loadLevel(path: string): Promise<LoadedLevel> {

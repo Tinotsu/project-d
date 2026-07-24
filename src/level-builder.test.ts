@@ -10,9 +10,10 @@ describe("level builder", () => {
       lane: 3,
       foot: "right",
     });
-    expect(createTimelineNote("n005", "SLIDE_LEFT", 3, 13)).toMatchObject({
+    expect(createTimelineNote("n005", "SLIDE_LEFT", 3, 13, 0)).toMatchObject({
       lane: 3,
-      endLane: 2,
+      laneOffset: 0,
+      endLane: 1,
       type: "SLIDE",
     });
   });

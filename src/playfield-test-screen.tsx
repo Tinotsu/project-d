@@ -13,13 +13,14 @@ const rightLaneKeys: Record<string, number> = { KeyQ: 1, KeyW: 2, KeyE: 3, KeyR:
 
 export function PlayfieldTestScreen({ level, onBack }: PlayfieldTestScreenProps) {
   const mountRef = useRef<HTMLDivElement>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
   const playfieldRef = useRef<PixiPlayfield | undefined>(undefined);
   const timeRef = useRef(0);
-  const playingRef = useRef(true);
+  const playingRef = useRef(false);
   const leftLaneRef = useRef<number | null>(null);
   const rightLaneRef = useRef<number | null>(null);
   const [ready, setReady] = useState(false);
-  const [playing, setPlaying] = useState(true);
+  const [playing, setPlaying] = useState(false);
   const [time, setTime] = useState(0);
   const [leftLane, setLeftLane] = useState<number | null>(null);
   const [rightLane, setRightLane] = useState<number | null>(null);
@@ -47,6 +48,7 @@ export function PlayfieldTestScreen({ level, onBack }: PlayfieldTestScreenProps)
 
     return () => {
       cancelled = true;
+      audioRef.current?.pause();
       playfield?.destroy();
       playfieldRef.current = undefined;
     };
@@ -79,8 +81,13 @@ export function PlayfieldTestScreen({ level, onBack }: PlayfieldTestScreenProps)
       const playfield = playfieldRef.current;
       if (playfield) {
         if (playingRef.current) {
-          timeRef.current = Math.min(endTime, timeRef.current + delta);
-          if (timeRef.current >= endTime) playingRef.current = false;
+          timeRef.current = audioRef.current
+            ? Math.min(endTime, audioRef.current.currentTime)
+            : Math.min(endTime, timeRef.current + delta);
+          if (timeRef.current >= endTime) {
+            playingRef.current = false;
+            audioRef.current?.pause();
+          }
         }
 
         playfield.showTrackedFeet(
@@ -107,8 +114,7 @@ export function PlayfieldTestScreen({ level, onBack }: PlayfieldTestScreenProps)
       if (event.code === "Space") {
         if (event.repeat) return;
         event.preventDefault();
-        playingRef.current = !playingRef.current;
-        setPlaying(playingRef.current);
+        void togglePlayback();
         return;
       }
 
@@ -132,11 +138,26 @@ export function PlayfieldTestScreen({ level, onBack }: PlayfieldTestScreenProps)
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  function reset(): void {
-    timeRef.current = 0;
-    setTime(0);
+  async function togglePlayback(): Promise<void> {
+    const audio = audioRef.current;
+    if (playingRef.current) {
+      audio?.pause();
+      playingRef.current = false;
+      setPlaying(false);
+      return;
+    }
+    if (audio) await audio.play();
     playingRef.current = true;
     setPlaying(true);
+  }
+
+  function reset(): void {
+    audioRef.current?.pause();
+    if (audioRef.current) audioRef.current.currentTime = 0;
+    timeRef.current = 0;
+    setTime(0);
+    playingRef.current = false;
+    setPlaying(false);
   }
 
   return (
@@ -144,12 +165,7 @@ export function PlayfieldTestScreen({ level, onBack }: PlayfieldTestScreenProps)
       <header className="game-hud playfield-test-hud">
         <div className="game-controls">
           <Button size="sm" variant="ghost" onClick={onBack}>Back</Button>
-          <Button size="sm" variant="ghost" onClick={() => {
-            playingRef.current = !playingRef.current;
-            setPlaying(playingRef.current);
-          }}>
-            {playing ? "Pause" : "Play"}
-          </Button>
+          <Button size="sm" variant="ghost" onClick={() => void togglePlayback()}>{playing ? "Pause" : "Play"}</Button>
           <Button size="sm" variant="ghost" onClick={reset}>Reset</Button>
         </div>
         <div className="hud-track"><small>PLAYFIELD TEST</small><strong>{level.song.title}</strong></div>
@@ -172,6 +188,28 @@ export function PlayfieldTestScreen({ level, onBack }: PlayfieldTestScreenProps)
 
         <aside className="playfield-test-panel panel">
           <strong>Controls</strong>
+          <audio
+            ref={audioRef}
+            className="playfield-test-audio"
+            src={level.song.audio}
+            controls
+            onPlay={() => {
+              playingRef.current = true;
+              setPlaying(true);
+            }}
+            onPause={() => {
+              playingRef.current = false;
+              setPlaying(false);
+            }}
+            onEnded={() => {
+              playingRef.current = false;
+              setPlaying(false);
+            }}
+            onTimeUpdate={(event) => {
+              timeRef.current = event.currentTarget.currentTime;
+              setTime(event.currentTarget.currentTime);
+            }}
+          />
           <label className="playfield-test-scrubber">
             <span>Time</span>
             <input
@@ -182,6 +220,7 @@ export function PlayfieldTestScreen({ level, onBack }: PlayfieldTestScreenProps)
               value={time}
               onChange={(event) => {
                 const next = Number(event.target.value);
+                if (audioRef.current) audioRef.current.currentTime = next;
                 timeRef.current = next;
                 setTime(next);
               }}

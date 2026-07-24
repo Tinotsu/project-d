@@ -342,7 +342,10 @@ export class PixiPlayfield {
     const { lanes } = this.chart.playfield;
     if (note.type === "JUMP") return [1, lanes];
     if (note.type === "SLIDE") {
-      return [Math.min(note.lane!, note.endLane!) + 0.5, Math.max(note.lane!, note.endLane!) - 0.5];
+      const startOffset = note.laneOffset ?? 0.5;
+      return note.endLane! > note.lane!
+        ? [note.lane! + startOffset, note.endLane! - 0.5]
+        : [note.endLane! + 0.5, note.lane! - 1 + startOffset];
     }
     const lane = note.lane ?? (lanes + 1) / 2;
     return [lane, lane];

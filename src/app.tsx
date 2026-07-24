@@ -3,6 +3,7 @@ import type { CameraInput } from "./camera-input.ts";
 import { Button } from "./components/ui/button.tsx";
 import type { GameSnapshot } from "./game-session.ts";
 import { loadLevel, type LoadedLevel } from "./level.ts";
+import { loadStoredLevels, storeLevel } from "./level-storage.ts";
 
 type Screen = "menu" | "camera" | "game" | "results" | "builder" | "track" | "movement-setup" | "movement-test";
 
@@ -32,6 +33,7 @@ export function App() {
   const [level, setLevel] = useState<LoadedLevel>();
   const [builderLevel, setBuilderLevel] = useState<LoadedLevel>();
   const [publishedLevels, setPublishedLevels] = useState<LoadedLevel[]>([]);
+  const [savedDrafts, setSavedDrafts] = useState<LoadedLevel[]>([]);
   const [trackReturn, setTrackReturn] = useState<"menu" | "builder">("menu");
   const [loadError, setLoadError] = useState("");
   const [cameraCalibrated, setCameraCalibrated] = useState(false);
@@ -40,10 +42,20 @@ export function App() {
   const cameraInputRef = useRef<CameraInput | undefined>(undefined);
 
   useEffect(() => {
-    loadLevel("/levels/second-heaven/test.json").then((loadedLevel) => {
-      setLevel(loadedLevel);
-      setPublishedLevels([loadedLevel]);
-      if (window.location.pathname === screenPaths.builder) setBuilderLevel(loadedLevel);
+    Promise.all([
+      loadLevel("/levels/second-heaven/test.json"),
+      loadStoredLevels().catch(() => []),
+    ]).then(([loadedLevel, storedLevels]) => {
+      const storedPublished = storedLevels.filter((stored) => stored.published).map((stored) => stored.level);
+      const drafts = storedLevels.filter((stored) => !stored.published).map((stored) => stored.level);
+      const library = [
+        ...storedPublished,
+        ...(!storedPublished.some((stored) => stored.song.id === loadedLevel.song.id) ? [loadedLevel] : []),
+      ];
+      setLevel(storedPublished[0] ?? loadedLevel);
+      setPublishedLevels(library);
+      setSavedDrafts(drafts);
+      if (window.location.pathname === screenPaths.builder) setBuilderLevel(drafts[0] ?? storedPublished[0] ?? loadedLevel);
     }).catch((error: unknown) => {
       setLoadError(error instanceof Error ? error.message : "Could not load levels");
     });
@@ -111,10 +123,19 @@ export function App() {
         <LevelBuilder
           level={builderLevel}
           onBack={() => navigate("menu")}
-          onSave={setBuilderLevel}
-          onPublish={(publishedLevel) => {
+          onSave={async (savedLevel) => {
+            await storeLevel(savedLevel, false);
+            setBuilderLevel(savedLevel);
+            setSavedDrafts((current) => [
+              savedLevel,
+              ...current.filter((candidate) => candidate.song.id !== savedLevel.song.id),
+            ]);
+          }}
+          onPublish={async (publishedLevel) => {
+            await storeLevel(publishedLevel, true);
             setBuilderLevel(publishedLevel);
             setLevel(publishedLevel);
+            setSavedDrafts((current) => current.filter((candidate) => candidate.song.id !== publishedLevel.song.id));
             setPublishedLevels((current) => [
               publishedLevel,
               ...current.filter((candidate) => candidate.song.id !== publishedLevel.song.id),
@@ -211,6 +232,26 @@ export function App() {
               </div>
             ))}
           </section>
+          {savedDrafts.length > 0 && (
+            <section className="published-levels panel saved-drafts">
+              <div className="section-heading">
+                <strong>Saved drafts</strong>
+                <small>{savedDrafts.length}</small>
+              </div>
+              {savedDrafts.map((draft) => (
+                <div className="published-level" key={draft.song.id}>
+                  <div>
+                    <strong>{draft.song.title}</strong>
+                    <span>{draft.chart.notes.length} moves</span>
+                  </div>
+                  <Button size="sm" variant="outline" onClick={() => {
+                    setBuilderLevel(draft);
+                    navigate("builder");
+                  }}>Edit</Button>
+                </div>
+              ))}
+            </section>
+          )}
           {loadError && <p className="error-message">{loadError}</p>}
         </main>
       )}

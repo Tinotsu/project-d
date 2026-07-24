@@ -1,4 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import jumpUrl from "../assets/jump base.svg?url";
+import leftStepUrl from "../assets/left base.svg?url";
+import leftSlideUrl from "../assets/left slide.svg?url";
+import rightStepUrl from "../assets/right base.svg?url";
+import rightSlideUrl from "../assets/right slide.svg?url";
 import { Button } from "./components/ui/button.tsx";
 import type { LoadedLevel, LevelChart, SongMetadata } from "./level.ts";
 import type { ChartNote } from "./rhythm-engine.ts";
@@ -6,18 +11,18 @@ import type { ChartNote } from "./rhythm-engine.ts";
 type LevelBuilderProps = {
   level: LoadedLevel;
   onBack: () => void;
-  onPublish: (level: LoadedLevel) => void;
-  onSave: (level: LoadedLevel) => void;
+  onPublish: (level: LoadedLevel) => Promise<void>;
+  onSave: (level: LoadedLevel) => Promise<void>;
   onTest: (level: LoadedLevel) => void;
 };
 
 type AddNoteType = "LEFT_STEP" | "RIGHT_STEP" | "JUMP" | "SLIDE_LEFT" | "SLIDE_RIGHT";
 
 type BuilderMenu =
-  | { x: number; y: number; mode: "lane"; lane: number; time: number }
+  | { x: number; y: number; mode: "lane"; lane: number; laneOffset: 0 | 0.5; time: number }
   | { x: number; y: number; mode: "note"; noteId: string };
 
-const pixelsPerSecond = 30;
+const basePixelsPerSecond = 30;
 
 export function sampleWaveform(channel: Float32Array, barCount: number): number[] {
   const blockSize = Math.max(1, Math.floor(channel.length / barCount));
@@ -29,10 +34,16 @@ export function sampleWaveform(channel: Float32Array, barCount: number): number[
   });
 }
 
-export function createTimelineNote(id: string, type: AddNoteType, lane: number, time: number): ChartNote {
+export function createTimelineNote(
+  id: string,
+  type: AddNoteType,
+  lane: number,
+  time: number,
+  laneOffset: 0 | 0.5 = 0.5,
+): ChartNote {
   if (type === "JUMP") return { id, time, type: "JUMP", foot: "both" };
-  if (type === "SLIDE_LEFT") return { id, time, type: "SLIDE", lane, endLane: Math.max(1, lane - 1), foot: "left" };
-  if (type === "SLIDE_RIGHT") return { id, time, type: "SLIDE", lane, endLane: Math.min(4, lane + 1), foot: "right" };
+  if (type === "SLIDE_LEFT") return { id, time, type: "SLIDE", lane, laneOffset, endLane: lane - 2, foot: "left" };
+  if (type === "SLIDE_RIGHT") return { id, time, type: "SLIDE", lane, laneOffset, endLane: lane + 2, foot: "right" };
   return {
     id,
     time,
@@ -47,14 +58,17 @@ export function LevelBuilder({ level, onBack, onPublish, onSave, onTest }: Level
   const timelineRef = useRef<HTMLDivElement>(null);
   const [chart, setChart] = useState<LevelChart>(() => structuredClone(level.chart));
   const [song, setSong] = useState<SongMetadata>(() => ({ ...level.song }));
+  const [audioBlob, setAudioBlob] = useState(level.audioBlob);
   const [title, setTitle] = useState(level.song.title);
   const [peaks, setPeaks] = useState<number[]>([]);
   const [playhead, setPlayhead] = useState(0);
+  const [zoom, setZoom] = useState(1);
   const [menu, setMenu] = useState<BuilderMenu>();
   const [selectedNoteId, setSelectedNoteId] = useState<string>();
   const [status, setStatus] = useState("");
 
   const duration = Math.max(30, Math.ceil(song.duration || chart.level.endTime || 60));
+  const pixelsPerSecond = basePixelsPerSecond * zoom;
   const timelineHeight = Math.max(1500, duration * pixelsPerSecond);
   const notes = useMemo(() => [...chart.notes].sort((left, right) => right.time - left.time), [chart.notes]);
   const selectedNote = chart.notes.find((note) => note.id === selectedNoteId);
@@ -71,10 +85,9 @@ export function LevelBuilder({ level, onBack, onPublish, onSave, onTest }: Level
   }, []);
 
   useEffect(() => {
-    if (!song.audio || song.audio.startsWith("blob:")) return;
+    if (!song.audio) return;
     let cancelled = false;
-    fetch(song.audio)
-      .then((response) => response.arrayBuffer())
+    (audioBlob ? audioBlob.arrayBuffer() : fetch(song.audio).then((response) => response.arrayBuffer()))
       .then(async (data) => {
         const context = new AudioContext();
         const buffer = await context.decodeAudioData(data);
@@ -85,13 +98,14 @@ export function LevelBuilder({ level, onBack, onPublish, onSave, onTest }: Level
     return () => {
       cancelled = true;
     };
-  }, [song.audio]);
+  }, [audioBlob, song.audio]);
 
   function builtLevel(): LoadedLevel {
     const id = title.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "untitled-level";
     return {
       path: level.path,
       song: { ...song, id, title },
+      audioBlob,
       chart: {
         ...chart,
         level: { ...chart.level, id, endTime: song.duration || chart.level.endTime },
@@ -106,6 +120,7 @@ export function LevelBuilder({ level, onBack, onPublish, onSave, onTest }: Level
     const buffer = await context.decodeAudioData(await file.arrayBuffer());
     const nextTitle = title === "Untitled level" ? file.name.replace(/\.mp3$/i, "") : title;
     setSong((current) => ({ ...current, title: nextTitle, audio: audioUrl, duration: buffer.duration }));
+    setAudioBlob(file);
     setTitle(nextTitle);
     setChart((current) => ({ ...current, level: { ...current.level, endTime: buffer.duration } }));
     setPeaks(sampleWaveform(buffer.getChannelData(0), 240));
@@ -113,9 +128,15 @@ export function LevelBuilder({ level, onBack, onPublish, onSave, onTest }: Level
     await context.close();
   }
 
-  function addNote(type: AddNoteType, lane: number, time: number): void {
+  function addNote(type: AddNoteType, lane: number, laneOffset: 0 | 0.5, time: number): void {
     const nextNumber = Math.max(0, ...chart.notes.map((note) => Number(note.id.match(/\d+/)?.[0] ?? 0))) + 1;
-    const note = createTimelineNote(`n${String(nextNumber).padStart(3, "0")}`, type, lane, Number(time.toFixed(3)));
+    const note = createTimelineNote(
+      `n${String(nextNumber).padStart(3, "0")}`,
+      type,
+      lane,
+      Number(time.toFixed(3)),
+      laneOffset,
+    );
     setChart((current) => ({ ...current, notes: [...current.notes, note] }));
     setSelectedNoteId(note.id);
     setMenu(undefined);
@@ -135,9 +156,9 @@ export function LevelBuilder({ level, onBack, onPublish, onSave, onTest }: Level
   }
 
   function changeSlideDirection(note: ChartNote, direction: "left" | "right"): void {
-    const change = direction === "left" ? -1 : 1;
+    const change = direction === "left" ? -2 : 2;
     updateNote(note.id, {
-      endLane: Math.max(1, Math.min(4, note.lane! + change)),
+      endLane: note.lane! + change,
       foot: direction,
     });
     setMenu(undefined);
@@ -147,7 +168,8 @@ export function LevelBuilder({ level, onBack, onPublish, onSave, onTest }: Level
     event.preventDefault();
     const laneBox = event.currentTarget.getBoundingClientRect();
     const time = Math.max(0, Math.min(duration, (laneBox.bottom - event.clientY) / pixelsPerSecond));
-    setMenu({ x: event.clientX, y: event.clientY, mode: "lane", lane, time });
+    const laneOffset = event.clientX - laneBox.left < laneBox.width / 2 ? 0 : 0.5;
+    setMenu({ x: event.clientX, y: event.clientY, mode: "lane", lane, laneOffset, time });
   }
 
   function openNoteMenu(event: React.MouseEvent, noteId: string): void {
@@ -163,14 +185,24 @@ export function LevelBuilder({ level, onBack, onPublish, onSave, onTest }: Level
     setPlayhead(note.time);
   }
 
-  function save(): void {
-    onSave(builtLevel());
-    setStatus("Saved just now");
+  async function save(): Promise<void> {
+    setStatus("Saving…");
+    try {
+      await onSave(builtLevel());
+      setStatus("Saved just now");
+    } catch {
+      setStatus("Could not save");
+    }
   }
 
-  function publish(): void {
-    onPublish(builtLevel());
-    setStatus("Published to your level library");
+  async function publish(): Promise<void> {
+    setStatus("Publishing…");
+    try {
+      await onPublish(builtLevel());
+      setStatus("Published to your level library");
+    } catch {
+      setStatus("Could not publish");
+    }
   }
 
   const menuNote = menu?.mode === "note" ? chart.notes.find((note) => note.id === menu.noteId) : undefined;
@@ -258,7 +290,14 @@ export function LevelBuilder({ level, onBack, onPublish, onSave, onTest }: Level
               <strong>LEVEL TIMELINE</strong>
               <span>{notes.length} moves · {formatTime(duration)}</span>
             </div>
-            <span className="scroll-hint">SCROLL ↑ TO MOVE FORWARD</span>
+            <div className="timeline-toolbar-actions">
+              <span className="scroll-hint">SCROLL ↑ TO MOVE FORWARD</span>
+              <div className="zoom-controls" aria-label="Timeline zoom">
+                <button type="button" aria-label="Zoom out" onClick={() => setZoom((current) => Math.max(0.5, current - 0.25))}>−</button>
+                <output>{Math.round(zoom * 100)}%</output>
+                <button type="button" aria-label="Zoom in" onClick={() => setZoom((current) => Math.min(3, current + 0.25))}>＋</button>
+              </div>
+            </div>
           </div>
           <div className="lane-headings">
             <span>WAVE</span>
@@ -283,25 +322,48 @@ export function LevelBuilder({ level, onBack, onPublish, onSave, onTest }: Level
                 {markers.map((time) => <i className="time-gridline" key={time} style={{ bottom: time * pixelsPerSecond }} />)}
                 <div className="timeline-playhead" style={{ bottom: playhead * pixelsPerSecond }}><span>{formatTime(playhead)}</span></div>
                 {[1, 2, 3, 4].map((lane) => (
-                  <div className="timeline-lane" key={lane} onContextMenu={(event) => openLaneMenu(event, lane)}>
-                    {notes.filter((note) => (note.type === "JUMP" ? lane === 1 : note.lane === lane)).map((note) => (
-                      <button
-                        type="button"
-                        aria-label={`${note.type} at ${note.time.toFixed(3)} seconds`}
-                        className={`timeline-note ${note.type.toLowerCase()} ${note.foot} ${selectedNoteId === note.id ? "selected" : ""}`}
-                        key={note.id}
-                        style={{ bottom: note.time * pixelsPerSecond }}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          selectNote(note);
-                        }}
-                        onContextMenu={(event) => openNoteMenu(event, note.id)}
-                      >
-                        <span>{note.type === "JUMP" ? "JUMP" : note.type === "SLIDE" ? note.endLane! < note.lane! ? "SLIDE ↖" : "SLIDE ↗" : note.foot === "left" ? "L" : "R"}</span>
-                      </button>
-                    ))}
-                  </div>
+                  <div className="timeline-lane" key={lane} onContextMenu={(event) => openLaneMenu(event, lane)} />
                 ))}
+                {notes.map((note) => {
+                  let left = 0;
+                  let width = 100;
+                  if (note.type === "STEP") {
+                    left = (note.lane! - 1) * 25;
+                    width = 25;
+                  } else if (note.type === "SLIDE") {
+                    const start = note.lane! - 1 + (note.laneOffset ?? 0.5);
+                    const end = note.endLane! - 0.5;
+                    left = Math.min(start, end) * 25;
+                    width = Math.abs(start - end) * 25;
+                  }
+                  const asset = note.type === "JUMP"
+                    ? jumpUrl
+                    : note.type === "SLIDE"
+                      ? note.foot === "left" ? leftSlideUrl : rightSlideUrl
+                      : note.foot === "left" ? leftStepUrl : rightStepUrl;
+                  return (
+                    <button
+                      type="button"
+                      aria-label={`${note.type} at ${note.time.toFixed(3)} seconds`}
+                      className={`timeline-note ${note.type.toLowerCase()} ${note.foot} ${selectedNoteId === note.id ? "selected" : ""}`}
+                      data-direction={note.type === "SLIDE" && note.endLane! < note.lane! ? "left" : "right"}
+                      key={note.id}
+                      style={{
+                        bottom: note.time * pixelsPerSecond,
+                        left: `calc(${left}% + 4px)`,
+                        width: `calc(${width}% - 8px)`,
+                      }}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        selectNote(note);
+                      }}
+                      onContextMenu={(event) => openNoteMenu(event, note.id)}
+                    >
+                      <img src={asset} alt="" />
+                      {note.type === "SLIDE" && <span>{note.endLane! < note.lane! ? "↖" : "↗"}</span>}
+                    </button>
+                  );
+                })}
               </div>
               <div className="timeline-start"><span>START</span><b>0:00</b></div>
             </div>
@@ -336,17 +398,30 @@ export function LevelBuilder({ level, onBack, onPublish, onSave, onTest }: Level
                   />
                 </label>
                 {note.type === "SLIDE" && (
-                  <label>
-                    <span>DIRECTION</span>
-                    <select
-                      value={note.endLane! < note.lane! ? "left" : "right"}
-                      onClick={(event) => event.stopPropagation()}
-                      onChange={(event) => changeSlideDirection(note, event.target.value as "left" | "right")}
-                    >
-                      {note.lane! > 1 && <option value="left">Left</option>}
-                      {note.lane! < 4 && <option value="right">Right</option>}
-                    </select>
-                  </label>
+                  <>
+                    <label>
+                      <span>START</span>
+                      <select
+                        value={note.laneOffset ?? 0.5}
+                        onClick={(event) => event.stopPropagation()}
+                        onChange={(event) => updateNote(note.id, { laneOffset: Number(event.target.value) as 0 | 0.5 })}
+                      >
+                        <option value={0}>Lane edge · 0</option>
+                        <option value={0.5}>Lane center · 0.5</option>
+                      </select>
+                    </label>
+                    <label>
+                      <span>DIRECTION</span>
+                      <select
+                        value={note.endLane! < note.lane! ? "left" : "right"}
+                        onClick={(event) => event.stopPropagation()}
+                        onChange={(event) => changeSlideDirection(note, event.target.value as "left" | "right")}
+                      >
+                        {note.lane! > 2 && <option value="left">Left</option>}
+                        {note.lane! < 3 && <option value="right">Right</option>}
+                      </select>
+                    </label>
+                  </>
                 )}
               </article>
             ))}
@@ -361,20 +436,20 @@ export function LevelBuilder({ level, onBack, onPublish, onSave, onTest }: Level
 
       {menu?.mode === "lane" && (
         <div className="builder-context-menu" style={{ left: menu.x, top: menu.y }} onClick={(event) => event.stopPropagation()}>
-          <small>ADD AT {formatTime(menu.time)} · LANE {menu.lane}</small>
-          <button onClick={() => addNote("LEFT_STEP", menu.lane, menu.time)}><i className="left" /> Left step</button>
-          <button onClick={() => addNote("RIGHT_STEP", menu.lane, menu.time)}><i className="right" /> Right step</button>
-          <button onClick={() => addNote("JUMP", menu.lane, menu.time)}><i className="jump" /> Jump</button>
-          <button disabled={menu.lane === 1} onClick={() => addNote("SLIDE_LEFT", menu.lane, menu.time)}>↙ Slide left</button>
-          <button disabled={menu.lane === 4} onClick={() => addNote("SLIDE_RIGHT", menu.lane, menu.time)}>↗ Slide right</button>
+          <small>ADD AT {formatTime(menu.time)} · LANE {menu.lane} + {menu.laneOffset}</small>
+          <button onClick={() => addNote("LEFT_STEP", menu.lane, menu.laneOffset, menu.time)}><i className="left" /> Left step</button>
+          <button onClick={() => addNote("RIGHT_STEP", menu.lane, menu.laneOffset, menu.time)}><i className="right" /> Right step</button>
+          <button onClick={() => addNote("JUMP", menu.lane, menu.laneOffset, menu.time)}><i className="jump" /> Jump</button>
+          <button disabled={menu.lane < 3} onClick={() => addNote("SLIDE_LEFT", menu.lane, menu.laneOffset, menu.time)}>↙ Slide left</button>
+          <button disabled={menu.lane > 2} onClick={() => addNote("SLIDE_RIGHT", menu.lane, menu.laneOffset, menu.time)}>↗ Slide right</button>
         </div>
       )}
 
       {menuNote && (
         <div className="builder-context-menu" style={{ left: menu!.x, top: menu!.y }} onClick={(event) => event.stopPropagation()}>
           <small>{menuNote.type} · {formatTime(menuNote.time)}</small>
-          {menuNote.type === "SLIDE" && menuNote.lane! > 1 && <button onClick={() => changeSlideDirection(menuNote, "left")}>↙ Point slide left</button>}
-          {menuNote.type === "SLIDE" && menuNote.lane! < 4 && <button onClick={() => changeSlideDirection(menuNote, "right")}>↗ Point slide right</button>}
+          {menuNote.type === "SLIDE" && menuNote.lane! > 2 && <button onClick={() => changeSlideDirection(menuNote, "left")}>↙ Point slide left</button>}
+          {menuNote.type === "SLIDE" && menuNote.lane! < 3 && <button onClick={() => changeSlideDirection(menuNote, "right")}>↗ Point slide right</button>}
           <button className="danger" onClick={() => removeNote(menuNote.id)}>× Delete move</button>
         </div>
       )}

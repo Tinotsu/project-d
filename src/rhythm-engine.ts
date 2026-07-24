@@ -8,6 +8,7 @@ export type ChartNote = {
   time: number;
   type: NoteType;
   lane?: number;
+  laneOffset?: 0 | 0.5;
   endLane?: number;
   foot: Foot;
 };

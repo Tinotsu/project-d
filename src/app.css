@@ -38,6 +38,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, audio:focus-vis
 .published-level > div { display: grid; gap: 3px; min-width: 0; }
 .published-level > div strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .published-level > div span { color: #929292; font-size: 11px; text-transform: capitalize; }
+.saved-drafts .published-level { grid-template-columns: minmax(0, 1fr) auto; }
 .error-message { margin: 16px 0 0; color: #fc2500; }
 
 .setup-screen { width: min(1440px, 100%); height: calc(100dvh - 64px); margin: auto; padding: 16px 24px; overflow: hidden; }
@@ -99,6 +100,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, audio:focus-vis
 
 .playfield-test-panel { position: absolute; z-index: 3; top: 12px; right: 12px; width: min(280px, calc(100% - 24px)); padding: 16px; }
 .playfield-test-panel > strong { display: block; margin-bottom: 14px; }
+.playfield-test-audio { width: 100%; height: 36px; margin-bottom: 14px; }
 .playfield-test-scrubber { display: grid; gap: 8px; margin-bottom: 14px; color: #929292; font-size: 11px; }
 .playfield-test-scrubber input { width: 100%; accent-color: #00f300; }
 .playfield-test-scrubber output { color: #f9f9f9; }
@@ -178,10 +180,15 @@ button:focus-visible, input:focus-visible, select:focus-visible, audio:focus-vis
 .timeline-toolbar strong { font-size: 11px; letter-spacing: .08em; }
 .timeline-toolbar span { color: #666; font-size: 9px; }
 .timeline-toolbar .scroll-hint { color: #00f300; font-weight: 700; letter-spacing: .08em; }
+.timeline-toolbar-actions { display: flex !important; align-items: center; gap: 12px !important; }
+.zoom-controls { display: grid; grid-template-columns: 26px 42px 26px; align-items: center; border: 1px solid #3c3c3c; border-radius: 4px; overflow: hidden; }
+.zoom-controls button { height: 26px; border: 0; background: #111; color: #fff; font-size: 15px; }
+.zoom-controls button:hover { background: #2b2b2b; }
+.zoom-controls output { color: #aaa; font-family: monospace; font-size: 9px; text-align: center; }
 .lane-headings { display: grid; grid-template-columns: 92px repeat(4, 1fr); border-bottom: 1px solid #343434; color: #686868; font-size: 8px; font-weight: 800; letter-spacing: .1em; text-align: center; }
 .lane-headings span { display: grid; place-items: center; border-right: 1px solid #222; }
 .timeline-scroll { min-height: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; scrollbar-color: #00f300 #111; }
-.timeline-canvas { position: relative; display: grid; grid-template-columns: 92px minmax(0, 1fr); min-width: 450px; background: linear-gradient(to top, rgba(0, 243, 0, .045), transparent 22%); }
+.timeline-canvas { position: relative; display: grid; grid-template-columns: 92px minmax(0, 1fr); min-width: 450px; background: #030303; }
 .timeline-wave { position: relative; border-right: 1px solid #343434; background: #070707; }
 .timeline-wave > i { position: absolute; right: 10px; height: 2px; background: #00f300; opacity: .45; }
 .timeline-wave > span { position: absolute; right: 7px; z-index: 3; color: #686868; font-family: monospace; font-size: 8px; transform: translateY(50%); }
@@ -190,12 +197,15 @@ button:focus-visible, input:focus-visible, select:focus-visible, audio:focus-vis
 .time-gridline { position: absolute; z-index: 0; right: 0; left: 0; height: 1px; background: #222; pointer-events: none; }
 .timeline-playhead { position: absolute; z-index: 5; right: 0; left: 0; height: 1px; background: #fff; box-shadow: 0 0 6px rgba(255,255,255,.8); pointer-events: none; }
 .timeline-playhead span { position: absolute; top: -8px; right: 5px; border-radius: 2px; padding: 2px 4px; background: #fff; color: #000; font-family: monospace; font-size: 8px; font-weight: 800; }
-.timeline-note { position: absolute; z-index: 4; left: 5px; display: grid; width: calc(100% - 10px); height: 24px; place-items: center; border: 1px solid currentColor; border-radius: 3px; padding: 0; background: #111; color: #fff; font-size: 8px; font-weight: 900; letter-spacing: .05em; box-shadow: 0 3px 10px rgba(0,0,0,.5); transform: translateY(50%); }
+.timeline-note { position: absolute; z-index: 4; height: 38px; border: 0; border-radius: 3px; padding: 0; background: transparent; color: #fff; transform: translateY(50%); }
 .timeline-note:hover, .timeline-note.selected { z-index: 8; outline: 2px solid #fff; outline-offset: 2px; }
-.timeline-note.step.left { border-color: #faf600; background: #302f00; color: #faf600; }
-.timeline-note.step.right { border-color: #00f7fa; background: #003032; color: #00f7fa; }
-.timeline-note.jump { z-index: 3; width: calc(400% - 10px); border-color: #9c45fa; background: repeating-linear-gradient(90deg, #210d34 0, #210d34 calc(25% - 1px), #6125a0 25%); color: #d8aaff; }
-.timeline-note.slide { z-index: 5; width: 145%; border-color: #d52ba2; background: linear-gradient(100deg, #35102c, #8c1e70); color: #ff8cdd; }
+.timeline-note > img { display: block; width: 100%; height: 100%; object-fit: fill; pointer-events: none; }
+.timeline-note.jump { z-index: 3; height: 42px; }
+.timeline-note.slide { z-index: 5; height: 38px; overflow: visible; container-type: size; }
+.timeline-note.slide > img { position: absolute; top: 50%; left: 50%; width: 38px; height: 100cqw; object-fit: fill; }
+.timeline-note.slide[data-direction="left"] > img { transform: translate(-50%, -50%) rotate(-90deg); }
+.timeline-note.slide[data-direction="right"] > img { transform: translate(-50%, -50%) rotate(90deg); }
+.timeline-note.slide > span { position: absolute; z-index: 2; top: 50%; left: 50%; color: #000; font-size: 16px; font-weight: 900; transform: translate(-50%, -50%); pointer-events: none; }
 .timeline-start { position: absolute; z-index: 9; right: 0; bottom: 0; left: 92px; display: flex; justify-content: space-between; border-top: 2px solid #00f300; padding: 5px 8px; background: rgba(0, 40, 0, .88); color: #00f300; font-size: 8px; letter-spacing: .12em; pointer-events: none; }
 
 .note-inspector { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; border-left: 1px solid #343434; padding: 16px 12px 12px; overflow: hidden; }
