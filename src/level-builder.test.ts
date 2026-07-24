@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   createTimelineNote,
   moveTimelineNote,
+  nextTimelineZoom,
   sampleWaveform,
   timelineNavigationNotes,
   timelinePixelsPerSecond,
+  timelineScrollTopAfterZoom,
 } from "./level-builder.tsx";
 
 describe("level builder", () => {
@@ -48,6 +50,25 @@ describe("level builder", () => {
     expect(timelinePixelsPerSecond(0.5)).toBe(360);
     expect(timelinePixelsPerSecond(1)).toBe(720);
     expect(timelinePixelsPerSecond(2)).toBe(1440);
+  });
+
+  it("zooms out through the compact timeline levels", () => {
+    expect(nextTimelineZoom(0.5, "out")).toBe(0.25);
+    expect(nextTimelineZoom(0.25, "out")).toBe(0.1);
+    expect(nextTimelineZoom(0.1, "out")).toBe(0.05);
+    expect(nextTimelineZoom(0.05, "out")).toBe(0.02);
+    expect(nextTimelineZoom(0.02, "in")).toBe(0.05);
+  });
+
+  it("keeps the same timeline time under the zoom anchor", () => {
+    expect(timelineScrollTopAfterZoom(
+      7200,
+      3300,
+      300,
+      1,
+      3600,
+      0.5,
+    )).toBe(1500);
   });
 
   it("navigates to the first and last chronological notes", () => {

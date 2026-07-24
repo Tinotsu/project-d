@@ -30,6 +30,7 @@ type NoteDrag = {
 };
 
 const normalPixelsPerSecond = 720;
+const timelineZoomLevels = [0.02, 0.05, 0.1, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.25, 2.5, 2.75, 3];
 
 export function sampleWaveform(channel: Float32Array, barCount: number): number[] {
   const blockSize = Math.max(1, Math.floor(channel.length / barCount));
@@ -76,6 +77,23 @@ export function moveTimelineNote(note: ChartNote, laneDelta: number, timeDelta: 
 
 export function timelinePixelsPerSecond(zoom: number): number {
   return normalPixelsPerSecond * zoom;
+}
+
+export function nextTimelineZoom(zoom: number, direction: "in" | "out"): number {
+  const index = timelineZoomLevels.indexOf(zoom);
+  return timelineZoomLevels[Math.max(0, Math.min(timelineZoomLevels.length - 1, index + (direction === "in" ? 1 : -1)))];
+}
+
+export function timelineScrollTopAfterZoom(
+  scrollHeight: number,
+  scrollTop: number,
+  anchorY: number,
+  currentZoom: number,
+  nextScrollHeight: number,
+  nextZoom: number,
+): number {
+  const anchorTime = (scrollHeight - scrollTop - anchorY) / timelinePixelsPerSecond(currentZoom);
+  return nextScrollHeight - anchorTime * timelinePixelsPerSecond(nextZoom) - anchorY;
 }
 
 export function timelineNavigationNotes(notes: ChartNote[]): {
@@ -127,14 +145,7 @@ export function LevelBuilder({ level, onBack, onPublish, onSave, onTest }: Level
       if (!event.ctrlKey && !event.metaKey) return;
       event.preventDefault();
       const pointerY = event.clientY - timeline.getBoundingClientRect().top;
-      const anchor = (timeline.scrollTop + pointerY) / timeline.scrollHeight;
-      setZoom((current) => {
-        const nextZoom = Math.max(0.5, Math.min(3, current + (event.deltaY < 0 ? 0.25 : -0.25)));
-        requestAnimationFrame(() => {
-          timeline.scrollTop = anchor * timeline.scrollHeight - pointerY;
-        });
-        return nextZoom;
-      });
+      changeTimelineZoom(event.deltaY < 0 ? "in" : "out", pointerY);
     };
     timeline.addEventListener("wheel", zoomTimeline, { passive: false });
     return () => timeline.removeEventListener("wheel", zoomTimeline);
@@ -251,6 +262,29 @@ export function LevelBuilder({ level, onBack, onPublish, onSave, onTest }: Level
 
     selectNote(note);
     timeline.scrollTop = timeline.scrollHeight - note.time * pixelsPerSecond - timeline.clientHeight / 2;
+  }
+
+  function changeTimelineZoom(direction: "in" | "out" | "normal", anchorY?: number): void {
+    const timeline = timelineRef.current;
+    if (!timeline) return;
+    const oldScrollHeight = timeline.scrollHeight;
+    const oldScrollTop = timeline.scrollTop;
+    const zoomAnchorY = anchorY ?? timeline.clientHeight / 2;
+
+    setZoom((current) => {
+      const nextZoom = direction === "normal" ? 1 : nextTimelineZoom(current, direction);
+      requestAnimationFrame(() => {
+        timeline.scrollTop = timelineScrollTopAfterZoom(
+          oldScrollHeight,
+          oldScrollTop,
+          zoomAnchorY,
+          current,
+          timeline.scrollHeight,
+          nextZoom,
+        );
+      });
+      return nextZoom;
+    });
   }
 
   function startNoteDrag(event: React.PointerEvent<HTMLButtonElement>, note: ChartNote): void {
@@ -398,10 +432,10 @@ export function LevelBuilder({ level, onBack, onPublish, onSave, onTest }: Level
             <div className="timeline-toolbar-actions">
               <span className="scroll-hint">CTRL + SCROLL TO ZOOM</span>
               <div className="zoom-controls" aria-label="Timeline zoom">
-                <button type="button" aria-label="Zoom out" onClick={() => setZoom((current) => Math.max(0.5, current - 0.25))}>−</button>
+                <button type="button" aria-label="Zoom out" onClick={() => changeTimelineZoom("out")}>−</button>
                 <output>{Math.round(zoom * 100)}%</output>
-                <button type="button" className="zoom-normal" onClick={() => setZoom(1)}>Normal</button>
-                <button type="button" aria-label="Zoom in" onClick={() => setZoom((current) => Math.min(3, current + 0.25))}>＋</button>
+                <button type="button" className="zoom-normal" onClick={() => changeTimelineZoom("normal")}>Normal</button>
+                <button type="button" aria-label="Zoom in" onClick={() => changeTimelineZoom("in")}>＋</button>
               </div>
               <div className="timeline-navigation" aria-label="Timeline navigation">
                 <button type="button" disabled={!navigationNotes.first} onClick={() => navigateToNote(navigationNotes.first)}>Start</button>
