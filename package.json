@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build && mkdir -p dist/server && cp sites-worker.js dist/server/index.js",
+    "build": "tsc --noEmit && rm -rf dist && vite build && mkdir -p dist/server && cp sites-worker.js dist/server/index.js",
     "test": "vitest run"
   },
   "dependencies": {
