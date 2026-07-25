@@ -188,28 +188,32 @@ export function PlayfieldTestScreen({ level, onBack }: PlayfieldTestScreenProps)
 
         <aside className="playfield-test-panel panel">
           <strong>Controls</strong>
-          <audio
-            ref={audioRef}
-            className="playfield-test-audio"
-            src={level.song.audio}
-            controls
-            onPlay={() => {
-              playingRef.current = true;
-              setPlaying(true);
-            }}
-            onPause={() => {
-              playingRef.current = false;
-              setPlaying(false);
-            }}
-            onEnded={() => {
-              playingRef.current = false;
-              setPlaying(false);
-            }}
-            onTimeUpdate={(event) => {
-              timeRef.current = event.currentTarget.currentTime;
-              setTime(event.currentTarget.currentTime);
-            }}
-          />
+          {level.song.audio
+            ? (
+              <audio
+                ref={audioRef}
+                className="playfield-test-audio"
+                src={level.song.audio}
+                controls
+                onPlay={() => {
+                  playingRef.current = true;
+                  setPlaying(true);
+                }}
+                onPause={() => {
+                  playingRef.current = false;
+                  setPlaying(false);
+                }}
+                onEnded={() => {
+                  playingRef.current = false;
+                  setPlaying(false);
+                }}
+                onTimeUpdate={(event) => {
+                  timeRef.current = event.currentTarget.currentTime;
+                  setTime(event.currentTarget.currentTime);
+                }}
+              />
+            )
+            : <p className="playfield-test-silent">No music · using a silent timer</p>}
           <label className="playfield-test-scrubber">
             <span>Time</span>
             <input

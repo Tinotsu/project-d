@@ -64,6 +64,22 @@ afterEach(() => {
 });
 
 describe("camera timestamp propagation", () => {
+  it("runs a level without music on a silent clock", async () => {
+    const fetch = vi.fn();
+    vi.stubGlobal("fetch", fetch);
+    const now = vi.spyOn(performance, "now").mockReturnValue(1000);
+    const silentLevel = structuredClone(level);
+    silentLevel.song.audio = "";
+    const session = new GameSession(silentLevel);
+
+    await session.load();
+    await session.start();
+    now.mockReturnValue(1500);
+
+    expect(session.currentTime()).toBe(0.5);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
   it("judges an action at camera capture time instead of inference completion", async () => {
     const session = await startSession();
     context.currentTime = 1.08;

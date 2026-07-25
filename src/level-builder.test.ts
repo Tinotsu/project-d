@@ -2,9 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   createTimelineNote,
   moveTimelineNote,
+  moveTimelineNotes,
   nextTimelineZoom,
+  pasteTimelineNotes,
   sampleWaveform,
   timelineNavigationNotes,
+  timelineNotesInSelection,
   timelinePixelsPerSecond,
   timelineScrollTopAfterZoom,
   turnTimelineSlide,
@@ -47,6 +50,41 @@ describe("level builder", () => {
       -10,
       30,
     )).toMatchObject({ lane: 3, endLane: 1, time: 0 });
+  });
+
+  it("moves selected moves together without crushing their spacing at an edge", () => {
+    const first = createTimelineNote("n001", "LEFT_STEP", 1, 4);
+    const second = createTimelineNote("n002", "RIGHT_STEP", 3, 6);
+    const moved = moveTimelineNotes([first, second], -4, -10, 30);
+
+    expect(moved[0]).toMatchObject({ stepPosition: 0, time: 0 });
+    expect(moved[1]).toMatchObject({ stepPosition: 2, time: 2 });
+  });
+
+  it("selects every move whose center is inside the drawn timeline box", () => {
+    const first = createTimelineNote("n001", "LEFT_STEP", 1, 4);
+    const second = createTimelineNote("n002", "RIGHT_STEP", 3, 6);
+
+    expect(timelineNotesInSelection(
+      [first, second],
+      { left: 0, top: 350, width: 300, height: 300 },
+      400,
+      1000,
+      100,
+    )).toEqual(["n001", "n002"]);
+  });
+
+  it("pastes a copied group at a new lane and time with new IDs", () => {
+    const copied = [
+      createTimelineNote("n001", "LEFT_STEP", 1, 4),
+      createTimelineNote("n002", "RIGHT_STEP", 2, 6),
+    ];
+    const pasted = pasteTimelineNotes(copied, copied, 2, 10, 30);
+
+    expect(pasted).toMatchObject([
+      { id: "n003", stepPosition: 2, time: 10 },
+      { id: "n004", stepPosition: 3, time: 12 },
+    ]);
   });
 
   it("moves steps in half-lane steps and keeps the whole step inside the track", () => {

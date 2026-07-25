@@ -23,10 +23,23 @@ type BuilderMenu =
   | { x: number; y: number; mode: "note"; noteId: string };
 
 type NoteDrag = {
-  note: ChartNote;
+  notes: ChartNote[];
   pointerId: number;
   x: number;
   y: number;
+};
+
+type TimelineSelection = {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+};
+
+type SelectionDrag = TimelineSelection & {
+  pointerId: number;
+  startX: number;
+  startY: number;
 };
 
 const normalPixelsPerSecond = 720;
@@ -91,6 +104,69 @@ export function moveTimelineNote(note: ChartNote, laneDelta: number, timeDelta: 
   return { ...note, time, lane: Math.min(4, Math.floor(stepPosition + 1)), stepPosition };
 }
 
+export function moveTimelineNotes(
+  notes: ChartNote[],
+  laneDelta: number,
+  timeDelta: number,
+  duration: number,
+): ChartNote[] {
+  if (!notes.length) return [];
+  const minTime = Math.min(...notes.map((note) => note.time));
+  const maxTime = Math.max(...notes.map((note) => note.time));
+  const boundedTimeDelta = Math.max(-minTime, Math.min(duration - maxTime, timeDelta));
+  const laneBounds = notes
+    .filter((note) => note.type !== "JUMP")
+    .map((note) => note.type === "SLIDE" ? slideBounds(note) : stepBounds(note));
+  const boundedLaneDelta = laneBounds.length
+    ? Math.max(
+      -Math.min(...laneBounds.map((bounds) => bounds.left)),
+      Math.min(4 - Math.max(...laneBounds.map((bounds) => bounds.right)), laneDelta),
+    )
+    : 0;
+  return notes.map((note) => moveTimelineNote(note, boundedLaneDelta, boundedTimeDelta, duration));
+}
+
+export function timelineNotesInSelection(
+  notes: ChartNote[],
+  selection: TimelineSelection,
+  timelineWidth: number,
+  timelineHeight: number,
+  pixelsPerSecond: number,
+): string[] {
+  return notes.filter((note) => {
+    const bounds = note.type === "STEP"
+      ? stepBounds(note)
+      : note.type === "SLIDE" ? slideBounds(note) : { left: 0, right: 4 };
+    const x = (bounds.left + bounds.right) / 8 * timelineWidth;
+    const y = timelineHeight - note.time * pixelsPerSecond;
+    return x >= selection.left
+      && x <= selection.left + selection.width
+      && y >= selection.top
+      && y <= selection.top + selection.height;
+  }).map((note) => note.id);
+}
+
+export function pasteTimelineNotes(
+  copiedNotes: ChartNote[],
+  existingNotes: ChartNote[],
+  lanePosition: number,
+  time: number,
+  duration: number,
+): ChartNote[] {
+  if (!copiedNotes.length) return [];
+  const laneBounds = copiedNotes
+    .filter((note) => note.type !== "JUMP")
+    .map((note) => note.type === "SLIDE" ? slideBounds(note) : stepBounds(note));
+  const left = laneBounds.length ? Math.min(...laneBounds.map((bounds) => bounds.left)) : lanePosition;
+  const firstTime = Math.min(...copiedNotes.map((note) => note.time));
+  const movedNotes = moveTimelineNotes(copiedNotes, lanePosition - left, time - firstTime, duration);
+  let nextNumber = Math.max(0, ...existingNotes.map((note) => Number(note.id.match(/\d+/)?.[0] ?? 0))) + 1;
+  return movedNotes.map((note) => ({
+    ...note,
+    id: `n${String(nextNumber++).padStart(3, "0")}`,
+  }));
+}
+
 export function turnTimelineSlide(note: ChartNote): ChartNote {
   return { ...note, lane: note.endLane, endLane: note.lane };
 }
@@ -128,6 +204,7 @@ export function LevelBuilder({ level, onBack, onPublish, onSave, onTest }: Level
   const audioRef = useRef<HTMLAudioElement>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
   const noteDragRef = useRef<NoteDrag | undefined>(undefined);
+  const selectionDragRef = useRef<SelectionDrag | undefined>(undefined);
   const [chart, setChart] = useState<LevelChart>(() => structuredClone(level.chart));
   const [song, setSong] = useState<SongMetadata>(() => ({ ...level.song }));
   const [audioBlob, setAudioBlob] = useState(level.audioBlob);
@@ -136,8 +213,10 @@ export function LevelBuilder({ level, onBack, onPublish, onSave, onTest }: Level
   const [playhead, setPlayhead] = useState(0);
   const [zoom, setZoom] = useState(1);
   const [menu, setMenu] = useState<BuilderMenu>();
-  const [selectedNoteId, setSelectedNoteId] = useState<string>();
-  const [draggingNoteId, setDraggingNoteId] = useState<string>();
+  const [selectedNoteIds, setSelectedNoteIds] = useState<string[]>([]);
+  const [draggingNoteIds, setDraggingNoteIds] = useState<string[]>([]);
+  const [selectionBox, setSelectionBox] = useState<TimelineSelection>();
+  const [clipboard, setClipboard] = useState<ChartNote[]>([]);
   const [status, setStatus] = useState("");
 
   const duration = Math.max(30, Math.ceil(song.duration || chart.level.endTime || 60));
@@ -145,7 +224,7 @@ export function LevelBuilder({ level, onBack, onPublish, onSave, onTest }: Level
   const timelineHeight = Math.max(1500, duration * pixelsPerSecond);
   const notes = useMemo(() => [...chart.notes].sort((left, right) => right.time - left.time), [chart.notes]);
   const navigationNotes = useMemo(() => timelineNavigationNotes(chart.notes), [chart.notes]);
-  const selectedNote = chart.notes.find((note) => note.id === selectedNoteId);
+  const selectedNote = chart.notes.find((note) => note.id === selectedNoteIds.at(-1));
   const markers = Array.from({ length: Math.floor(duration / 5) + 1 }, (_, index) => index * 5);
 
   useEffect(() => {
@@ -205,7 +284,7 @@ export function LevelBuilder({ level, onBack, onPublish, onSave, onTest }: Level
     const audioUrl = URL.createObjectURL(file);
     const context = new AudioContext();
     const buffer = await context.decodeAudioData(await file.arrayBuffer());
-    const nextTitle = title === "Untitled level" ? file.name.replace(/\.mp3$/i, "") : title;
+    const nextTitle = title === "Untitled level" ? file.name.replace(/\.[^.]+$/, "") : title;
     setSong((current) => ({ ...current, title: nextTitle, audio: audioUrl, duration: buffer.duration }));
     setAudioBlob(file);
     setTitle(nextTitle);
@@ -225,7 +304,7 @@ export function LevelBuilder({ level, onBack, onPublish, onSave, onTest }: Level
       laneOffset,
     );
     setChart((current) => ({ ...current, notes: [...current.notes, note] }));
-    setSelectedNoteId(note.id);
+    setSelectedNoteIds([note.id]);
     setMenu(undefined);
   }
 
@@ -236,9 +315,12 @@ export function LevelBuilder({ level, onBack, onPublish, onSave, onTest }: Level
     }));
   }
 
-  function removeNote(id: string): void {
-    setChart((current) => ({ ...current, notes: current.notes.filter((note) => note.id !== id) }));
-    if (selectedNoteId === id) setSelectedNoteId(undefined);
+  function removeSelectedNotes(): void {
+    setChart((current) => ({
+      ...current,
+      notes: current.notes.filter((note) => !selectedNoteIds.includes(note.id)),
+    }));
+    setSelectedNoteIds([]);
     setMenu(undefined);
   }
 
@@ -262,12 +344,14 @@ export function LevelBuilder({ level, onBack, onPublish, onSave, onTest }: Level
   function openNoteMenu(event: React.MouseEvent, noteId: string): void {
     event.preventDefault();
     event.stopPropagation();
-    setSelectedNoteId(noteId);
+    if (!selectedNoteIds.includes(noteId)) {
+      setSelectedNoteIds([noteId]);
+    }
     setMenu({ x: event.clientX, y: event.clientY, mode: "note", noteId });
   }
 
   function selectNote(note: ChartNote): void {
-    setSelectedNoteId(note.id);
+    setSelectedNoteIds([note.id]);
     if (audioRef.current) audioRef.current.currentTime = note.time;
     setPlayhead(note.time);
   }
@@ -309,41 +393,113 @@ export function LevelBuilder({ level, onBack, onPublish, onSave, onTest }: Level
 
   function startNoteDrag(event: React.PointerEvent<HTMLButtonElement>, note: ChartNote): void {
     if (event.button !== 0) return;
+    event.stopPropagation();
     event.currentTarget.setPointerCapture(event.pointerId);
+    const draggedIds = selectedNoteIds.includes(note.id) ? selectedNoteIds : [note.id];
     noteDragRef.current = {
-      note,
+      notes: chart.notes.filter((candidate) => draggedIds.includes(candidate.id)),
       pointerId: event.pointerId,
       x: event.clientX,
       y: event.clientY,
     };
-    setSelectedNoteId(note.id);
-    setDraggingNoteId(note.id);
+    setSelectedNoteIds(draggedIds);
+    setDraggingNoteIds(draggedIds);
     setMenu(undefined);
   }
 
-  function dragNote(event: React.PointerEvent<HTMLButtonElement>): void {
+  function dragNote(event: React.PointerEvent<HTMLDivElement>): void {
     const drag = noteDragRef.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
-    const laneWidth = event.currentTarget.parentElement!.getBoundingClientRect().width / 4;
-    const laneDelta = drag.note.type !== "JUMP"
-      ? Math.round((event.clientX - drag.x) / (laneWidth / 2)) * 0.5
-      : 0;
-    const movedNote = moveTimelineNote(
-      drag.note,
+    const laneWidth = event.currentTarget.getBoundingClientRect().width / 4;
+    const laneDelta = Math.round((event.clientX - drag.x) / (laneWidth / 2)) * 0.5;
+    const movedNotes = moveTimelineNotes(
+      drag.notes,
       laneDelta,
       (drag.y - event.clientY) / pixelsPerSecond,
       duration,
     );
+    const movedById = new Map(movedNotes.map((note) => [note.id, note]));
     setChart((current) => ({
       ...current,
-      notes: current.notes.map((note) => note.id === movedNote.id ? movedNote : note),
+      notes: current.notes.map((note) => movedById.get(note.id) ?? note),
     }));
   }
 
-  function endNoteDrag(event: React.PointerEvent<HTMLButtonElement>): void {
+  function endNoteDrag(event: React.PointerEvent<HTMLDivElement>): void {
     if (noteDragRef.current?.pointerId !== event.pointerId) return;
     noteDragRef.current = undefined;
-    setDraggingNoteId(undefined);
+    setDraggingNoteIds([]);
+  }
+
+  function startTimelineSelection(event: React.PointerEvent<HTMLDivElement>): void {
+    if (event.button !== 0) return;
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const startX = Math.max(0, Math.min(bounds.width, event.clientX - bounds.left));
+    const startY = Math.max(0, Math.min(bounds.height, event.clientY - bounds.top));
+    event.currentTarget.setPointerCapture(event.pointerId);
+    selectionDragRef.current = {
+      pointerId: event.pointerId,
+      startX,
+      startY,
+      left: startX,
+      top: startY,
+      width: 0,
+      height: 0,
+    };
+    setSelectedNoteIds([]);
+    setSelectionBox({ left: startX, top: startY, width: 0, height: 0 });
+    setMenu(undefined);
+  }
+
+  function dragTimelineSelection(event: React.PointerEvent<HTMLDivElement>): void {
+    const drag = selectionDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const x = Math.max(0, Math.min(bounds.width, event.clientX - bounds.left));
+    const y = Math.max(0, Math.min(bounds.height, event.clientY - bounds.top));
+    const selection = {
+      left: Math.min(drag.startX, x),
+      top: Math.min(drag.startY, y),
+      width: Math.abs(x - drag.startX),
+      height: Math.abs(y - drag.startY),
+    };
+    selectionDragRef.current = { ...drag, ...selection };
+    const selectedIds = timelineNotesInSelection(
+      chart.notes,
+      selection,
+      bounds.width,
+      bounds.height,
+      pixelsPerSecond,
+    );
+    setSelectionBox(selection);
+    setSelectedNoteIds(selectedIds);
+  }
+
+  function endTimelineSelection(event: React.PointerEvent<HTMLDivElement>): void {
+    if (selectionDragRef.current?.pointerId !== event.pointerId) return;
+    dragTimelineSelection(event);
+    selectionDragRef.current = undefined;
+    setSelectionBox(undefined);
+  }
+
+  function copySelectedNotes(cut: boolean): void {
+    const copiedNotes = chart.notes.filter((note) => selectedNoteIds.includes(note.id));
+    setClipboard(structuredClone(copiedNotes));
+    if (cut) {
+      setChart((current) => ({
+        ...current,
+        notes: current.notes.filter((note) => !selectedNoteIds.includes(note.id)),
+      }));
+      setSelectedNoteIds([]);
+    }
+    setMenu(undefined);
+  }
+
+  function pasteNotes(lane: number, laneOffset: 0 | 0.5, time: number): void {
+    const pastedNotes = pasteTimelineNotes(clipboard, chart.notes, lane - 1 + laneOffset, time, duration);
+    setChart((current) => ({ ...current, notes: [...current.notes, ...pastedNotes] }));
+    setSelectedNoteIds(pastedNotes.map((note) => note.id));
+    setMenu(undefined);
   }
 
   async function save(): Promise<void> {
@@ -391,17 +547,25 @@ export function LevelBuilder({ level, onBack, onPublish, onSave, onTest }: Level
               <span>MUSIC</span>
               <small>MP3</small>
             </div>
-            <label className="music-drop">
+            <label
+              className="music-drop"
+              onDragOver={(event) => event.preventDefault()}
+              onDrop={(event) => {
+                event.preventDefault();
+                const file = event.dataTransfer.files[0];
+                if (file) void uploadMusic(file);
+              }}
+            >
               <input
                 type="file"
-                accept=".mp3,audio/mpeg"
+                accept="audio/*"
                 onChange={(event) => {
                   const file = event.target.files?.[0];
                   if (file) void uploadMusic(file);
                 }}
               />
               <strong>＋ Upload music</strong>
-              <span>Choose an MP3 from your computer</span>
+              <span>Drop an audio file or click to choose</span>
             </label>
             {song.audio && (
               <audio
@@ -439,9 +603,10 @@ export function LevelBuilder({ level, onBack, onPublish, onSave, onTest }: Level
 
           <section className="builder-legend">
             <div className="builder-section-heading"><span>QUICK GUIDE</span></div>
+            <p><strong>Drag empty space</strong> to select multiple moves.</p>
             <p><strong>Right-click</strong> any lane to add a move.</p>
-            <p><strong>Drag</strong> a move to change its lane and time.</p>
-            <p><strong>Right-click</strong> a move to edit or delete it.</p>
+            <p><strong>Drag a selected move</strong> to move the group.</p>
+            <p><strong>Right-click selected moves</strong> to copy, cut, or delete.</p>
             <div><i className="legend-left" />Left <i className="legend-right" />Right <i className="legend-jump" />Jump</div>
           </section>
         </aside>
@@ -450,7 +615,7 @@ export function LevelBuilder({ level, onBack, onPublish, onSave, onTest }: Level
           <div className="timeline-toolbar">
             <div>
               <strong>LEVEL TIMELINE</strong>
-              <span>{notes.length} moves · {formatTime(duration)}</span>
+              <span>{notes.length} moves · {selectedNoteIds.length} selected · {formatTime(duration)}</span>
             </div>
             <div className="timeline-toolbar-actions">
               <span className="scroll-hint">CTRL + SCROLL TO ZOOM</span>
@@ -485,12 +650,38 @@ export function LevelBuilder({ level, onBack, onPublish, onSave, onTest }: Level
                 {markers.map((time) => <span key={time} style={{ bottom: time * pixelsPerSecond }}>{formatTime(time)}</span>)}
               </div>
 
-              <div className="timeline-lanes">
+              <div
+                className="timeline-lanes"
+                onPointerDown={startTimelineSelection}
+                onPointerMove={(event) => {
+                  dragNote(event);
+                  dragTimelineSelection(event);
+                }}
+                onPointerUp={(event) => {
+                  endNoteDrag(event);
+                  endTimelineSelection(event);
+                }}
+                onPointerCancel={(event) => {
+                  endNoteDrag(event);
+                  endTimelineSelection(event);
+                }}
+              >
                 {markers.map((time) => <i className="time-gridline" key={time} style={{ bottom: time * pixelsPerSecond }} />)}
                 <div className="timeline-playhead" style={{ bottom: playhead * pixelsPerSecond }}><span>{formatTime(playhead)}</span></div>
                 {[1, 2, 3, 4].map((lane) => (
                   <div className="timeline-lane" key={lane} onContextMenu={(event) => openLaneMenu(event, lane)} />
                 ))}
+                {selectionBox && (
+                  <div
+                    className="timeline-selection"
+                    style={{
+                      left: selectionBox.left,
+                      top: selectionBox.top,
+                      width: selectionBox.width,
+                      height: selectionBox.height,
+                    }}
+                  />
+                )}
                 {notes.map((note) => {
                   let left = 0;
                   let width = 100;
@@ -512,7 +703,7 @@ export function LevelBuilder({ level, onBack, onPublish, onSave, onTest }: Level
                     <button
                       type="button"
                       aria-label={`${note.type} at ${note.time.toFixed(3)} seconds`}
-                      className={`timeline-note ${note.type.toLowerCase()} ${note.foot} ${selectedNoteId === note.id ? "selected" : ""} ${draggingNoteId === note.id ? "dragging" : ""}`}
+                      className={`timeline-note ${note.type.toLowerCase()} ${note.foot} ${selectedNoteIds.includes(note.id) ? "selected" : ""} ${draggingNoteIds.includes(note.id) ? "dragging" : ""}`}
                       data-direction={note.type === "SLIDE" && note.endLane! < note.lane! ? "left" : "right"}
                       key={note.id}
                       style={{
@@ -523,13 +714,10 @@ export function LevelBuilder({ level, onBack, onPublish, onSave, onTest }: Level
                       }}
                       onClick={(event) => {
                         event.stopPropagation();
-                        selectNote(note);
+                        if (!selectedNoteIds.includes(note.id)) selectNote(note);
                       }}
                       onContextMenu={(event) => openNoteMenu(event, note.id)}
                       onPointerDown={(event) => startNoteDrag(event, note)}
-                      onPointerMove={dragNote}
-                      onPointerUp={endNoteDrag}
-                      onPointerCancel={endNoteDrag}
                     >
                       <img src={asset} alt="" />
                       {note.type === "SLIDE" && <span>{note.endLane! < note.lane! ? "↖" : "↗"}</span>}
@@ -550,7 +738,7 @@ export function LevelBuilder({ level, onBack, onPublish, onSave, onTest }: Level
           <div className="note-list">
             {notes.length === 0 && <p className="empty-notes">Right-click the timeline to add your first move.</p>}
             {notes.map((note, index) => (
-              <article className={selectedNoteId === note.id ? "selected" : ""} key={note.id} onClick={() => selectNote(note)}>
+              <article className={selectedNoteIds.includes(note.id) ? "selected" : ""} key={note.id} onClick={() => selectNote(note)}>
                 <div className={`note-index ${note.type.toLowerCase()} ${note.foot}`}>{String(notes.length - index).padStart(2, "0")}</div>
                 <div>
                   <strong>{note.type === "STEP" ? `${note.foot} step` : note.type.toLowerCase()}</strong>
@@ -588,16 +776,28 @@ export function LevelBuilder({ level, onBack, onPublish, onSave, onTest }: Level
             ))}
           </div>
           {selectedNote && (
-            <Button className="inspector-delete" variant="destructive" size="sm" onClick={() => removeNote(selectedNote.id)}>
-              Delete selected move
+            <Button className="inspector-delete" variant="destructive" size="sm" onClick={removeSelectedNotes}>
+              Delete {selectedNoteIds.length} selected {selectedNoteIds.length === 1 ? "move" : "moves"}
             </Button>
           )}
         </aside>
       </div>
 
       {menu?.mode === "lane" && (
-        <div className="builder-context-menu" style={{ left: menu.x, top: menu.y }} onClick={(event) => event.stopPropagation()}>
+        <div
+          className="builder-context-menu"
+          style={{
+            left: Math.max(8, Math.min(menu.x, window.innerWidth - 198)),
+            top: Math.max(8, Math.min(menu.y, window.innerHeight - (clipboard.length ? 270 : 230))),
+          }}
+          onClick={(event) => event.stopPropagation()}
+        >
           <small>ADD AT {formatTime(menu.time)} · LANE {menu.lane} + {menu.laneOffset}</small>
+          {clipboard.length > 0 && (
+            <button onClick={() => pasteNotes(menu.lane, menu.laneOffset, menu.time)}>
+              Paste {clipboard.length} {clipboard.length === 1 ? "move" : "moves"}
+            </button>
+          )}
           <button onClick={() => addNote("LEFT_STEP", menu.lane, menu.laneOffset, menu.time)}><i className="left" /> Left step</button>
           <button onClick={() => addNote("RIGHT_STEP", menu.lane, menu.laneOffset, menu.time)}><i className="right" /> Right step</button>
           <button onClick={() => addNote("JUMP", menu.lane, menu.laneOffset, menu.time)}><i className="jump" /> Jump</button>
@@ -607,10 +807,19 @@ export function LevelBuilder({ level, onBack, onPublish, onSave, onTest }: Level
       )}
 
       {menuNote && (
-        <div className="builder-context-menu" style={{ left: menu!.x, top: menu!.y }} onClick={(event) => event.stopPropagation()}>
-          <small>{menuNote.type} · {formatTime(menuNote.time)}</small>
-          {menuNote.type === "SLIDE" && <button onClick={() => turnSlide(menuNote)}>↻ Turn 180°</button>}
-          <button className="danger" onClick={() => removeNote(menuNote.id)}>× Delete move</button>
+        <div
+          className="builder-context-menu"
+          style={{
+            left: Math.max(8, Math.min(menu!.x, window.innerWidth - 198)),
+            top: Math.max(8, Math.min(menu!.y, window.innerHeight - 190)),
+          }}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <small>{selectedNoteIds.length} SELECTED · {formatTime(menuNote.time)}</small>
+          {selectedNoteIds.length === 1 && menuNote.type === "SLIDE" && <button onClick={() => turnSlide(menuNote)}>↻ Turn 180°</button>}
+          <button onClick={() => copySelectedNotes(false)}>Copy</button>
+          <button onClick={() => copySelectedNotes(true)}>Cut</button>
+          <button className="danger" onClick={removeSelectedNotes}>× Delete</button>
         </div>
       )}
     </main>
