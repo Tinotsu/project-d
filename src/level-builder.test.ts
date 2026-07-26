@@ -42,7 +42,7 @@ describe("level builder", () => {
       2,
       1.25,
       30,
-    )).toMatchObject({ lane: 4, time: 5.25 });
+    )).toMatchObject({ lane: 4, time: 5.3 });
 
     expect(moveTimelineNote(
       createTimelineNote("n002", "SLIDE_LEFT", 3, 8),

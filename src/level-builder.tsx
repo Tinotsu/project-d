@@ -89,7 +89,7 @@ export function createTimelineNote(
 }
 
 export function moveTimelineNote(note: ChartNote, laneDelta: number, timeDelta: number, duration: number): ChartNote {
-  const time = Number(Math.max(0, Math.min(duration, note.time + timeDelta)).toFixed(3));
+  const time = Number(Math.max(0, Math.min(duration, note.time + timeDelta)).toFixed(1));
   if (note.type === "JUMP") return { ...note, time };
 
   if (note.type === "SLIDE") {
@@ -300,7 +300,7 @@ export function LevelBuilder({ level, onBack, onPublish, onSave, onTest }: Level
       `n${String(nextNumber).padStart(3, "0")}`,
       type,
       lane,
-      Number(time.toFixed(3)),
+      Number(time.toFixed(1)),
       laneOffset,
     );
     setChart((current) => ({ ...current, notes: [...current.notes, note] }));
@@ -702,7 +702,7 @@ export function LevelBuilder({ level, onBack, onPublish, onSave, onTest }: Level
                   return (
                     <button
                       type="button"
-                      aria-label={`${note.type} at ${note.time.toFixed(3)} seconds`}
+                      aria-label={`${note.type} at ${note.time.toFixed(1)} seconds`}
                       className={`timeline-note ${note.type.toLowerCase()} ${note.foot} ${selectedNoteIds.includes(note.id) ? "selected" : ""} ${draggingNoteIds.includes(note.id) ? "dragging" : ""}`}
                       data-direction={note.type === "SLIDE" && note.endLane! < note.lane! ? "left" : "right"}
                       key={note.id}
@@ -751,7 +751,7 @@ export function LevelBuilder({ level, onBack, onPublish, onSave, onTest }: Level
                     type="number"
                     min="0"
                     max={duration}
-                    step="0.001"
+                    step="0.1"
                     value={note.time}
                     onClick={(event) => event.stopPropagation()}
                     onChange={(event) => updateNote(note.id, { time: event.target.valueAsNumber })}
