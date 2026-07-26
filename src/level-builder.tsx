@@ -11,7 +11,6 @@ import { slideBounds, stepBounds, type ChartNote } from "./rhythm-engine.ts";
 type LevelBuilderProps = {
   level: LoadedLevel;
   onBack: () => void;
-  onPublish: (level: LoadedLevel) => Promise<void>;
   onSave: (level: LoadedLevel) => Promise<void>;
   onTest: (level: LoadedLevel) => void;
 };
@@ -200,7 +199,7 @@ export function timelineNavigationNotes(notes: ChartNote[]): {
   return { first: chronological[0], last: chronological.at(-1) };
 }
 
-export function LevelBuilder({ level, onBack, onPublish, onSave, onTest }: LevelBuilderProps) {
+export function LevelBuilder({ level, onBack, onSave, onTest }: LevelBuilderProps) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
   const noteDragRef = useRef<NoteDrag | undefined>(undefined);
@@ -512,16 +511,6 @@ export function LevelBuilder({ level, onBack, onPublish, onSave, onTest }: Level
     }
   }
 
-  async function publish(): Promise<void> {
-    setStatus("Publishing…");
-    try {
-      await onPublish(builtLevel());
-      setStatus("Published to your level library");
-    } catch {
-      setStatus("Could not publish");
-    }
-  }
-
   const menuNote = menu?.mode === "note" ? chart.notes.find((note) => note.id === menu.noteId) : undefined;
 
   return (
@@ -535,8 +524,7 @@ export function LevelBuilder({ level, onBack, onPublish, onSave, onTest }: Level
         </div>
         <div className="builder-actions">
           <Button variant="outline" onClick={() => onTest(builtLevel())}>▶ Test level</Button>
-          <Button variant="outline" onClick={save}>Save</Button>
-          <Button onClick={publish}>Publish</Button>
+          <Button onClick={save}>Save</Button>
         </div>
       </header>
 

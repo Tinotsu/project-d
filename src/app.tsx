@@ -32,8 +32,7 @@ export function App() {
   const [screen, setScreen] = useState<Screen>(() => screenFromPath(window.location.pathname));
   const [level, setLevel] = useState<LoadedLevel>();
   const [builderLevel, setBuilderLevel] = useState<LoadedLevel>();
-  const [publishedLevels, setPublishedLevels] = useState<LoadedLevel[]>([]);
-  const [savedDrafts, setSavedDrafts] = useState<LoadedLevel[]>([]);
+  const [savedLevels, setSavedLevels] = useState<LoadedLevel[]>([]);
   const [trackReturn, setTrackReturn] = useState<"menu" | "builder">("menu");
   const [loadError, setLoadError] = useState("");
   const [cameraCalibrated, setCameraCalibrated] = useState(false);
@@ -46,16 +45,14 @@ export function App() {
       loadLevel("/levels/second-heaven/test.json"),
       loadStoredLevels().catch(() => []),
     ]).then(([loadedLevel, storedLevels]) => {
-      const storedPublished = storedLevels.filter((stored) => stored.published).map((stored) => stored.level);
-      const drafts = storedLevels.filter((stored) => !stored.published).map((stored) => stored.level);
+      const stored = storedLevels.map((stored) => stored.level);
       const library = [
-        ...storedPublished,
-        ...(!storedPublished.some((stored) => stored.song.id === loadedLevel.song.id) ? [loadedLevel] : []),
+        ...stored,
+        ...(!stored.some((saved) => saved.song.id === loadedLevel.song.id) ? [loadedLevel] : []),
       ];
-      setLevel(storedPublished[0] ?? loadedLevel);
-      setPublishedLevels(library);
-      setSavedDrafts(drafts);
-      if (window.location.pathname === screenPaths.builder) setBuilderLevel(drafts[0] ?? storedPublished[0] ?? loadedLevel);
+      setLevel(stored[0] ?? loadedLevel);
+      setSavedLevels(library);
+      if (window.location.pathname === screenPaths.builder) setBuilderLevel(stored[0] ?? loadedLevel);
     }).catch((error: unknown) => {
       setLoadError(error instanceof Error ? error.message : "Could not load levels");
     });
@@ -124,21 +121,12 @@ export function App() {
           level={builderLevel}
           onBack={() => navigate("menu")}
           onSave={async (savedLevel) => {
-            await storeLevel(savedLevel, false);
+            await storeLevel(savedLevel);
             setBuilderLevel(savedLevel);
-            setSavedDrafts((current) => [
+            setLevel(savedLevel);
+            setSavedLevels((current) => [
               savedLevel,
               ...current.filter((candidate) => candidate.song.id !== savedLevel.song.id),
-            ]);
-          }}
-          onPublish={async (publishedLevel) => {
-            await storeLevel(publishedLevel, true);
-            setBuilderLevel(publishedLevel);
-            setLevel(publishedLevel);
-            setSavedDrafts((current) => current.filter((candidate) => candidate.song.id !== publishedLevel.song.id));
-            setPublishedLevels((current) => [
-              publishedLevel,
-              ...current.filter((candidate) => candidate.song.id !== publishedLevel.song.id),
             ]);
           }}
           onTest={(testLevel) => {
@@ -213,10 +201,10 @@ export function App() {
 
           <section className="published-levels panel">
             <div className="section-heading">
-              <strong>Published levels</strong>
-              <small>{publishedLevels.length}</small>
+              <strong>Saved levels</strong>
+              <small>{savedLevels.length}</small>
             </div>
-            {publishedLevels.map((libraryLevel) => (
+            {savedLevels.map((libraryLevel) => (
               <div className="published-level" key={libraryLevel.song.id}>
                 <div>
                   <strong>{libraryLevel.song.title}</strong>
@@ -234,26 +222,6 @@ export function App() {
               </div>
             ))}
           </section>
-          {savedDrafts.length > 0 && (
-            <section className="published-levels panel saved-drafts">
-              <div className="section-heading">
-                <strong>Saved drafts</strong>
-                <small>{savedDrafts.length}</small>
-              </div>
-              {savedDrafts.map((draft) => (
-                <div className="published-level" key={draft.song.id}>
-                  <div>
-                    <strong>{draft.song.title}</strong>
-                    <span>{draft.chart.notes.length} moves</span>
-                  </div>
-                  <Button size="sm" variant="outline" onClick={() => {
-                    setBuilderLevel(draft);
-                    navigate("builder");
-                  }}>Edit</Button>
-                </div>
-              ))}
-            </section>
-          )}
           {loadError && <p className="error-message">{loadError}</p>}
         </main>
       )}

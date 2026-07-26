@@ -2,7 +2,6 @@ import type { LoadedLevel } from "./level.ts";
 
 export type StoredLevel = {
   level: LoadedLevel;
-  published: boolean;
   updatedAt: number;
 };
 
@@ -29,27 +28,27 @@ export async function loadStoredLevels(): Promise<StoredLevel[]> {
 
   return records
     .sort((left, right) => right.updatedAt - left.updatedAt)
-    .map(({ level, published, updatedAt }) => ({
+    .filter((record, index, sorted) => sorted.findIndex((candidate) => candidate.level.song.id === record.level.song.id) === index)
+    .map(({ level, updatedAt }) => ({
       level: level.audioBlob
         ? { ...level, song: { ...level.song, audio: URL.createObjectURL(level.audioBlob) } }
         : level,
-      published,
       updatedAt,
     }));
 }
 
-export async function storeLevel(level: LoadedLevel, published: boolean): Promise<void> {
+export async function storeLevel(level: LoadedLevel): Promise<void> {
   const database = await openLevelDatabase();
   await new Promise<void>((resolve, reject) => {
     const transaction = database.transaction(storeName, "readwrite");
     const store = transaction.objectStore(storeName);
     store.put({
-      key: `${published ? "published" : "draft"}:${level.song.id}`,
+      key: `level:${level.song.id}`,
       level: level.audioBlob ? { ...level, song: { ...level.song, audio: "" } } : level,
-      published,
       updatedAt: Date.now(),
     });
-    if (published) store.delete(`draft:${level.song.id}`);
+    store.delete(`draft:${level.song.id}`);
+    store.delete(`published:${level.song.id}`);
     transaction.oncomplete = () => resolve();
     transaction.onerror = () => reject(transaction.error);
   });
