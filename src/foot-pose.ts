@@ -22,40 +22,31 @@ export type InputFrame = {
 };
 
 class FootContactState {
-  private groundY?: number;
-  private peakY?: number;
-  private lifted = false;
+  private previousY?: number[];
+  private moving = false;
 
   constructor(private readonly settings: CalibrationSettings) {}
 
-  update(y: number | null): boolean {
-    if (y === null) {
+  update(points: number | number[] | null): boolean {
+    if (points === null) {
       this.reset();
       return false;
     }
-    if (this.groundY === undefined) {
-      this.groundY = y;
+    const y = typeof points === "number" ? [points, points, points] : points;
+    if (this.previousY === undefined) {
+      this.previousY = [...y];
       return false;
     }
-    if (!this.lifted && this.groundY - y > this.settings.stepLift) {
-      this.lifted = true;
-      this.peakY = y;
-      return false;
-    }
-    if (this.lifted) this.peakY = Math.min(this.peakY!, y);
-    if (this.lifted && (y > this.groundY - this.settings.stepLanding || y - this.peakY! > this.settings.stepDescent)) {
-      this.lifted = false;
-      this.groundY = y;
-      this.peakY = undefined;
-      return true;
-    }
-    if (!this.lifted) this.groundY = Math.max(this.groundY, y);
-    return false;
+    const moving = this.previousY.filter((previousY, index) => Math.abs(y[index] - previousY) > this.settings.stepDescent).length >= 2;
+    const step = moving && !this.moving;
+    this.previousY = [...y];
+    this.moving = moving;
+    return step;
   }
 
   reset(): void {
-    this.groundY = this.peakY = undefined;
-    this.lifted = false;
+    this.previousY = undefined;
+    this.moving = false;
   }
 }
 
@@ -77,7 +68,7 @@ export class InputActionState {
     this.rightContact = new FootContactState(settings);
   }
 
-  update(leftLane: number | null, rightLane: number | null, leftY: number | null, rightY: number | null, jumping: boolean, capturedAt: DOMHighResTimeStamp): InputAction[] {
+  update(leftLane: number | null, rightLane: number | null, leftPoints: number | number[] | null, rightPoints: number | number[] | null, jumping: boolean, capturedAt: DOMHighResTimeStamp): InputAction[] {
     const actions: InputAction[] = [];
     if (leftLane === null) this.leftMissingAt ??= capturedAt;
     else if (this.leftMissingAt !== undefined) {
@@ -97,7 +88,7 @@ export class InputActionState {
       return actions;
     }
 
-    const leftStep = this.leftContact.update(leftY);
+    const leftStep = this.leftContact.update(leftPoints);
     const leftSlide = leftLane !== null && this.leftLane !== undefined
       && Math.abs(leftLane - this.leftLane) >= 2
       && capturedAt - this.leftLaneAt - this.leftHiddenMs <= this.settings.responseTimeoutMs;
@@ -115,7 +106,7 @@ export class InputActionState {
       this.leftHiddenMs = 0;
     }
 
-    const rightStep = this.rightContact.update(rightY);
+    const rightStep = this.rightContact.update(rightPoints);
     const rightSlide = rightLane !== null && this.rightLane !== undefined
       && Math.abs(rightLane - this.rightLane) >= 2
       && capturedAt - this.rightLaneAt - this.rightHiddenMs <= this.settings.responseTimeoutMs;

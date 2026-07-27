@@ -232,8 +232,11 @@ export class CameraInput {
     const left = this.readFoot(pose?.left ?? null, "left");
     const right = this.readFoot(pose?.right ?? null, "right");
     if (!left || !right) this.jumpDetector.reset();
-    const leftY = left ? left.reduce((sum, point) => sum + point.y, 0) / (left.length * this.canvas.height) : null;
-    const rightY = right ? right.reduce((sum, point) => sum + point.y, 0) / (right.length * this.canvas.height) : null;
+    const canvasHeight = this.canvas.height;
+    const leftPoints = left?.map((point) => point.y / canvasHeight) ?? null;
+    const rightPoints = right?.map((point) => point.y / canvasHeight) ?? null;
+    const leftY = leftPoints ? leftPoints.reduce((sum, point) => sum + point, 0) / leftPoints.length : null;
+    const rightY = rightPoints ? rightPoints.reduce((sum, point) => sum + point, 0) / rightPoints.length : null;
     const jumping = leftY !== null && rightY !== null ? this.jumpDetector.update(leftY, rightY) : false;
     const leftPosition = left && this.transform ? projectFoot(left, this.transform) : null;
     const rightPosition = right && this.transform ? projectFoot(right, this.transform) : null;
@@ -242,7 +245,7 @@ export class CameraInput {
 
     let actions: InputAction[] = [];
     if (this.transform) {
-      actions = this.inputActions.update(leftLane, rightLane, leftY, rightY, jumping, capturedAt);
+      actions = this.inputActions.update(leftLane, rightLane, leftPoints, rightPoints, jumping, capturedAt);
       if (leftLane) occupiedLanes.add(leftLane);
       if (rightLane) occupiedLanes.add(rightLane);
       this.setSnapshot({
