@@ -2,8 +2,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import jumpUrl from "../assets/jump base.svg?url";
 import leftStepUrl from "../assets/left base.svg?url";
 import leftSlideUrl from "../assets/left slide.svg?url";
+import leftStayUrl from "../assets/left stay.svg?url";
 import rightStepUrl from "../assets/right base.svg?url";
 import rightSlideUrl from "../assets/right slide.svg?url";
+import rightStayUrl from "../assets/right stay.svg?url";
 import { Button } from "./components/ui/button.tsx";
 import type { LoadedLevel, LevelChart, SongMetadata } from "./level.ts";
 import { slideBounds, stepBounds, type ChartNote } from "./rhythm-engine.ts";
@@ -15,7 +17,7 @@ type LevelBuilderProps = {
   onTest: (level: LoadedLevel) => void;
 };
 
-type AddNoteType = "LEFT_STEP" | "RIGHT_STEP" | "JUMP" | "SLIDE_LEFT" | "SLIDE_RIGHT";
+type AddNoteType = "LEFT_STEP" | "RIGHT_STEP" | "LEFT_STAY" | "RIGHT_STAY" | "JUMP" | "SLIDE_LEFT" | "SLIDE_RIGHT";
 
 type BuilderMenu =
   | { x: number; y: number; mode: "lane"; lane: number; laneOffset: 0 | 0.5; time: number }
@@ -25,6 +27,13 @@ type NoteDrag = {
   notes: ChartNote[];
   pointerId: number;
   x: number;
+  y: number;
+};
+
+type StayResize = {
+  edge: "start" | "end";
+  note: ChartNote;
+  pointerId: number;
   y: number;
 };
 
@@ -77,6 +86,17 @@ export function createTimelineNote(
     };
   }
   const stepPosition = Math.max(0, Math.min(3, lane - 1 + (laneOffset ?? 0)));
+  if (type === "LEFT_STAY" || type === "RIGHT_STAY") {
+    return {
+      id,
+      time,
+      type: "STAY",
+      lane: Math.min(4, Math.floor(stepPosition + 1)),
+      stepPosition,
+      duration: 1,
+      foot: type === "LEFT_STAY" ? "left" : "right",
+    };
+  }
   return {
     id,
     time,
@@ -88,7 +108,8 @@ export function createTimelineNote(
 }
 
 export function moveTimelineNote(note: ChartNote, laneDelta: number, timeDelta: number, duration: number): ChartNote {
-  const time = Number(Math.max(0, Math.min(duration, note.time + timeDelta)).toFixed(1));
+  const lastTime = note.type === "STAY" ? duration - (note.duration ?? 1) : duration;
+  const time = Number(Math.max(0, Math.min(lastTime, note.time + timeDelta)).toFixed(1));
   if (note.type === "JUMP") return { ...note, time };
 
   if (note.type === "SLIDE") {
@@ -111,7 +132,7 @@ export function moveTimelineNotes(
 ): ChartNote[] {
   if (!notes.length) return [];
   const minTime = Math.min(...notes.map((note) => note.time));
-  const maxTime = Math.max(...notes.map((note) => note.time));
+  const maxTime = Math.max(...notes.map((note) => note.time + (note.type === "STAY" ? note.duration ?? 1 : 0)));
   const boundedTimeDelta = Math.max(-minTime, Math.min(duration - maxTime, timeDelta));
   const laneBounds = notes
     .filter((note) => note.type !== "JUMP")
@@ -125,6 +146,30 @@ export function moveTimelineNotes(
   return notes.map((note) => moveTimelineNote(note, boundedLaneDelta, boundedTimeDelta, duration));
 }
 
+export function resizeTimelineStay(
+  note: ChartNote,
+  pixelDelta: number,
+  pixelsPerSecond: number,
+  levelDuration: number,
+  edge: "start" | "end",
+): ChartNote {
+  if (edge === "start") {
+    const endTime = note.time + (note.duration ?? 1);
+    const time = Math.max(0, Math.min(endTime - 0.1, note.time + pixelDelta / pixelsPerSecond));
+    const roundedTime = Number(time.toFixed(1));
+    return {
+      ...note,
+      time: roundedTime,
+      duration: Number((endTime - roundedTime).toFixed(1)),
+    };
+  }
+  const duration = Math.max(
+    0.1,
+    Math.min(levelDuration - note.time, (note.duration ?? 1) + pixelDelta / pixelsPerSecond),
+  );
+  return { ...note, duration: Number(duration.toFixed(1)) };
+}
+
 export function timelineNotesInSelection(
   notes: ChartNote[],
   selection: TimelineSelection,
@@ -133,7 +178,7 @@ export function timelineNotesInSelection(
   pixelsPerSecond: number,
 ): string[] {
   return notes.filter((note) => {
-    const bounds = note.type === "STEP"
+    const bounds = note.type === "STEP" || note.type === "STAY"
       ? stepBounds(note)
       : note.type === "SLIDE" ? slideBounds(note) : { left: 0, right: 4 };
     const x = (bounds.left + bounds.right) / 8 * timelineWidth;
@@ -203,6 +248,7 @@ export function LevelBuilder({ level, onBack, onSave, onTest }: LevelBuilderProp
   const audioRef = useRef<HTMLAudioElement>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
   const noteDragRef = useRef<NoteDrag | undefined>(undefined);
+  const stayResizeRef = useRef<StayResize | undefined>(undefined);
   const selectionDragRef = useRef<SelectionDrag | undefined>(undefined);
   const [chart, setChart] = useState<LevelChart>(() => structuredClone(level.chart));
   const [song, setSong] = useState<SongMetadata>(() => ({ ...level.song }));
@@ -222,6 +268,8 @@ export function LevelBuilder({ level, onBack, onSave, onTest }: LevelBuilderProp
   const pixelsPerSecond = timelinePixelsPerSecond(zoom);
   const timelineHeight = Math.max(1500, duration * pixelsPerSecond);
   const notes = useMemo(() => [...chart.notes].sort((left, right) => right.time - left.time), [chart.notes]);
+  const moveCount = notes.filter((note) => note.type !== "STAY").length;
+  const stayCount = notes.length - moveCount;
   const navigationNotes = useMemo(() => timelineNavigationNotes(chart.notes), [chart.notes]);
   const selectedNote = chart.notes.find((note) => note.id === selectedNoteIds.at(-1));
   const markers = Array.from({ length: Math.floor(duration / 5) + 1 }, (_, index) => index * 5);
@@ -264,6 +312,19 @@ export function LevelBuilder({ level, onBack, onSave, onTest }: LevelBuilderProp
       cancelled = true;
     };
   }, [audioBlob, song.audio]);
+
+  useEffect(() => {
+    const resize = (event: PointerEvent) => resizeStay(event);
+    const endResize = (event: PointerEvent) => endStayResize(event);
+    window.addEventListener("pointermove", resize);
+    window.addEventListener("pointerup", endResize);
+    window.addEventListener("pointercancel", endResize);
+    return () => {
+      window.removeEventListener("pointermove", resize);
+      window.removeEventListener("pointerup", endResize);
+      window.removeEventListener("pointercancel", endResize);
+    };
+  }, [duration, pixelsPerSecond]);
 
   function builtLevel(): LoadedLevel {
     const id = title.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "untitled-level";
@@ -428,6 +489,37 @@ export function LevelBuilder({ level, onBack, onSave, onTest }: LevelBuilderProp
     if (noteDragRef.current?.pointerId !== event.pointerId) return;
     noteDragRef.current = undefined;
     setDraggingNoteIds([]);
+  }
+
+  function startStayResize(
+    event: React.PointerEvent<HTMLSpanElement>,
+    note: ChartNote,
+    edge: "start" | "end",
+  ): void {
+    event.preventDefault();
+    event.stopPropagation();
+    stayResizeRef.current = { edge, note, pointerId: event.pointerId, y: event.clientY };
+    setSelectedNoteIds([note.id]);
+    setMenu(undefined);
+  }
+
+  function resizeStay(event: { pointerId: number; clientY: number }): void {
+    const resize = stayResizeRef.current;
+    if (!resize || resize.pointerId !== event.pointerId) return;
+    const resized = resizeTimelineStay(
+      resize.note,
+      resize.y - event.clientY,
+      pixelsPerSecond,
+      duration,
+      resize.edge,
+    );
+    updateNote(resize.note.id, { time: resized.time, duration: resized.duration });
+  }
+
+  function endStayResize(event: { pointerId: number; clientY: number }): void {
+    if (stayResizeRef.current?.pointerId !== event.pointerId) return;
+    resizeStay(event);
+    stayResizeRef.current = undefined;
   }
 
   function startTimelineSelection(event: React.PointerEvent<HTMLDivElement>): void {
@@ -603,7 +695,7 @@ export function LevelBuilder({ level, onBack, onSave, onTest }: LevelBuilderProp
           <div className="timeline-toolbar">
             <div>
               <strong>LEVEL TIMELINE</strong>
-              <span>{notes.length} moves · {selectedNoteIds.length} selected · {formatTime(duration)}</span>
+              <span>{moveCount} moves · {stayCount} stays · {selectedNoteIds.length} selected · {formatTime(duration)}</span>
             </div>
             <div className="timeline-toolbar-actions">
               <span className="scroll-hint">CTRL + SCROLL TO ZOOM</span>
@@ -673,7 +765,7 @@ export function LevelBuilder({ level, onBack, onSave, onTest }: LevelBuilderProp
                 {notes.map((note) => {
                   let left = 0;
                   let width = 100;
-                  if (note.type === "STEP") {
+                  if (note.type === "STEP" || note.type === "STAY") {
                     const bounds = stepBounds(note);
                     left = bounds.left * 25;
                     width = (bounds.right - bounds.left) * 25;
@@ -686,7 +778,9 @@ export function LevelBuilder({ level, onBack, onSave, onTest }: LevelBuilderProp
                     ? jumpUrl
                     : note.type === "SLIDE"
                       ? note.foot === "left" ? leftSlideUrl : rightSlideUrl
-                      : note.foot === "left" ? leftStepUrl : rightStepUrl;
+                      : note.type === "STAY"
+                        ? note.foot === "left" ? leftStayUrl : rightStayUrl
+                        : note.foot === "left" ? leftStepUrl : rightStepUrl;
                   return (
                     <button
                       type="button"
@@ -698,7 +792,8 @@ export function LevelBuilder({ level, onBack, onSave, onTest }: LevelBuilderProp
                         bottom: note.time * pixelsPerSecond,
                         left: `${left}%`,
                         width: `${width}%`,
-                        transform: `translateY(50%) scaleY(${zoom})`,
+                        height: note.type === "STAY" ? (note.duration ?? 1) * pixelsPerSecond : undefined,
+                        transform: note.type === "STAY" ? undefined : `translateY(50%) scaleY(${zoom})`,
                       }}
                       onClick={(event) => {
                         event.stopPropagation();
@@ -708,6 +803,20 @@ export function LevelBuilder({ level, onBack, onSave, onTest }: LevelBuilderProp
                       onPointerDown={(event) => startNoteDrag(event, note)}
                     >
                       <img src={asset} alt="" />
+                      {note.type === "STAY" && (
+                        <>
+                          <span
+                            className="stay-resize-handle top"
+                            title="Drag to change end time"
+                            onPointerDown={(event) => startStayResize(event, note, "end")}
+                          />
+                          <span
+                            className="stay-resize-handle bottom"
+                            title="Drag to change start time"
+                            onPointerDown={(event) => startStayResize(event, note, "start")}
+                          />
+                        </>
+                      )}
                       {note.type === "SLIDE" && <span>{note.endLane! < note.lane! ? "↖" : "↗"}</span>}
                     </button>
                   );
@@ -720,7 +829,7 @@ export function LevelBuilder({ level, onBack, onSave, onTest }: LevelBuilderProp
 
         <aside className="builder-side note-inspector">
           <div className="builder-section-heading">
-            <span>ALL MOVES</span>
+            <span>ALL ITEMS</span>
             <small>{notes.length}</small>
           </div>
           <div className="note-list">
@@ -729,7 +838,7 @@ export function LevelBuilder({ level, onBack, onSave, onTest }: LevelBuilderProp
               <article className={selectedNoteIds.includes(note.id) ? "selected" : ""} key={note.id} onClick={() => selectNote(note)}>
                 <div className={`note-index ${note.type.toLowerCase()} ${note.foot}`}>{String(notes.length - index).padStart(2, "0")}</div>
                 <div>
-                  <strong>{note.type === "STEP" ? `${note.foot} step` : note.type.toLowerCase()}</strong>
+                  <strong>{note.type === "STEP" || note.type === "STAY" ? `${note.foot} ${note.type.toLowerCase()}` : note.type.toLowerCase()}</strong>
                   <span>{note.type === "JUMP" ? "All lanes" : `Lane ${note.lane}${note.type === "SLIDE" ? ` → ${note.endLane}` : ""}`}</span>
                 </div>
                 <label>
@@ -760,12 +869,27 @@ export function LevelBuilder({ level, onBack, onSave, onTest }: LevelBuilderProp
                     </label>
                   </>
                 )}
+                {note.type === "STAY" && (
+                  <label>
+                    <span>DURATION</span>
+                    <input
+                      aria-label={`Duration for ${note.id}`}
+                      type="number"
+                      min="0.1"
+                      max={duration - note.time}
+                      step="0.1"
+                      value={note.duration ?? 1}
+                      onClick={(event) => event.stopPropagation()}
+                      onChange={(event) => updateNote(note.id, { duration: event.target.valueAsNumber })}
+                    />
+                  </label>
+                )}
               </article>
             ))}
           </div>
           {selectedNote && (
             <Button className="inspector-delete" variant="destructive" size="sm" onClick={removeSelectedNotes}>
-              Delete {selectedNoteIds.length} selected {selectedNoteIds.length === 1 ? "move" : "moves"}
+              Delete {selectedNoteIds.length} selected {selectedNoteIds.length === 1 ? "item" : "items"}
             </Button>
           )}
         </aside>
@@ -776,7 +900,7 @@ export function LevelBuilder({ level, onBack, onSave, onTest }: LevelBuilderProp
           className="builder-context-menu"
           style={{
             left: Math.max(8, Math.min(menu.x, window.innerWidth - 198)),
-            top: Math.max(8, Math.min(menu.y, window.innerHeight - (clipboard.length ? 270 : 230))),
+            top: Math.max(8, Math.min(menu.y, window.innerHeight - (clipboard.length ? 340 : 300))),
           }}
           onClick={(event) => event.stopPropagation()}
         >
@@ -788,6 +912,8 @@ export function LevelBuilder({ level, onBack, onSave, onTest }: LevelBuilderProp
           )}
           <button onClick={() => addNote("LEFT_STEP", menu.lane, menu.laneOffset, menu.time)}><i className="left" /> Left step</button>
           <button onClick={() => addNote("RIGHT_STEP", menu.lane, menu.laneOffset, menu.time)}><i className="right" /> Right step</button>
+          <button onClick={() => addNote("LEFT_STAY", menu.lane, menu.laneOffset, menu.time)}><i className="left" /> Left stay</button>
+          <button onClick={() => addNote("RIGHT_STAY", menu.lane, menu.laneOffset, menu.time)}><i className="right" /> Right stay</button>
           <button onClick={() => addNote("JUMP", menu.lane, menu.laneOffset, menu.time)}><i className="jump" /> Jump</button>
           <button onClick={() => addNote("SLIDE_LEFT", menu.lane, menu.laneOffset, menu.time)}>↙ Slide left</button>
           <button onClick={() => addNote("SLIDE_RIGHT", menu.lane, menu.laneOffset, menu.time)}>↗ Slide right</button>

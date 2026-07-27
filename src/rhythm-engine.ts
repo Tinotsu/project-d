@@ -1,6 +1,6 @@
 import { defaultCalibrationSettings, type CalibrationSettings } from "./calibration-settings.ts";
 
-export type NoteType = "STEP" | "JUMP" | "SLIDE";
+export type NoteType = "STEP" | "JUMP" | "SLIDE" | "STAY";
 export type Foot = "left" | "right" | "both" | "either";
 
 export type ChartNote = {
@@ -12,6 +12,7 @@ export type ChartNote = {
   endLane?: number;
   slidePosition?: number;
   stepPosition?: number;
+  duration?: number;
   foot: Foot;
 };
 
@@ -55,6 +56,7 @@ export function judgementForOffset(
   offsetMs: number,
   settings = defaultCalibrationSettings,
 ): Exclude<Judgement, "miss"> | null {
+  if (type === "STAY") return null;
   const offset = Math.abs(offsetMs);
   const prefix = type === "JUMP" ? "jump" : "step";
   if (offset <= settings[`${prefix}PerfectMs`] + Number.EPSILON) return "perfect";
@@ -141,6 +143,7 @@ export class RhythmEngine {
   update(songTime: number, finish = false): JudgementResult[] {
     const misses: JudgementResult[] = [];
     for (const note of this.notes) {
+      if (note.type === "STAY") continue;
       if (!finish && this.pendingSlides.has(note.id)) continue;
       const goodWindow = note.type === "JUMP"
         ? this.settings.jumpGoodMs

@@ -10,9 +10,11 @@ import footUrl from "../assets/foot.svg?url";
 import jumpBaseUrl from "../assets/jump base.svg?url";
 import jumpUrl from "../assets/jump.svg?url";
 import leftSlideUrl from "../assets/left slide.svg?url";
+import leftStayUrl from "../assets/left stay.svg?url";
 import leftStepUrl from "../assets/left base.svg?url";
 import trackUrl from "../assets/pist.svg?url";
 import rightSlideUrl from "../assets/right slide.svg?url";
+import rightStayUrl from "../assets/right stay.svg?url";
 import rightStepUrl from "../assets/right base.svg?url";
 import type { LevelChart } from "./level.ts";
 import { slideBounds, stepBounds, type ChartNote, type JudgementResult } from "./rhythm-engine.ts";
@@ -54,6 +56,12 @@ function mountSlide(note: ChartNote, warped: HTMLElement): void {
   warped.style.width = "300px";
   warped.style.height = "200px";
   warped.append(slide);
+}
+
+function mountStay(note: ChartNote, warped: HTMLElement): void {
+  const stay = document.createElement("img");
+  stay.src = note.foot === "left" ? leftStayUrl : rightStayUrl;
+  warped.append(stay);
 }
 
 type Point = [number, number];
@@ -185,6 +193,23 @@ export class PixiPlayfield {
         view.container.visible = false;
         continue;
       }
+      if (note.type === "STAY") {
+        const timeUntil = note.time - songTime;
+        const endTimeUntil = note.time + (note.duration ?? 1) - songTime;
+        if (timeUntil > this.chart.playfield.travelTime || endTimeUntil < 0) {
+          view.container.visible = false;
+          continue;
+        }
+
+        const startProgress = Math.min(1, Math.max(0, 1 - timeUntil / this.chart.playfield.travelTime)) ** 1.65;
+        const endProgress = Math.min(1, Math.max(0, 1 - endTimeUntil / this.chart.playfield.travelTime)) ** 1.65;
+        view.container.visible = true;
+        if (view.warped.offsetWidth && view.warped.offsetHeight) {
+          const [startLane, endLane] = this.noteSpan(note);
+          this.placeStayView(view, startLane, endLane, endProgress, startProgress);
+        }
+        continue;
+      }
       const timeUntil = note.time - songTime;
       if (timeUntil > this.chart.playfield.travelTime || timeUntil < -0.2) {
         view.container.visible = false;
@@ -302,6 +327,7 @@ export class PixiPlayfield {
     flat.style.cssText = "position:absolute;top:0;left:0;transform-origin:0 0;pointer-events:none";
     if (note.type === "JUMP") mountJump(warped, flat);
     else if (note.type === "SLIDE") mountSlide(note, warped);
+    else if (note.type === "STAY") mountStay(note, warped);
     else mountStep(note, warped);
     root.append(warped, flat);
     const container = new Container();
@@ -338,6 +364,25 @@ export class PixiPlayfield {
     return bottom;
   }
 
+  private placeStayView(
+    view: WarpedView,
+    startLane: number,
+    endLane: number,
+    endProgress: number,
+    startProgress: number,
+  ): void {
+    const top = this.laneSpan(startLane, endLane, endProgress);
+    const bottom = this.laneSpan(startLane, endLane, startProgress);
+    view.warped.style.transform = perspectiveMatrix3d(
+      view.warped.offsetWidth,
+      view.warped.offsetHeight,
+      [top.left, top.y],
+      [top.right, top.y],
+      [bottom.right, bottom.y],
+      [bottom.left, bottom.y],
+    );
+  }
+
   private noteSpan(note: ChartNote): [number, number] {
     const { lanes } = this.chart.playfield;
     if (note.type === "JUMP") return [1, lanes];
@@ -345,7 +390,7 @@ export class PixiPlayfield {
       const bounds = slideBounds(note);
       return [bounds.left + 1, bounds.right];
     }
-    if (note.type === "STEP") {
+    if (note.type === "STEP" || note.type === "STAY") {
       const bounds = stepBounds(note);
       return [bounds.left + 1, bounds.right];
     }

@@ -208,7 +208,7 @@ export function App() {
               <div className="published-level" key={libraryLevel.song.id}>
                 <div>
                   <strong>{libraryLevel.song.title}</strong>
-                  <span>{libraryLevel.chart.level.difficulty} · {libraryLevel.chart.notes.length} moves</span>
+                  <span>{libraryLevel.chart.level.difficulty} · {libraryLevel.chart.notes.filter((note) => note.type !== "STAY").length} moves</span>
                 </div>
                 <Button size="sm" onClick={() => {
                   setLevel(libraryLevel);
