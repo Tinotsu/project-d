@@ -5,15 +5,9 @@ export type CalibrationSettings = {
   stepLift: number;
   stepLanding: number;
   stepDescent: number;
-  jumpLift: number;
-  jumpLanding: number;
-  jumpDescent: number;
   stepPerfectMs: number;
   stepGreatMs: number;
   stepGoodMs: number;
-  jumpPerfectMs: number;
-  jumpGreatMs: number;
-  jumpGoodMs: number;
   missGraceMs: number;
 };
 
@@ -24,15 +18,9 @@ export const defaultCalibrationSettings: CalibrationSettings = {
   stepLift: 0.01,
   stepLanding: 0.006,
   stepDescent: 0.01,
-  jumpLift: 0.035,
-  jumpLanding: 0.015,
-  jumpDescent: 0.025,
   stepPerfectMs: 60,
   stepGreatMs: 120,
   stepGoodMs: 200,
-  jumpPerfectMs: 50,
-  jumpGreatMs: 100,
-  jumpGoodMs: 160,
   missGraceMs: 40,
 };
 

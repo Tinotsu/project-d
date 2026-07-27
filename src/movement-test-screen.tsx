@@ -291,16 +291,10 @@ export function MovementTestScreen({
             <NumberSetting label="Step perfect" unit="ms" value={settings.stepPerfectMs} min={1} step={5} onChange={(value) => updateSetting("stepPerfectMs", value)} />
             <NumberSetting label="Step great" unit="ms" value={settings.stepGreatMs} min={1} step={5} onChange={(value) => updateSetting("stepGreatMs", value)} />
             <NumberSetting label="Step good" unit="ms" value={settings.stepGoodMs} min={1} step={5} onChange={(value) => updateSetting("stepGoodMs", value)} />
-            <NumberSetting label="Jump perfect" unit="ms" value={settings.jumpPerfectMs} min={1} step={5} onChange={(value) => updateSetting("jumpPerfectMs", value)} />
-            <NumberSetting label="Jump great" unit="ms" value={settings.jumpGreatMs} min={1} step={5} onChange={(value) => updateSetting("jumpGreatMs", value)} />
-            <NumberSetting label="Jump good" unit="ms" value={settings.jumpGoodMs} min={1} step={5} onChange={(value) => updateSetting("jumpGoodMs", value)} />
             <NumberSetting label="Foot confidence" value={settings.minimumFootConfidence} min={0.1} max={1} step={0.05} onChange={(value) => updateSetting("minimumFootConfidence", value)} />
             <PercentSetting label="Step lift" value={settings.stepLift} onChange={(value) => updateSetting("stepLift", value)} />
             <PercentSetting label="Step near ground" value={settings.stepLanding} onChange={(value) => updateSetting("stepLanding", value)} />
             <PercentSetting label="Step descent" value={settings.stepDescent} onChange={(value) => updateSetting("stepDescent", value)} />
-            <PercentSetting label="Jump lift" value={settings.jumpLift} onChange={(value) => updateSetting("jumpLift", value)} />
-            <PercentSetting label="Jump near ground" value={settings.jumpLanding} onChange={(value) => updateSetting("jumpLanding", value)} />
-            <PercentSetting label="Jump descent" value={settings.jumpDescent} onChange={(value) => updateSetting("jumpDescent", value)} />
             <Button className="movement-save" onClick={() => {
               saveCalibrationSettings(settings);
             }}>Save settings</Button>
