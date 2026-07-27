@@ -54,6 +54,14 @@ type SustainedNoteResize = {
   y: number;
 };
 
+type HorizontalSlideTurn = {
+  edge: "start" | "end";
+  note: ChartNote;
+  pointerId: number;
+  x: number;
+  laneWidth: number;
+};
+
 type TimelineSelection = {
   left: number;
   top: number;
@@ -259,6 +267,15 @@ export function turnTimelineSlide(note: ChartNote): ChartNote {
   return { ...note, lane: note.endLane, endLane: note.lane };
 }
 
+export function turnTimelineHorizontalSlide(
+  note: ChartNote,
+  laneDelta: number,
+  edge: "start" | "end",
+): ChartNote {
+  const lane = Math.max(1, Math.min(4, (edge === "start" ? note.lane! : note.endLane!) + laneDelta));
+  return edge === "start" ? { ...note, lane } : { ...note, endLane: lane };
+}
+
 export function timelinePixelsPerSecond(zoom: number): number {
   return normalPixelsPerSecond * zoom;
 }
@@ -293,6 +310,7 @@ export function LevelBuilder({ level, onBack, onSave, onTest }: LevelBuilderProp
   const timelineRef = useRef<HTMLDivElement>(null);
   const noteDragRef = useRef<NoteDrag | undefined>(undefined);
   const sustainedNoteResizeRef = useRef<SustainedNoteResize | undefined>(undefined);
+  const horizontalSlideTurnRef = useRef<HorizontalSlideTurn | undefined>(undefined);
   const selectionDragRef = useRef<SelectionDrag | undefined>(undefined);
   const [chart, setChart] = useState<LevelChart>(() => structuredClone(level.chart));
   const [song, setSong] = useState<SongMetadata>(() => ({ ...level.song }));
@@ -360,13 +378,21 @@ export function LevelBuilder({ level, onBack, onSave, onTest }: LevelBuilderProp
   useEffect(() => {
     const resize = (event: PointerEvent) => resizeSustainedNote(event);
     const endResize = (event: PointerEvent) => endSustainedNoteResize(event);
+    const turn = (event: PointerEvent) => turnHorizontalSlide(event);
+    const endTurn = (event: PointerEvent) => endHorizontalSlideTurn(event);
     window.addEventListener("pointermove", resize);
     window.addEventListener("pointerup", endResize);
     window.addEventListener("pointercancel", endResize);
+    window.addEventListener("pointermove", turn);
+    window.addEventListener("pointerup", endTurn);
+    window.addEventListener("pointercancel", endTurn);
     return () => {
       window.removeEventListener("pointermove", resize);
       window.removeEventListener("pointerup", endResize);
       window.removeEventListener("pointercancel", endResize);
+      window.removeEventListener("pointermove", turn);
+      window.removeEventListener("pointerup", endTurn);
+      window.removeEventListener("pointercancel", endTurn);
     };
   }, [duration, pixelsPerSecond]);
 
@@ -564,6 +590,42 @@ export function LevelBuilder({ level, onBack, onSave, onTest }: LevelBuilderProp
     if (sustainedNoteResizeRef.current?.pointerId !== event.pointerId) return;
     resizeSustainedNote(event);
     sustainedNoteResizeRef.current = undefined;
+  }
+
+  function startHorizontalSlideTurn(
+    event: React.PointerEvent<HTMLSpanElement>,
+    note: ChartNote,
+    edge: "start" | "end",
+  ): void {
+    event.preventDefault();
+    event.stopPropagation();
+    const lanes = event.currentTarget.closest(".timeline-lanes")!;
+    horizontalSlideTurnRef.current = {
+      edge,
+      note,
+      pointerId: event.pointerId,
+      x: event.clientX,
+      laneWidth: lanes.getBoundingClientRect().width / 4,
+    };
+    setSelectedNoteIds([note.id]);
+    setMenu(undefined);
+  }
+
+  function turnHorizontalSlide(event: { pointerId: number; clientX: number }): void {
+    const turn = horizontalSlideTurnRef.current;
+    if (!turn || turn.pointerId !== event.pointerId) return;
+    const turned = turnTimelineHorizontalSlide(
+      turn.note,
+      Math.round((event.clientX - turn.x) / turn.laneWidth),
+      turn.edge,
+    );
+    updateNote(turn.note.id, turn.edge === "start" ? { lane: turned.lane } : { endLane: turned.endLane });
+  }
+
+  function endHorizontalSlideTurn(event: { pointerId: number; clientX: number }): void {
+    if (horizontalSlideTurnRef.current?.pointerId !== event.pointerId) return;
+    turnHorizontalSlide(event);
+    horizontalSlideTurnRef.current = undefined;
   }
 
   function startTimelineSelection(event: React.PointerEvent<HTMLDivElement>): void {
@@ -811,6 +873,8 @@ export function LevelBuilder({ level, onBack, onSave, onTest }: LevelBuilderProp
                   let width = 100;
                   let horizontalSlideSpan = 1;
                   let horizontalSlideTransform: string | undefined;
+                  let horizontalSlideTop = 50;
+                  let horizontalSlideBottom = 50;
                   if (note.type === "STEP" || note.type === "STAY") {
                     const bounds = stepBounds(note);
                     left = bounds.left * 25;
@@ -828,6 +892,8 @@ export function LevelBuilder({ level, onBack, onSave, onTest }: LevelBuilderProp
                     const topLeft = note.endLane! - 1 - bounds.left;
                     horizontalSlideSpan = span;
                     horizontalSlideTransform = `matrix(1 0 ${bottomLeft - topLeft} 1 ${topLeft} 0)`;
+                    horizontalSlideTop = (topLeft + 0.5) / span * 100;
+                    horizontalSlideBottom = (bottomLeft + 0.5) / span * 100;
                   }
                   const asset = note.type === "JUMP"
                     ? jumpUrl
@@ -872,6 +938,22 @@ export function LevelBuilder({ level, onBack, onSave, onTest }: LevelBuilderProp
                           </svg>
                         )
                         : <img src={asset} alt="" />}
+                      {note.type === "HORIZONTAL_SLIDE" && (
+                        <>
+                          <span
+                            className="horizontal-slide-turn-handle top"
+                            style={{ left: `${horizontalSlideTop}%` }}
+                            title="Drag to turn the end lane"
+                            onPointerDown={(event) => startHorizontalSlideTurn(event, note, "end")}
+                          />
+                          <span
+                            className="horizontal-slide-turn-handle bottom"
+                            style={{ left: `${horizontalSlideBottom}%` }}
+                            title="Drag to turn the start lane"
+                            onPointerDown={(event) => startHorizontalSlideTurn(event, note, "start")}
+                          />
+                        </>
+                      )}
                       {isSustainedNote(note) && (
                         <>
                           <span

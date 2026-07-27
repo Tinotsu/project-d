@@ -11,6 +11,7 @@ import {
   timelineNotesInSelection,
   timelinePixelsPerSecond,
   timelineScrollTopAfterZoom,
+  turnTimelineHorizontalSlide,
   turnTimelineSlide,
 } from "./level-builder.tsx";
 import { horizontalSlideBounds, slideBounds, stepBounds } from "./rhythm-engine.ts";
@@ -146,6 +147,13 @@ describe("level builder", () => {
       time: 4,
       duration: 2,
     });
+  });
+
+  it("turns either end of a horizontal slide between lanes", () => {
+    const slide = { ...createTimelineNote("n001", "RIGHT_HORIZONTAL_SLIDE", 2, 4), endLane: 4 };
+
+    expect(turnTimelineHorizontalSlide(slide, -3, "end")).toMatchObject({ lane: 2, endLane: 1 });
+    expect(turnTimelineHorizontalSlide(slide, 2, "start")).toMatchObject({ lane: 4, endLane: 4 });
   });
 
   it("keeps timestamp distance proportional while zooming", () => {
