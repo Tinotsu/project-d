@@ -5,6 +5,7 @@ import {
   moveTimelineNotes,
   nextTimelineZoom,
   pasteTimelineNotes,
+  resizeTimelineSustainedNote,
   sampleWaveform,
   timelineNavigationNotes,
   timelineNotesInSelection,
@@ -12,7 +13,7 @@ import {
   timelineScrollTopAfterZoom,
   turnTimelineSlide,
 } from "./level-builder.tsx";
-import { slideBounds, stepBounds } from "./rhythm-engine.ts";
+import { horizontalSlideBounds, slideBounds, stepBounds } from "./rhythm-engine.ts";
 
 describe("level builder", () => {
   it("creates the requested move at an exact lane and time", () => {
@@ -117,6 +118,34 @@ describe("level builder", () => {
 
     expect(turned).toMatchObject({ lane: 4, endLane: 2, foot: "right" });
     expect(slideBounds(turned)).toEqual(slideBounds(slide));
+  });
+
+  it("creates a stretchable horizontal slide and moves its whole lane path", () => {
+    const slide = createTimelineNote("n001", "LEFT_HORIZONTAL_SLIDE", 2, 4);
+    const crossing = { ...slide, endLane: 4 };
+
+    expect(crossing).toMatchObject({
+      type: "HORIZONTAL_SLIDE",
+      lane: 2,
+      endLane: 4,
+      duration: 1,
+      foot: "left",
+    });
+    expect(horizontalSlideBounds(crossing)).toEqual({ left: 1, right: 4 });
+    expect(moveTimelineNote(crossing, -1, 2, 30)).toMatchObject({
+      lane: 1,
+      endLane: 3,
+      time: 6,
+    });
+  });
+
+  it("stretches a horizontal slide like a stay", () => {
+    const slide = createTimelineNote("n001", "RIGHT_HORIZONTAL_SLIDE", 3, 4);
+
+    expect(resizeTimelineSustainedNote(slide, 720, 720, 30, "end")).toMatchObject({
+      time: 4,
+      duration: 2,
+    });
   });
 
   it("keeps timestamp distance proportional while zooming", () => {

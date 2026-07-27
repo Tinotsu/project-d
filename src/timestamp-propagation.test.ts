@@ -191,3 +191,53 @@ describe("slide movement", () => {
     expect(engine.trackSlides(3, 4, 3)[0]?.judgement).toBe("perfect");
   });
 });
+
+describe("horizontal slide scoring", () => {
+  it("awards normal step points when the foot follows the lane path", () => {
+    const engine = new RhythmEngine([{
+      id: "horizontal",
+      time: 1,
+      type: "HORIZONTAL_SLIDE",
+      lane: 1,
+      endLane: 3,
+      duration: 1,
+      foot: "left",
+    }]);
+
+    expect(engine.trackHorizontalSlides(1, 1, 4)).toEqual([]);
+    expect(engine.trackHorizontalSlides(1.5, 2, 4)).toEqual([]);
+    expect(engine.trackHorizontalSlides(2, 3, 4)[0]?.judgement).toBe("perfect");
+    expect(engine.score.total).toBe(800);
+  });
+
+  it("misses when the foot leaves the horizontal slide", () => {
+    const engine = new RhythmEngine([{
+      id: "horizontal",
+      time: 1,
+      type: "HORIZONTAL_SLIDE",
+      lane: 1,
+      endLane: 3,
+      duration: 1,
+      foot: "left",
+    }]);
+
+    engine.trackHorizontalSlides(1, 1, 4);
+    engine.trackHorizontalSlides(1.5, 1, 4);
+    expect(engine.trackHorizontalSlides(2, 3, 4)[0]?.judgement).toBe("miss");
+    expect(engine.score.total).toBe(0);
+  });
+
+  it("does not award a horizontal slide from its endpoint alone", () => {
+    const engine = new RhythmEngine([{
+      id: "horizontal",
+      time: 1,
+      type: "HORIZONTAL_SLIDE",
+      lane: 1,
+      endLane: 3,
+      duration: 1,
+      foot: "left",
+    }]);
+
+    expect(engine.trackHorizontalSlides(2, 3, 4)[0]?.judgement).toBe("miss");
+  });
+});

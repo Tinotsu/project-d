@@ -7,6 +7,8 @@ import {
 } from "pixi.js";
 import footBaseUrl from "../assets/foot base.svg?url";
 import footUrl from "../assets/foot.svg?url";
+import horizontalLeftSlideUrl from "../assets/horizontal left slide.svg?url";
+import horizontalRightSlideUrl from "../assets/horizontal right slide.svg?url";
 import jumpBaseUrl from "../assets/jump base.svg?url";
 import jumpUrl from "../assets/jump.svg?url";
 import leftSlideUrl from "../assets/left slide.svg?url";
@@ -17,7 +19,13 @@ import rightSlideUrl from "../assets/right slide.svg?url";
 import rightStayUrl from "../assets/right stay.svg?url";
 import rightStepUrl from "../assets/right base.svg?url";
 import type { LevelChart } from "./level.ts";
-import { slideBounds, stepBounds, type ChartNote, type JudgementResult } from "./rhythm-engine.ts";
+import {
+  isSustainedNote,
+  slideBounds,
+  stepBounds,
+  type ChartNote,
+  type JudgementResult,
+} from "./rhythm-engine.ts";
 
 export const gameWidth = 1280;
 export const gameHeight = 720;
@@ -62,6 +70,12 @@ function mountStay(note: ChartNote, warped: HTMLElement): void {
   const stay = document.createElement("img");
   stay.src = note.foot === "left" ? leftStayUrl : rightStayUrl;
   warped.append(stay);
+}
+
+function mountHorizontalSlide(note: ChartNote, warped: HTMLElement): void {
+  const slide = document.createElement("img");
+  slide.src = note.foot === "left" ? horizontalLeftSlideUrl : horizontalRightSlideUrl;
+  warped.append(slide);
 }
 
 type Point = [number, number];
@@ -180,8 +194,11 @@ export class PixiPlayfield {
     this.feedbackLabel.visible = true;
     this.feedback.visible = true;
     this.feedbackUntil = performance.now() + 380;
-    const lanes = result.note.type === "SLIDE"
-      ? [Math.min(result.note.lane!, result.note.endLane!), (result.note.lane! + result.note.endLane!) / 2, Math.max(result.note.lane!, result.note.endLane!)]
+    const lanes = result.note.type === "SLIDE" || result.note.type === "HORIZONTAL_SLIDE"
+      ? Array.from(
+        { length: Math.abs(result.note.endLane! - result.note.lane!) + 1 },
+        (_, index) => Math.min(result.note.lane!, result.note.endLane!) + index,
+      )
       : result.note.lane ? [result.note.lane] : [1, 2, 3, 4];
     lanes.forEach((lane) => this.laneGlowUntil[lane - 1] = performance.now() + 180);
   }
@@ -193,7 +210,7 @@ export class PixiPlayfield {
         view.container.visible = false;
         continue;
       }
-      if (note.type === "STAY") {
+      if (isSustainedNote(note)) {
         const timeUntil = note.time - songTime;
         const endTimeUntil = note.time + (note.duration ?? 1) - songTime;
         if (timeUntil > this.chart.playfield.travelTime || endTimeUntil < 0) {
@@ -205,8 +222,17 @@ export class PixiPlayfield {
         const endProgress = Math.min(1, Math.max(0, 1 - endTimeUntil / this.chart.playfield.travelTime)) ** 1.65;
         view.container.visible = true;
         if (view.warped.offsetWidth && view.warped.offsetHeight) {
-          const [startLane, endLane] = this.noteSpan(note);
-          this.placeStayView(view, startLane, endLane, endProgress, startProgress);
+          const progress = Math.min(1, Math.max(0, (songTime - note.time) / (note.duration ?? 1)));
+          const startLane = note.type === "HORIZONTAL_SLIDE"
+            ? note.lane! + (note.endLane! - note.lane!) * progress
+            : note.lane!;
+          this.placeSustainedView(
+            view,
+            startLane,
+            note.type === "HORIZONTAL_SLIDE" ? note.endLane! : startLane,
+            endProgress,
+            startProgress,
+          );
         }
         continue;
       }
@@ -327,6 +353,7 @@ export class PixiPlayfield {
     flat.style.cssText = "position:absolute;top:0;left:0;transform-origin:0 0;pointer-events:none";
     if (note.type === "JUMP") mountJump(warped, flat);
     else if (note.type === "SLIDE") mountSlide(note, warped);
+    else if (note.type === "HORIZONTAL_SLIDE") mountHorizontalSlide(note, warped);
     else if (note.type === "STAY") mountStay(note, warped);
     else mountStep(note, warped);
     root.append(warped, flat);
@@ -364,15 +391,15 @@ export class PixiPlayfield {
     return bottom;
   }
 
-  private placeStayView(
+  private placeSustainedView(
     view: WarpedView,
     startLane: number,
     endLane: number,
     endProgress: number,
     startProgress: number,
   ): void {
-    const top = this.laneSpan(startLane, endLane, endProgress);
-    const bottom = this.laneSpan(startLane, endLane, startProgress);
+    const top = this.laneSpan(endLane, endLane, endProgress);
+    const bottom = this.laneSpan(startLane, startLane, startProgress);
     view.warped.style.transform = perspectiveMatrix3d(
       view.warped.offsetWidth,
       view.warped.offsetHeight,

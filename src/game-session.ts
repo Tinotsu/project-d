@@ -59,6 +59,7 @@ export class GameSession {
     const time = this.clock.timeAt(frame.capturedAt, this.level.chart.level.endTime);
     if (time === null) return [];
     const results = this.engine.trackSlides(time, frame.leftLane ?? null, frame.rightLane ?? null);
+    results.push(...this.engine.trackHorizontalSlides(time, frame.leftLane ?? null, frame.rightLane ?? null));
     results.push(...frame.actions.flatMap((action) => {
       const eventTime = action.type === "LEFT_SLIDE" || action.type === "RIGHT_SLIDE"
         ? this.clock.timeAt(action.startedAt, this.level.chart.level.endTime) ?? time

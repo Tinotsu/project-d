@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import horizontalLeftSlideUrl from "../assets/horizontal left slide.svg?url";
+import horizontalRightSlideUrl from "../assets/horizontal right slide.svg?url";
 import jumpUrl from "../assets/jump base.svg?url";
 import leftStepUrl from "../assets/left base.svg?url";
 import leftSlideUrl from "../assets/left slide.svg?url";
@@ -8,7 +10,13 @@ import rightSlideUrl from "../assets/right slide.svg?url";
 import rightStayUrl from "../assets/right stay.svg?url";
 import { Button } from "./components/ui/button.tsx";
 import type { LoadedLevel, LevelChart, SongMetadata } from "./level.ts";
-import { slideBounds, stepBounds, type ChartNote } from "./rhythm-engine.ts";
+import {
+  horizontalSlideBounds,
+  isSustainedNote,
+  slideBounds,
+  stepBounds,
+  type ChartNote,
+} from "./rhythm-engine.ts";
 
 type LevelBuilderProps = {
   level: LoadedLevel;
@@ -17,7 +25,16 @@ type LevelBuilderProps = {
   onTest: (level: LoadedLevel) => void;
 };
 
-type AddNoteType = "LEFT_STEP" | "RIGHT_STEP" | "LEFT_STAY" | "RIGHT_STAY" | "JUMP" | "SLIDE_LEFT" | "SLIDE_RIGHT";
+type AddNoteType =
+  | "LEFT_STEP"
+  | "RIGHT_STEP"
+  | "LEFT_STAY"
+  | "RIGHT_STAY"
+  | "LEFT_HORIZONTAL_SLIDE"
+  | "RIGHT_HORIZONTAL_SLIDE"
+  | "JUMP"
+  | "SLIDE_LEFT"
+  | "SLIDE_RIGHT";
 
 type BuilderMenu =
   | { x: number; y: number; mode: "lane"; lane: number; laneOffset: 0 | 0.5; time: number }
@@ -30,7 +47,7 @@ type NoteDrag = {
   y: number;
 };
 
-type StayResize = {
+type SustainedNoteResize = {
   edge: "start" | "end";
   note: ChartNote;
   pointerId: number;
@@ -85,6 +102,17 @@ export function createTimelineNote(
       foot: pointsRight ? "right" : "left",
     };
   }
+  if (type === "LEFT_HORIZONTAL_SLIDE" || type === "RIGHT_HORIZONTAL_SLIDE") {
+    return {
+      id,
+      time,
+      type: "HORIZONTAL_SLIDE",
+      lane,
+      endLane: lane,
+      duration: 1,
+      foot: type === "LEFT_HORIZONTAL_SLIDE" ? "left" : "right",
+    };
+  }
   const stepPosition = Math.max(0, Math.min(3, lane - 1 + (laneOffset ?? 0)));
   if (type === "LEFT_STAY" || type === "RIGHT_STAY") {
     return {
@@ -108,9 +136,19 @@ export function createTimelineNote(
 }
 
 export function moveTimelineNote(note: ChartNote, laneDelta: number, timeDelta: number, duration: number): ChartNote {
-  const lastTime = note.type === "STAY" ? duration - (note.duration ?? 1) : duration;
+  const lastTime = isSustainedNote(note) ? duration - (note.duration ?? 1) : duration;
   const time = Number(Math.max(0, Math.min(lastTime, note.time + timeDelta)).toFixed(1));
   if (note.type === "JUMP") return { ...note, time };
+
+  if (note.type === "HORIZONTAL_SLIDE") {
+    const appliedLaneDelta = Math.sign(laneDelta) * Math.round(Math.abs(laneDelta));
+    return {
+      ...note,
+      time,
+      lane: note.lane! + appliedLaneDelta,
+      endLane: note.endLane! + appliedLaneDelta,
+    };
+  }
 
   if (note.type === "SLIDE") {
     const slidePosition = Math.max(0, Math.min(2, slideBounds(note).left + laneDelta));
@@ -132,11 +170,13 @@ export function moveTimelineNotes(
 ): ChartNote[] {
   if (!notes.length) return [];
   const minTime = Math.min(...notes.map((note) => note.time));
-  const maxTime = Math.max(...notes.map((note) => note.time + (note.type === "STAY" ? note.duration ?? 1 : 0)));
+  const maxTime = Math.max(...notes.map((note) => note.time + (isSustainedNote(note) ? note.duration ?? 1 : 0)));
   const boundedTimeDelta = Math.max(-minTime, Math.min(duration - maxTime, timeDelta));
   const laneBounds = notes
     .filter((note) => note.type !== "JUMP")
-    .map((note) => note.type === "SLIDE" ? slideBounds(note) : stepBounds(note));
+    .map((note) => note.type === "SLIDE"
+      ? slideBounds(note)
+      : note.type === "HORIZONTAL_SLIDE" ? horizontalSlideBounds(note) : stepBounds(note));
   const boundedLaneDelta = laneBounds.length
     ? Math.max(
       -Math.min(...laneBounds.map((bounds) => bounds.left)),
@@ -146,7 +186,7 @@ export function moveTimelineNotes(
   return notes.map((note) => moveTimelineNote(note, boundedLaneDelta, boundedTimeDelta, duration));
 }
 
-export function resizeTimelineStay(
+export function resizeTimelineSustainedNote(
   note: ChartNote,
   pixelDelta: number,
   pixelsPerSecond: number,
@@ -180,7 +220,9 @@ export function timelineNotesInSelection(
   return notes.filter((note) => {
     const bounds = note.type === "STEP" || note.type === "STAY"
       ? stepBounds(note)
-      : note.type === "SLIDE" ? slideBounds(note) : { left: 0, right: 4 };
+      : note.type === "SLIDE"
+        ? slideBounds(note)
+        : note.type === "HORIZONTAL_SLIDE" ? horizontalSlideBounds(note) : { left: 0, right: 4 };
     const x = (bounds.left + bounds.right) / 8 * timelineWidth;
     const y = timelineHeight - note.time * pixelsPerSecond;
     return x >= selection.left
@@ -200,7 +242,9 @@ export function pasteTimelineNotes(
   if (!copiedNotes.length) return [];
   const laneBounds = copiedNotes
     .filter((note) => note.type !== "JUMP")
-    .map((note) => note.type === "SLIDE" ? slideBounds(note) : stepBounds(note));
+    .map((note) => note.type === "SLIDE"
+      ? slideBounds(note)
+      : note.type === "HORIZONTAL_SLIDE" ? horizontalSlideBounds(note) : stepBounds(note));
   const left = laneBounds.length ? Math.min(...laneBounds.map((bounds) => bounds.left)) : lanePosition;
   const firstTime = Math.min(...copiedNotes.map((note) => note.time));
   const movedNotes = moveTimelineNotes(copiedNotes, lanePosition - left, time - firstTime, duration);
@@ -248,7 +292,7 @@ export function LevelBuilder({ level, onBack, onSave, onTest }: LevelBuilderProp
   const audioRef = useRef<HTMLAudioElement>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
   const noteDragRef = useRef<NoteDrag | undefined>(undefined);
-  const stayResizeRef = useRef<StayResize | undefined>(undefined);
+  const sustainedNoteResizeRef = useRef<SustainedNoteResize | undefined>(undefined);
   const selectionDragRef = useRef<SelectionDrag | undefined>(undefined);
   const [chart, setChart] = useState<LevelChart>(() => structuredClone(level.chart));
   const [song, setSong] = useState<SongMetadata>(() => ({ ...level.song }));
@@ -314,8 +358,8 @@ export function LevelBuilder({ level, onBack, onSave, onTest }: LevelBuilderProp
   }, [audioBlob, song.audio]);
 
   useEffect(() => {
-    const resize = (event: PointerEvent) => resizeStay(event);
-    const endResize = (event: PointerEvent) => endStayResize(event);
+    const resize = (event: PointerEvent) => resizeSustainedNote(event);
+    const endResize = (event: PointerEvent) => endSustainedNoteResize(event);
     window.addEventListener("pointermove", resize);
     window.addEventListener("pointerup", endResize);
     window.addEventListener("pointercancel", endResize);
@@ -491,22 +535,22 @@ export function LevelBuilder({ level, onBack, onSave, onTest }: LevelBuilderProp
     setDraggingNoteIds([]);
   }
 
-  function startStayResize(
+  function startSustainedNoteResize(
     event: React.PointerEvent<HTMLSpanElement>,
     note: ChartNote,
     edge: "start" | "end",
   ): void {
     event.preventDefault();
     event.stopPropagation();
-    stayResizeRef.current = { edge, note, pointerId: event.pointerId, y: event.clientY };
+    sustainedNoteResizeRef.current = { edge, note, pointerId: event.pointerId, y: event.clientY };
     setSelectedNoteIds([note.id]);
     setMenu(undefined);
   }
 
-  function resizeStay(event: { pointerId: number; clientY: number }): void {
-    const resize = stayResizeRef.current;
+  function resizeSustainedNote(event: { pointerId: number; clientY: number }): void {
+    const resize = sustainedNoteResizeRef.current;
     if (!resize || resize.pointerId !== event.pointerId) return;
-    const resized = resizeTimelineStay(
+    const resized = resizeTimelineSustainedNote(
       resize.note,
       resize.y - event.clientY,
       pixelsPerSecond,
@@ -516,10 +560,10 @@ export function LevelBuilder({ level, onBack, onSave, onTest }: LevelBuilderProp
     updateNote(resize.note.id, { time: resized.time, duration: resized.duration });
   }
 
-  function endStayResize(event: { pointerId: number; clientY: number }): void {
-    if (stayResizeRef.current?.pointerId !== event.pointerId) return;
-    resizeStay(event);
-    stayResizeRef.current = undefined;
+  function endSustainedNoteResize(event: { pointerId: number; clientY: number }): void {
+    if (sustainedNoteResizeRef.current?.pointerId !== event.pointerId) return;
+    resizeSustainedNote(event);
+    sustainedNoteResizeRef.current = undefined;
   }
 
   function startTimelineSelection(event: React.PointerEvent<HTMLDivElement>): void {
@@ -765,6 +809,7 @@ export function LevelBuilder({ level, onBack, onSave, onTest }: LevelBuilderProp
                 {notes.map((note) => {
                   let left = 0;
                   let width = 100;
+                  let clipPath: string | undefined;
                   if (note.type === "STEP" || note.type === "STAY") {
                     const bounds = stepBounds(note);
                     left = bounds.left * 25;
@@ -773,11 +818,23 @@ export function LevelBuilder({ level, onBack, onSave, onTest }: LevelBuilderProp
                     const bounds = slideBounds(note);
                     left = bounds.left * 25;
                     width = (bounds.right - bounds.left) * 25;
+                  } else if (note.type === "HORIZONTAL_SLIDE") {
+                    const bounds = horizontalSlideBounds(note);
+                    const span = bounds.right - bounds.left;
+                    left = bounds.left * 25;
+                    width = span * 25;
+                    const bottomLeft = (note.lane! - 1 - bounds.left) / span * 100;
+                    const bottomRight = (note.lane! - bounds.left) / span * 100;
+                    const topLeft = (note.endLane! - 1 - bounds.left) / span * 100;
+                    const topRight = (note.endLane! - bounds.left) / span * 100;
+                    clipPath = `polygon(${topLeft}% 0, ${topRight}% 0, ${bottomRight}% 100%, ${bottomLeft}% 100%)`;
                   }
                   const asset = note.type === "JUMP"
                     ? jumpUrl
                     : note.type === "SLIDE"
                       ? note.foot === "left" ? leftSlideUrl : rightSlideUrl
+                      : note.type === "HORIZONTAL_SLIDE"
+                        ? note.foot === "left" ? horizontalLeftSlideUrl : horizontalRightSlideUrl
                       : note.type === "STAY"
                         ? note.foot === "left" ? leftStayUrl : rightStayUrl
                         : note.foot === "left" ? leftStepUrl : rightStepUrl;
@@ -792,8 +849,8 @@ export function LevelBuilder({ level, onBack, onSave, onTest }: LevelBuilderProp
                         bottom: note.time * pixelsPerSecond,
                         left: `${left}%`,
                         width: `${width}%`,
-                        height: note.type === "STAY" ? (note.duration ?? 1) * pixelsPerSecond : undefined,
-                        transform: note.type === "STAY" ? undefined : `translateY(50%) scaleY(${zoom})`,
+                        height: isSustainedNote(note) ? (note.duration ?? 1) * pixelsPerSecond : undefined,
+                        transform: isSustainedNote(note) ? undefined : `translateY(50%) scaleY(${zoom})`,
                       }}
                       onClick={(event) => {
                         event.stopPropagation();
@@ -802,18 +859,18 @@ export function LevelBuilder({ level, onBack, onSave, onTest }: LevelBuilderProp
                       onContextMenu={(event) => openNoteMenu(event, note.id)}
                       onPointerDown={(event) => startNoteDrag(event, note)}
                     >
-                      <img src={asset} alt="" />
-                      {note.type === "STAY" && (
+                      <img src={asset} alt="" style={{ clipPath }} />
+                      {isSustainedNote(note) && (
                         <>
                           <span
                             className="stay-resize-handle top"
                             title="Drag to change end time"
-                            onPointerDown={(event) => startStayResize(event, note, "end")}
+                            onPointerDown={(event) => startSustainedNoteResize(event, note, "end")}
                           />
                           <span
                             className="stay-resize-handle bottom"
                             title="Drag to change start time"
-                            onPointerDown={(event) => startStayResize(event, note, "start")}
+                            onPointerDown={(event) => startSustainedNoteResize(event, note, "start")}
                           />
                         </>
                       )}
@@ -838,8 +895,16 @@ export function LevelBuilder({ level, onBack, onSave, onTest }: LevelBuilderProp
               <article className={selectedNoteIds.includes(note.id) ? "selected" : ""} key={note.id} onClick={() => selectNote(note)}>
                 <div className={`note-index ${note.type.toLowerCase()} ${note.foot}`}>{String(notes.length - index).padStart(2, "0")}</div>
                 <div>
-                  <strong>{note.type === "STEP" || note.type === "STAY" ? `${note.foot} ${note.type.toLowerCase()}` : note.type.toLowerCase()}</strong>
-                  <span>{note.type === "JUMP" ? "All lanes" : `Lane ${note.lane}${note.type === "SLIDE" ? ` → ${note.endLane}` : ""}`}</span>
+                  <strong>
+                    {note.type === "STEP" || isSustainedNote(note)
+                      ? `${note.foot} ${note.type.toLowerCase().replace("_", " ")}`
+                      : note.type.toLowerCase()}
+                  </strong>
+                  <span>
+                    {note.type === "JUMP"
+                      ? "All lanes"
+                      : `Lane ${note.lane}${note.type === "SLIDE" || note.type === "HORIZONTAL_SLIDE" ? ` → ${note.endLane}` : ""}`}
+                  </span>
                 </div>
                 <label>
                   <span>TIME</span>
@@ -869,7 +934,19 @@ export function LevelBuilder({ level, onBack, onSave, onTest }: LevelBuilderProp
                     </label>
                   </>
                 )}
-                {note.type === "STAY" && (
+                {note.type === "HORIZONTAL_SLIDE" && (
+                  <label>
+                    <span>END LANE</span>
+                    <select
+                      value={note.endLane}
+                      onClick={(event) => event.stopPropagation()}
+                      onChange={(event) => updateNote(note.id, { endLane: Number(event.target.value) })}
+                    >
+                      {[1, 2, 3, 4].map((lane) => <option value={lane} key={lane}>{lane}</option>)}
+                    </select>
+                  </label>
+                )}
+                {isSustainedNote(note) && (
                   <label>
                     <span>DURATION</span>
                     <input
@@ -900,7 +977,7 @@ export function LevelBuilder({ level, onBack, onSave, onTest }: LevelBuilderProp
           className="builder-context-menu"
           style={{
             left: Math.max(8, Math.min(menu.x, window.innerWidth - 198)),
-            top: Math.max(8, Math.min(menu.y, window.innerHeight - (clipboard.length ? 340 : 300))),
+            top: Math.max(8, Math.min(menu.y, window.innerHeight - (clipboard.length ? 420 : 380))),
           }}
           onClick={(event) => event.stopPropagation()}
         >
@@ -914,6 +991,8 @@ export function LevelBuilder({ level, onBack, onSave, onTest }: LevelBuilderProp
           <button onClick={() => addNote("RIGHT_STEP", menu.lane, menu.laneOffset, menu.time)}><i className="right" /> Right step</button>
           <button onClick={() => addNote("LEFT_STAY", menu.lane, menu.laneOffset, menu.time)}><i className="left" /> Left stay</button>
           <button onClick={() => addNote("RIGHT_STAY", menu.lane, menu.laneOffset, menu.time)}><i className="right" /> Right stay</button>
+          <button onClick={() => addNote("LEFT_HORIZONTAL_SLIDE", menu.lane, menu.laneOffset, menu.time)}><i className="left" /> Left horizontal slide</button>
+          <button onClick={() => addNote("RIGHT_HORIZONTAL_SLIDE", menu.lane, menu.laneOffset, menu.time)}><i className="right" /> Right horizontal slide</button>
           <button onClick={() => addNote("JUMP", menu.lane, menu.laneOffset, menu.time)}><i className="jump" /> Jump</button>
           <button onClick={() => addNote("SLIDE_LEFT", menu.lane, menu.laneOffset, menu.time)}>↙ Slide left</button>
           <button onClick={() => addNote("SLIDE_RIGHT", menu.lane, menu.laneOffset, menu.time)}>↗ Slide right</button>
