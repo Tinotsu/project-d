@@ -213,7 +213,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, audio:focus-vis
 .timeline-note.stay .stay-resize-handle.top, .timeline-note.horizontal_slide .stay-resize-handle.top { top: -5px; border-top: 2px solid #fff; }
 .timeline-note.stay .stay-resize-handle.bottom, .timeline-note.horizontal_slide .stay-resize-handle.bottom { bottom: -5px; border-bottom: 2px solid #fff; }
 .timeline-note.slide { z-index: 5; aspect-ratio: 152 / 102; overflow: visible; container-type: size; }
-.timeline-note.slide > img { position: absolute; top: 0; left: 0; width: 124cqh; height: 110.6667cqw; object-fit: fill; transform-origin: 0 0; }
+.timeline-note.slide > img { position: absolute; top: 0; left: 0; width: 100cqh; height: 100cqw; object-fit: fill; transform-origin: 0 0; }
 .timeline-note.slide[data-direction="left"] > img { transform: translateY(100cqh) rotate(-90deg); }
 .timeline-note.slide[data-direction="right"] > img { transform: translateX(100cqw) rotate(90deg); }
 .timeline-note.slide > span { position: absolute; z-index: 2; top: 50%; left: 50%; color: #000; font-size: 16px; font-weight: 900; transform: translate(-50%, -50%); pointer-events: none; }
