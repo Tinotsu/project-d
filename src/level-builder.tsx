@@ -809,7 +809,8 @@ export function LevelBuilder({ level, onBack, onSave, onTest }: LevelBuilderProp
                 {notes.map((note) => {
                   let left = 0;
                   let width = 100;
-                  let clipPath: string | undefined;
+                  let horizontalSlideSpan = 1;
+                  let horizontalSlideTransform: string | undefined;
                   if (note.type === "STEP" || note.type === "STAY") {
                     const bounds = stepBounds(note);
                     left = bounds.left * 25;
@@ -823,11 +824,10 @@ export function LevelBuilder({ level, onBack, onSave, onTest }: LevelBuilderProp
                     const span = bounds.right - bounds.left;
                     left = bounds.left * 25;
                     width = span * 25;
-                    const bottomLeft = (note.lane! - 1 - bounds.left) / span * 100;
-                    const bottomRight = (note.lane! - bounds.left) / span * 100;
-                    const topLeft = (note.endLane! - 1 - bounds.left) / span * 100;
-                    const topRight = (note.endLane! - bounds.left) / span * 100;
-                    clipPath = `polygon(${topLeft}% 0, ${topRight}% 0, ${bottomRight}% 100%, ${bottomLeft}% 100%)`;
+                    const bottomLeft = note.lane! - 1 - bounds.left;
+                    const topLeft = note.endLane! - 1 - bounds.left;
+                    horizontalSlideSpan = span;
+                    horizontalSlideTransform = `matrix(1 0 ${bottomLeft - topLeft} 1 ${topLeft} 0)`;
                   }
                   const asset = note.type === "JUMP"
                     ? jumpUrl
@@ -859,7 +859,19 @@ export function LevelBuilder({ level, onBack, onSave, onTest }: LevelBuilderProp
                       onContextMenu={(event) => openNoteMenu(event, note.id)}
                       onPointerDown={(event) => startNoteDrag(event, note)}
                     >
-                      <img src={asset} alt="" style={{ clipPath }} />
+                      {horizontalSlideTransform
+                        ? (
+                          <svg viewBox={`0 0 ${horizontalSlideSpan} 1`} preserveAspectRatio="none" aria-hidden="true">
+                            <image
+                              href={asset}
+                              width="1"
+                              height="1"
+                              preserveAspectRatio="none"
+                              transform={horizontalSlideTransform}
+                            />
+                          </svg>
+                        )
+                        : <img src={asset} alt="" />}
                       {isSustainedNote(note) && (
                         <>
                           <span
