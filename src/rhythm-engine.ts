@@ -67,7 +67,7 @@ export function judgementForOffset(
   offsetMs: number,
   settings = defaultCalibrationSettings,
 ): Exclude<Judgement, "miss"> | null {
-  if (type === "STAY" || type === "VERTICAL_SLIDE") return null;
+  if (type === "STAY") return null;
   const offset = Math.abs(offsetMs);
   if (offset <= settings.stepPerfectMs + Number.EPSILON) return "perfect";
   if (offset <= settings.stepGreatMs + Number.EPSILON) return "great";
@@ -106,12 +106,16 @@ export class RhythmEngine {
       ...this.judgeSteps(time),
       ...this.judgeJumps(time),
       ...this.judgeHorizontalSlides(),
+      ...this.judgeVerticalSlides(),
       ...this.trackSustainedNotes(frame),
     ];
     results.push(...this.collectMisses(time, finish));
     const historyWindow = Math.max(
       (this.settings.stepGoodMs * 2 + this.settings.missGraceMs) / 1000,
       (this.settings.responseTimeoutMs + this.settings.stepGoodMs + this.settings.stepGreatMs) / 1000,
+      ...this.notes
+        .filter((note) => note.type === "VERTICAL_SLIDE")
+        .map((note) => (note.duration ?? 1) + (this.settings.stepGoodMs * 2 + this.settings.missGraceMs) / 1000),
     );
     this.frames = this.frames.filter((candidate) => time - candidate.time <= historyWindow);
     return results;
@@ -121,7 +125,9 @@ export class RhythmEngine {
     const misses: JudgementResult[] = [];
     for (const note of this.notes) {
       const goodWindow = note.type === "HORIZONTAL_SLIDE"
-          ? this.settings.responseTimeoutMs
+          ? this.settings.stepGoodMs + this.settings.responseTimeoutMs
+          : note.type === "VERTICAL_SLIDE"
+            ? (note.duration ?? 1) * 1000 + this.settings.stepGoodMs
           : isSustainedNote(note)
             ? (note.duration ?? 1) * 1000
             : this.settings.stepGoodMs;
@@ -190,7 +196,7 @@ export class RhythmEngine {
         for (const start of this.frames) {
           if (
             start[foot] !== note.lane
-            || !judgementForOffset("HORIZONTAL_SLIDE", (start.time - note.time) * 1000, this.settings)
+            || !judgementForOffset(note.type, (start.time - note.time) * 1000, this.settings)
             || !this.frames.some((end) => (
               end.time >= start.time
               && (end.time - start.time) * 1000 <= this.settings.responseTimeoutMs
@@ -203,8 +209,50 @@ export class RhythmEngine {
       if (!closest) continue;
       results.push(this.applyJudgement(
         note,
-        judgementForOffset("HORIZONTAL_SLIDE", (closest.time - note.time) * 1000, this.settings)!,
+        judgementForOffset(note.type, (closest.time - note.time) * 1000, this.settings)!,
         closest.time - note.time,
+      ));
+    }
+    return results;
+  }
+
+  private judgeVerticalSlides(): JudgementResult[] {
+    const results: JudgementResult[] = [];
+    const goodWindow = this.settings.stepGoodMs / 1000;
+
+    for (const note of this.notes) {
+      if (note.type !== "VERTICAL_SLIDE" || this.judgements.has(note.id)) continue;
+      const endTime = note.time + (note.duration ?? 1);
+      const feet: ("leftLane" | "rightLane")[] = note.foot === "right"
+        ? ["rightLane"]
+        : note.foot === "either"
+          ? ["leftLane", "rightLane"]
+          : ["leftLane"];
+      let closest: { start: CameraFrame; end: CameraFrame } | undefined;
+
+      for (const foot of feet) {
+        for (const start of this.frames) {
+          if (start[foot] !== note.lane || Math.abs(start.time - note.time) > goodWindow) continue;
+          const end = this.frames
+            .filter((candidate) => candidate[foot] === note.endLane && Math.abs(candidate.time - endTime) <= goodWindow)
+            .sort((left, right) => Math.abs(left.time - endTime) - Math.abs(right.time - endTime))[0];
+          if (!end) continue;
+          if (
+            !closest
+            || Math.max(Math.abs(start.time - note.time), Math.abs(end.time - endTime))
+              < Math.max(Math.abs(closest.start.time - note.time), Math.abs(closest.end.time - endTime))
+          ) closest = { start, end };
+        }
+      }
+
+      if (!closest) continue;
+      const offset = Math.abs(closest.start.time - note.time) >= Math.abs(closest.end.time - endTime)
+        ? closest.start.time - note.time
+        : closest.end.time - endTime;
+      results.push(this.applyJudgement(
+        note,
+        judgementForOffset("VERTICAL_SLIDE", offset * 1000, this.settings)!,
+        offset,
       ));
     }
     return results;
@@ -213,14 +261,11 @@ export class RhythmEngine {
   private trackSustainedNotes(frame: CameraFrame): JudgementResult[] {
     const results: JudgementResult[] = [];
     for (const note of this.notes) {
-      if (!isSustainedNote(note) || this.judgements.has(note.id) || frame.time < note.time) continue;
+      if (note.type !== "STAY" || this.judgements.has(note.id) || frame.time < note.time) continue;
       const duration = note.duration ?? 1;
-      const progress = Math.min(1, (frame.time - note.time) / duration);
-      const expectedLane = note.type === "VERTICAL_SLIDE"
-        ? Math.round(note.lane! + (note.endLane! - note.lane!) * progress)
-        : note.lane!;
+      const expectedLane = note.lane!;
       const tracked = this.trackedSustainedNotes.get(note.id) ?? { onPath: true, started: false };
-      tracked.onPath &&= footOccupiesLane(note.foot, expectedLane, frame);
+      if (footIsTracked(note.foot, frame)) tracked.onPath &&= footOccupiesLane(note.foot, expectedLane, frame);
       tracked.started ||= frame.time < note.time + duration;
       this.trackedSustainedNotes.set(note.id, tracked);
       if (frame.time < note.time + duration) continue;
@@ -313,4 +358,11 @@ function footOccupiesLane(foot: Foot, lane: number, frame: CameraFrame): boolean
   if (foot === "right") return frame.rightLane === lane;
   if (foot === "both") return frame.leftLane === lane && frame.rightLane === lane;
   return frame.leftLane === lane || frame.rightLane === lane;
+}
+
+function footIsTracked(foot: Foot, frame: CameraFrame): boolean {
+  if (foot === "left") return frame.leftLane !== null;
+  if (foot === "right") return frame.rightLane !== null;
+  if (foot === "both") return frame.leftLane !== null && frame.rightLane !== null;
+  return frame.leftLane !== null || frame.rightLane !== null;
 }

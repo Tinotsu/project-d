@@ -152,7 +152,10 @@ export function MovementTestScreen({
           const trackTime = noteTime
             - remaining / active.settings.cueDelayMs * chart.playfield.travelTime;
           playfield.render(trackTime, true, (id) => id !== active.expected.id);
-          if (now > active.hitAt + active.settings.responseTimeoutMs) {
+          const noteDurationMs = active.expected.type === "VERTICAL_SLIDE"
+            ? (active.expected.duration ?? 1) * 1000
+            : 0;
+          if (now > active.hitAt + noteDurationMs + active.settings.stepGoodMs + active.settings.missGraceMs) {
             completeAttempt({ expected: active.expected, actual: "NO MOVEMENT", status: "miss" });
           }
         } else {
