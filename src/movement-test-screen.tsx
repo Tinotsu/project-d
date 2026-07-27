@@ -8,10 +8,10 @@ import {
 import { CameraPanel } from "./camera-panel.tsx";
 import { initialCameraSnapshot, type CameraInput, type CameraSnapshot } from "./camera-input.ts";
 import { Button } from "./components/ui/button.tsx";
-import type { InputAction, InputFrame } from "./foot-pose.ts";
+import type { InputFrame } from "./foot-pose.ts";
 import type { LoadedLevel } from "./level.ts";
 import { PixiPlayfield } from "./pixi-playfield.ts";
-import { judgementForOffset, type ChartNote, type Judgement, type NoteType } from "./rhythm-engine.ts";
+import { RhythmEngine, type ChartNote, type Judgement, type NoteType } from "./rhythm-engine.ts";
 
 const noteTime = 10;
 
@@ -25,6 +25,7 @@ type Attempt = {
   expected: ChartNote;
   hitAt: DOMHighResTimeStamp;
   settings: CalibrationSettings;
+  engine: RhythmEngine;
 };
 type MovementTestScreenProps = {
   cameraInput: CameraInput;
@@ -34,37 +35,12 @@ type MovementTestScreenProps = {
   onCalibrationChange: (calibrated: boolean) => void;
 };
 
-function actionType(action: InputAction): NoteType {
-  if (action.type === "JUMP") return "JUMP";
-  if (action.type.endsWith("_SLIDE")) return "SLIDE";
-  return "STEP";
-}
-
-function actionDescription(action: InputAction): string {
-  if (action.type === "JUMP") return "JUMP";
-  const foot = action.type.startsWith("LEFT") ? "LEFT" : "RIGHT";
-  return action.type === "LEFT_SLIDE" || action.type === "RIGHT_SLIDE"
-    ? `${foot} SLIDE · ${action.lane} → ${action.endLane}`
-    : `${foot} STEP · LANE ${action.lane}`;
-}
-
 function noteDescription(note: ChartNote): string {
   if (note.type === "JUMP") return "JUMP";
-  if (note.type === "SLIDE") return `${note.foot.toUpperCase()} SLIDE · ${note.lane} → ${note.endLane}`;
-  return `${note.foot.toUpperCase()} ${note.type} · LANE ${note.lane}`;
-}
-
-function actionMatches(action: InputAction, note: ChartNote): boolean {
-  if (note.type === "JUMP") return action.type === "JUMP";
-  if (note.type === "SLIDE") {
-    if (action.type !== "LEFT_SLIDE" && action.type !== "RIGHT_SLIDE") return false;
-    const expectedAction = `${note.foot.toUpperCase()}_SLIDE`;
-    return action.type === expectedAction
-      && action.lane === note.lane
-      && action.endLane === note.endLane;
+  if (note.type === "SLIDE" || note.type === "HORIZONTAL_SLIDE") {
+    return `${note.foot.toUpperCase()} ${note.type.replace("_", " ")} · ${note.lane} → ${note.endLane}`;
   }
-  const expectedAction = `${note.foot.toUpperCase()}_STEP`;
-  return action.type === expectedAction && action.lane === note.lane;
+  return `${note.foot.toUpperCase()} ${note.type} · LANE ${note.lane}`;
 }
 
 export function MovementTestScreen({
@@ -105,6 +81,23 @@ export function MovementTestScreen({
           foot: side,
           lane: targetLane,
           endLane: targetLane <= 2 ? targetLane + 2 : targetLane - 2,
+        });
+        notes.push({
+          id: `STAY-${side}-${targetLane}`,
+          time: noteTime,
+          type: "STAY",
+          foot: side,
+          lane: targetLane,
+          duration: 1,
+        });
+        notes.push({
+          id: `HORIZONTAL_SLIDE-${side}-${targetLane}`,
+          time: noteTime,
+          type: "HORIZONTAL_SLIDE",
+          foot: side,
+          lane: targetLane,
+          endLane: targetLane <= 2 ? targetLane + 2 : targetLane - 2,
+          duration: 1,
         });
       }
     }
@@ -179,26 +172,21 @@ export function MovementTestScreen({
   const receiveFrame = useCallback((frame: InputFrame) => {
     const active = attemptRef.current;
     if (!active) return;
-    for (const action of frame.actions) {
-      if (actionType(action) !== active.expected.type) continue;
-      const offsetMs = (action.type === "LEFT_SLIDE" || action.type === "RIGHT_SLIDE" ? action.startedAt : frame.capturedAt) - active.hitAt;
-      if (!actionMatches(action, active.expected)) {
-        completeAttempt({
-          expected: active.expected,
-          actual: actionDescription(action),
-          offsetMs,
-          status: "wrong",
-        });
-        return;
-      }
-      completeAttempt({
-        expected: active.expected,
-        actual: actionDescription(action),
-        offsetMs,
-        status: judgementForOffset(active.expected.type, offsetMs, active.settings) ?? "outside",
-      });
-      return;
-    }
+    const results = active.engine.trackFrame(
+      noteTime + (frame.capturedAt - active.hitAt) / 1000,
+      frame.leftLane ?? null,
+      frame.rightLane ?? null,
+      frame.leftPoints,
+      frame.rightPoints,
+    );
+    const result = results[0];
+    if (!result) return;
+    completeAttempt({
+      expected: active.expected,
+      actual: result.judgement === "miss" ? "NO MATCHING FRAMES" : noteDescription(active.expected),
+      offsetMs: result.judgement === "miss" ? undefined : result.offset * 1000,
+      status: result.judgement,
+    });
   }, [completeAttempt]);
 
   const receiveSnapshot = useCallback((next: CameraSnapshot) => {
@@ -213,8 +201,12 @@ export function MovementTestScreen({
   function startAttempt(type: NoteType): void {
     const id = type === "JUMP" ? "JUMP" : `${type}-${foot}-${lane}`;
     const expected = chart.notes.find((note) => note.id === id)!;
-    const nextAttempt = { expected, hitAt: performance.now() + settings.cueDelayMs, settings };
-    cameraInput.resetActions();
+    const nextAttempt = {
+      expected,
+      hitAt: performance.now() + settings.cueDelayMs,
+      settings,
+      engine: new RhythmEngine([expected], settings),
+    };
     attemptRef.current = nextAttempt;
     setAttempt(nextAttempt);
     setLatest(undefined);
@@ -269,7 +261,7 @@ export function MovementTestScreen({
             </label>
           </div>
           <div className="movement-game-buttons">
-            {(["STEP", "JUMP", "SLIDE"] as const).map((type) => (
+            {(["STEP", "JUMP", "SLIDE", "STAY", "HORIZONTAL_SLIDE"] as const).map((type) => (
               <Button
                 key={type}
                 disabled={!ready || !snapshot.calibrated || Boolean(attempt)}

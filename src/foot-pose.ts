@@ -1,5 +1,4 @@
 import * as ort from "onnxruntime-web/webgpu";
-import { defaultCalibrationSettings, type CalibrationSettings } from "./calibration-settings.ts";
 
 const modelSize = 640;
 const outputRowSize = 24;
@@ -10,178 +9,13 @@ export type FootPose = {
   left: [Keypoint, Keypoint, Keypoint];
   right: [Keypoint, Keypoint, Keypoint];
 };
-export type InputAction =
-  | { type: "LEFT_STEP" | "RIGHT_STEP"; lane: number }
-  | { type: "LEFT_SLIDE" | "RIGHT_SLIDE"; lane: number; endLane: number; startedAt: DOMHighResTimeStamp }
-  | { type: "JUMP"; lane?: never };
 export type InputFrame = {
   capturedAt: DOMHighResTimeStamp;
-  actions: InputAction[];
   leftLane?: number | null;
   rightLane?: number | null;
+  leftPoints: number[] | null;
+  rightPoints: number[] | null;
 };
-
-class FootContactState {
-  private previousY?: number[];
-  private moving = false;
-
-  constructor(private readonly settings: CalibrationSettings) {}
-
-  update(points: number | number[] | null): boolean {
-    if (points === null) {
-      this.reset();
-      return false;
-    }
-    const y = typeof points === "number" ? [points, points, points] : points;
-    if (this.previousY === undefined) {
-      this.previousY = [...y];
-      return false;
-    }
-    const moving = this.previousY.filter((previousY, index) => Math.abs(y[index] - previousY) > this.settings.stepDescent).length >= 2;
-    const step = moving && !this.moving;
-    this.previousY = [...y];
-    this.moving = moving;
-    return step;
-  }
-
-  reset(): void {
-    this.previousY = undefined;
-    this.moving = false;
-  }
-}
-
-export class InputActionState {
-  private readonly leftContact: FootContactState;
-  private readonly rightContact: FootContactState;
-  private leftLane?: number;
-  private rightLane?: number;
-  private leftLaneAt = 0;
-  private rightLaneAt = 0;
-  private leftMissingAt?: number;
-  private rightMissingAt?: number;
-  private leftHiddenMs = 0;
-  private rightHiddenMs = 0;
-  private jumping = false;
-
-  constructor(private readonly settings = defaultCalibrationSettings) {
-    this.leftContact = new FootContactState(settings);
-    this.rightContact = new FootContactState(settings);
-  }
-
-  update(leftLane: number | null, rightLane: number | null, leftPoints: number | number[] | null, rightPoints: number | number[] | null, jumping: boolean, capturedAt: DOMHighResTimeStamp): InputAction[] {
-    const actions: InputAction[] = [];
-    if (leftLane === null) this.leftMissingAt ??= capturedAt;
-    else if (this.leftMissingAt !== undefined) {
-      if (this.leftLane !== undefined) this.leftHiddenMs += capturedAt - this.leftMissingAt;
-      this.leftMissingAt = undefined;
-    }
-    if (rightLane === null) this.rightMissingAt ??= capturedAt;
-    else if (this.rightMissingAt !== undefined) {
-      if (this.rightLane !== undefined) this.rightHiddenMs += capturedAt - this.rightMissingAt;
-      this.rightMissingAt = undefined;
-    }
-    if (jumping && !this.jumping) actions.push({ type: "JUMP" });
-    this.jumping = jumping;
-    if (jumping) {
-      this.leftContact.reset();
-      this.rightContact.reset();
-      return actions;
-    }
-
-    const leftStep = this.leftContact.update(leftPoints);
-    const leftSlide = leftLane !== null && this.leftLane !== undefined
-      && Math.abs(leftLane - this.leftLane) >= 2
-      && capturedAt - this.leftLaneAt - this.leftHiddenMs <= this.settings.responseTimeoutMs;
-    if (leftSlide) {
-      actions.push({ type: "LEFT_SLIDE", lane: this.leftLane!, endLane: this.leftLane! + Math.sign(leftLane! - this.leftLane!) * 2, startedAt: this.leftLaneAt });
-      this.leftLane = leftLane!;
-      this.leftLaneAt = capturedAt;
-      this.leftHiddenMs = 0;
-    } else if (leftStep && leftLane !== null) {
-      actions.push({ type: "LEFT_STEP", lane: leftLane });
-    }
-    if (leftLane !== null && (this.leftLane === undefined || leftLane === this.leftLane || capturedAt - this.leftLaneAt - this.leftHiddenMs > this.settings.responseTimeoutMs)) {
-      this.leftLane = leftLane;
-      this.leftLaneAt = capturedAt;
-      this.leftHiddenMs = 0;
-    }
-
-    const rightStep = this.rightContact.update(rightPoints);
-    const rightSlide = rightLane !== null && this.rightLane !== undefined
-      && Math.abs(rightLane - this.rightLane) >= 2
-      && capturedAt - this.rightLaneAt - this.rightHiddenMs <= this.settings.responseTimeoutMs;
-    if (rightSlide) {
-      actions.push({ type: "RIGHT_SLIDE", lane: this.rightLane!, endLane: this.rightLane! + Math.sign(rightLane! - this.rightLane!) * 2, startedAt: this.rightLaneAt });
-      this.rightLane = rightLane!;
-      this.rightLaneAt = capturedAt;
-      this.rightHiddenMs = 0;
-    } else if (rightStep && rightLane !== null) {
-      actions.push({ type: "RIGHT_STEP", lane: rightLane });
-    }
-    if (rightLane !== null && (this.rightLane === undefined || rightLane === this.rightLane || capturedAt - this.rightLaneAt - this.rightHiddenMs > this.settings.responseTimeoutMs)) {
-      this.rightLane = rightLane;
-      this.rightLaneAt = capturedAt;
-      this.rightHiddenMs = 0;
-    }
-    return actions;
-  }
-
-  reset(): void {
-    this.leftContact.reset();
-    this.rightContact.reset();
-    this.leftLane = this.rightLane = undefined;
-    this.leftLaneAt = this.rightLaneAt = 0;
-    this.leftMissingAt = this.rightMissingAt = undefined;
-    this.leftHiddenMs = this.rightHiddenMs = 0;
-    this.jumping = false;
-  }
-}
-
-export class JumpDetector {
-  private groundLeft?: number;
-  private groundRight?: number;
-  private peakLeft?: number;
-  private peakRight?: number;
-  private jumping = false;
-
-  constructor(private readonly settings = defaultCalibrationSettings) {}
-
-  update(leftY: number, rightY: number): boolean {
-    if (this.groundLeft === undefined || this.groundRight === undefined) {
-      this.groundLeft = leftY;
-      this.groundRight = rightY;
-      return false;
-    }
-
-    if (!this.jumping && this.groundLeft - leftY > this.settings.jumpLift && this.groundRight - rightY > this.settings.jumpLift) {
-      this.jumping = true;
-      this.peakLeft = leftY;
-      this.peakRight = rightY;
-    } else if (this.jumping) {
-      this.peakLeft = Math.min(this.peakLeft!, leftY);
-      this.peakRight = Math.min(this.peakRight!, rightY);
-      if (
-        (leftY > this.groundLeft - this.settings.jumpLanding && rightY > this.groundRight - this.settings.jumpLanding)
-        || (leftY - this.peakLeft > this.settings.jumpDescent && rightY - this.peakRight > this.settings.jumpDescent)
-      ) {
-        this.jumping = false;
-        this.groundLeft = leftY;
-        this.groundRight = rightY;
-      }
-    }
-
-    if (!this.jumping) {
-      this.groundLeft = Math.max(this.groundLeft, leftY);
-      this.groundRight = Math.max(this.groundRight, rightY);
-    }
-    return this.jumping;
-  }
-
-  reset(): void {
-    this.groundLeft = this.groundRight = this.peakLeft = this.peakRight = undefined;
-    this.jumping = false;
-  }
-}
 
 export function decodeFootPose(
   output: ArrayLike<number>,

@@ -1,8 +1,8 @@
 import { AudioClock } from "./audio-clock.ts";
 import { loadCalibrationSettings, type CalibrationSettings } from "./calibration-settings.ts";
 import type { LoadedLevel } from "./level.ts";
-import { RhythmEngine, type JudgementResult, type PlayerEvent } from "./rhythm-engine.ts";
-import type { InputAction, InputFrame } from "./foot-pose.ts";
+import { RhythmEngine, type JudgementResult } from "./rhythm-engine.ts";
+import type { InputFrame } from "./foot-pose.ts";
 
 export type GameSnapshot = {
   running: boolean;
@@ -16,15 +16,6 @@ export type GameSnapshot = {
   good: number;
   miss: number;
 };
-
-export function playerEventForAction(action: InputAction, time: number): PlayerEvent | null {
-  if (action.type === "LEFT_STEP") return { time, type: "STEP", foot: "left", lane: action.lane };
-  if (action.type === "RIGHT_STEP") return { time, type: "STEP", foot: "right", lane: action.lane };
-  if (action.type === "LEFT_SLIDE") return { time, type: "SLIDE", foot: "left", lane: action.lane, endLane: action.endLane };
-  if (action.type === "RIGHT_SLIDE") return { time, type: "SLIDE", foot: "right", lane: action.lane, endLane: action.endLane };
-  if (action.type === "JUMP") return { time, type: "JUMP", foot: "both" };
-  return null;
-}
 
 export class GameSession {
   private readonly clock = new AudioClock();
@@ -58,18 +49,15 @@ export class GameSession {
     if (!this.running || this.paused) return [];
     const time = this.clock.timeAt(frame.capturedAt, this.level.chart.level.endTime);
     if (time === null) return [];
-    const results = this.engine.trackSlides(time, frame.leftLane ?? null, frame.rightLane ?? null);
-    results.push(...this.engine.trackHorizontalSlides(time, frame.leftLane ?? null, frame.rightLane ?? null));
-    results.push(...frame.actions.flatMap((action) => {
-      const eventTime = action.type === "LEFT_SLIDE" || action.type === "RIGHT_SLIDE"
-        ? this.clock.timeAt(action.startedAt, this.level.chart.level.endTime) ?? time
-        : time;
-      const event = playerEventForAction(action, eventTime);
-      const result = event ? this.engine.submit(event) : null;
-      return result ? [result] : [];
-    }));
     const finished = time >= this.level.chart.level.endTime;
-    results.push(...this.engine.update(time, finished));
+    const results = this.engine.trackFrame(
+      time,
+      frame.leftLane ?? null,
+      frame.rightLane ?? null,
+      frame.leftPoints,
+      frame.rightPoints,
+      finished,
+    );
     if (finished) this.stop();
     return results;
   }

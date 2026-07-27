@@ -5,7 +5,7 @@ import {
   type CameraSnapshot,
 } from "./camera-input.ts";
 import { Button } from "./components/ui/button.tsx";
-import type { InputAction, InputFrame } from "./foot-pose.ts";
+import type { InputFrame } from "./foot-pose.ts";
 
 type CameraPanelProps = {
   input: CameraInput;
@@ -18,7 +18,6 @@ export function CameraPanel({ input, compact = false, onFrame, onSnapshot }: Cam
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [snapshot, setSnapshot] = useState(initialCameraSnapshot);
-  const [actions, setActions] = useState<InputAction[]>([]);
 
   const receiveSnapshot = useCallback((next: CameraSnapshot) => {
     setSnapshot(next);
@@ -26,7 +25,6 @@ export function CameraPanel({ input, compact = false, onFrame, onSnapshot }: Cam
   }, [onSnapshot]);
 
   const receiveFrame = useCallback((frame: InputFrame) => {
-    if (frame.actions.length) setActions((current) => [...current, ...frame.actions].slice(-8));
     onFrame?.(frame);
   }, [onFrame]);
 
@@ -37,11 +35,6 @@ export function CameraPanel({ input, compact = false, onFrame, onSnapshot }: Cam
 
   function markCorner(event: MouseEvent<HTMLCanvasElement>): void {
     input.markCorner(event.clientX, event.clientY, event.currentTarget.getBoundingClientRect());
-  }
-
-  function resetActions(): void {
-    input.resetActions();
-    setActions([]);
   }
 
   return (
@@ -95,28 +88,7 @@ export function CameraPanel({ input, compact = false, onFrame, onSnapshot }: Cam
           <strong>{snapshot.rightLane ? `LANE ${snapshot.rightLane}` : "—"}</strong>
           {!compact && <code>{snapshot.rightPosition ? `x ${snapshot.rightPosition.x.toFixed(2)}  y ${snapshot.rightPosition.y.toFixed(2)}` : "x —  y —"}</code>}
         </div>
-        <div className={`jump-readout${snapshot.jumping ? " active" : ""}`}>
-          {snapshot.jumping ? "JUMP" : "GROUNDED"}
-        </div>
       </div>
-
-      {!compact && (
-        <div className="input-events">
-          <div className="section-heading">
-            <small>INPUT EVENTS</small>
-            <Button size="sm" variant="ghost" onClick={resetActions}>Reset</Button>
-          </div>
-          <div className="event-log" aria-live="polite">
-            {actions.length === 0
-              ? <p className="event-empty">Waiting for movement…</p>
-              : actions.map((action, index) => (
-                <p key={`${action.type}-${action.lane ?? "none"}-${index}`}>
-                  {action.type}{action.lane ? ` · LANE ${action.lane}` : ""}
-                </p>
-              ))}
-          </div>
-        </div>
-      )}
     </section>
   );
 }

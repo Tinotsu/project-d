@@ -101,13 +101,13 @@ The game uses Web Audio's context clock for gameplay timing and PixiJS for the p
 
 - React owns level selection, calibration, results, and chart editing.
 - `src/game-session.ts` coordinates the audio clock and deterministic rhythm engine.
-- `src/camera-input.ts` owns camera capture, calibration, pose input, and movement events.
+- `src/camera-input.ts` owns camera capture, calibration, and timestamped pose frames.
 - `src/pixi-playfield.ts` renders the playfield and the SVG note assets.
 - `src/level.ts` loads song metadata and level charts.
 
 ## Current scope
 
-The browser app includes camera capture, pose landmarks, calibration, lane detection, automatic mirroring, temporal smoothing, jump detection, a test chart, Web Audio synchronization, real-time step/jump scoring, product screens, results, and chart editing. The camera model and Pixi game runtime are loaded only when their screens need them.
+The browser app includes camera capture, pose landmarks, calibration, lane detection, automatic mirroring, buffered frame scoring, a test chart, Web Audio synchronization, product screens, results, and chart editing. The camera model and Pixi game runtime are loaded only when their screens need them.
 
 ## License
 

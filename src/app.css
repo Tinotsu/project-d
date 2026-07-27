@@ -47,7 +47,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, audio:focus-vis
 .page-toolbar { display: flex; align-items: center; justify-content: space-between; min-height: 40px; gap: 12px; }
 .page-toolbar strong { font-size: 18px; }
 .heading-actions, .hero-actions, .camera-actions { display: flex; gap: 8px; }
-.panel, .camera-stage, .camera-details, .camera-readout, .input-events { border: 1px solid #929292; border-radius: 8px; background: #000000; }
+.panel, .camera-stage, .camera-details, .camera-readout { border: 1px solid #929292; border-radius: 8px; background: #000000; }
 
 .camera-panel { display: grid; grid-template-columns: minmax(0, 1fr) 280px; grid-template-rows: auto auto minmax(0, 1fr); gap: 12px; min-height: 0; }
 .camera-stage { position: relative; grid-row: 1 / 4; min-width: 0; min-height: 0; overflow: hidden; }
@@ -60,7 +60,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, audio:focus-vis
 .camera-empty span, .camera-hint { color: #929292; font-size: 12px; }
 .camera-icon { position: relative; width: 48px; height: 34px; margin-bottom: 8px; border: 2px solid #929292; border-radius: 6px; }
 .camera-icon::before { position: absolute; inset: 0; width: 14px; height: 14px; margin: auto; border: 2px solid #929292; border-radius: 50%; content: ""; }
-.camera-details, .camera-readout, .input-events { padding: 14px; }
+.camera-details, .camera-readout { padding: 14px; }
 .camera-details, .camera-readout { display: grid; align-content: start; gap: 10px; }
 .camera-status { display: flex; align-items: center; gap: 8px; font-size: 13px; }
 .camera-status i, .foot-readout i { width: 8px; height: 8px; border-radius: 50%; background: #929292; }
@@ -72,14 +72,8 @@ button:focus-visible, input:focus-visible, select:focus-visible, audio:focus-vis
 .foot-readout span, .foot-readout code { color: #929292; font-size: 10px; }
 .foot-readout strong, .foot-readout code { text-align: right; }
 .foot-readout code { grid-column: 2 / -1; }
-.jump-readout { border-top: 1px solid #929292; padding-top: 10px; color: #929292; font-size: 11px; font-weight: 600; text-align: right; }
-.jump-readout.active { color: #9c45fa; }
-.input-events { grid-column: 2; min-height: 0; overflow: hidden; }
 .section-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .section-heading small { color: #929292; font-size: 10px; }
-.event-log { display: flex; gap: 8px; margin-top: 10px; overflow-x: auto; }
-.event-log p { flex: 0 0 auto; margin: 0; border-radius: 6px; padding: 8px; background: #f9f9f9; color: #000000; font-size: 10px; }
-.event-log .event-empty { background: #000000; color: #929292; }
 
 .game-screen { position: relative; width: 100vw; height: 100dvh; overflow: hidden; background: #000000; }
 .game-hud { position: absolute; z-index: 4; right: 0; bottom: 0; left: 0; display: grid; grid-template-columns: auto minmax(150px, 1fr) repeat(3, auto) auto; align-items: center; gap: 18px; min-height: 64px; padding: 10px 16px; border-top: 1px solid #929292; background: #000000; }
@@ -271,8 +265,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, audio:focus-vis
   .setup-screen { height: calc(100dvh - 56px); padding: 8px; }
   .camera-panel:not(.compact) { grid-template-columns: 1fr 1fr; grid-template-rows: minmax(0, 1fr) auto auto; gap: 8px; }
   .camera-panel:not(.compact) .camera-stage { grid-column: 1 / -1; grid-row: 1; min-height: 120px; }
-  .camera-panel:not(.compact) .input-events { grid-column: 1 / -1; }
-  .camera-details, .camera-readout, .input-events { padding: 8px; }
+  .camera-details, .camera-readout { padding: 8px; }
   .camera-panel.compact { top: 8px; right: 8px; width: 160px; }
   .camera-panel.compact .camera-stage { flex-basis: 80px; }
   .camera-panel.compact .camera-details, .camera-panel.compact .camera-readout { display: none; }

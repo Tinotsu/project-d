@@ -8,9 +8,6 @@ import {
 } from "./floor.ts";
 import {
   FootPoseDetector,
-  InputActionState,
-  JumpDetector,
-  type InputAction,
   type InputFrame,
   type Keypoint,
 } from "./foot-pose.ts";
@@ -35,7 +32,6 @@ export type CameraSnapshot = {
   rightLane: number | null;
   leftPosition: Point | null;
   rightPosition: Point | null;
-  jumping: boolean;
 };
 
 export const initialCameraSnapshot: CameraSnapshot = {
@@ -50,7 +46,6 @@ export const initialCameraSnapshot: CameraSnapshot = {
   rightLane: null,
   leftPosition: null,
   rightPosition: null,
-  jumping: false,
 };
 
 export class CameraInput {
@@ -64,8 +59,6 @@ export class CameraInput {
   private transform?: Homography;
   private corners: Point[] = [];
   private settings = loadCalibrationSettings();
-  private jumpDetector = new JumpDetector(this.settings);
-  private inputActions = new InputActionState(this.settings);
   private snapshot = initialCameraSnapshot;
   private onSnapshot?: (snapshot: CameraSnapshot) => void;
   private onFrame?: (frame: InputFrame) => void;
@@ -134,8 +127,6 @@ export class CameraInput {
     if (!this.stream) return;
     this.corners = [];
     this.transform = undefined;
-    this.jumpDetector.reset();
-    this.inputActions.reset();
     this.setSnapshot({
       status: "Mark four floor corners",
       hint: "Click the far-left corner of your play area.",
@@ -149,7 +140,6 @@ export class CameraInput {
       rightLane: null,
       leftPosition: null,
       rightPosition: null,
-      jumping: false,
     });
   }
 
@@ -186,15 +176,8 @@ export class CameraInput {
     }
   }
 
-  resetActions(): void {
-    this.inputActions.reset();
-    this.jumpDetector.reset();
-  }
-
   setMovementSettings(settings: CalibrationSettings): void {
     this.settings = settings;
-    this.jumpDetector = new JumpDetector(settings);
-    this.inputActions = new InputActionState(settings);
   }
 
   destroy(): void {
@@ -231,21 +214,15 @@ export class CameraInput {
 
     const left = this.readFoot(pose?.left ?? null, "left");
     const right = this.readFoot(pose?.right ?? null, "right");
-    if (!left || !right) this.jumpDetector.reset();
     const canvasHeight = this.canvas.height;
     const leftPoints = left?.map((point) => point.y / canvasHeight) ?? null;
     const rightPoints = right?.map((point) => point.y / canvasHeight) ?? null;
-    const leftY = leftPoints ? leftPoints.reduce((sum, point) => sum + point, 0) / leftPoints.length : null;
-    const rightY = rightPoints ? rightPoints.reduce((sum, point) => sum + point, 0) / rightPoints.length : null;
-    const jumping = leftY !== null && rightY !== null ? this.jumpDetector.update(leftY, rightY) : false;
     const leftPosition = left && this.transform ? projectFoot(left, this.transform) : null;
     const rightPosition = right && this.transform ? projectFoot(right, this.transform) : null;
     const leftLane = leftPosition ? floorLane(leftPosition) : null;
     const rightLane = rightPosition ? floorLane(rightPosition) : null;
 
-    let actions: InputAction[] = [];
     if (this.transform) {
-      actions = this.inputActions.update(leftLane, rightLane, leftPoints, rightPoints, jumping, capturedAt);
       if (leftLane) occupiedLanes.add(leftLane);
       if (rightLane) occupiedLanes.add(rightLane);
       this.setSnapshot({
@@ -255,12 +232,9 @@ export class CameraInput {
         rightLane,
         leftPosition,
         rightPosition,
-        jumping,
       });
-    } else {
-      this.inputActions.reset();
     }
-    this.onFrame?.({ capturedAt, actions, leftLane, rightLane });
+    this.onFrame?.({ capturedAt, leftLane, rightLane, leftPoints, rightPoints });
 
     this.drawFloor(occupiedLanes);
     this.context.restore();
