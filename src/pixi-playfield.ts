@@ -21,7 +21,7 @@ import rightStepUrl from "../assets/right base.svg?url";
 import type { LevelChart } from "./level.ts";
 import {
   isSustainedNote,
-  slideBounds,
+  horizontalSlideBounds,
   stepBounds,
   type ChartNote,
   type JudgementResult,
@@ -59,7 +59,7 @@ function mountStep(note: ChartNote, warped: HTMLElement): void {
   warped.append(pad);
 }
 
-function mountSlide(note: ChartNote, warped: HTMLElement): void {
+function mountHorizontalSlide(note: ChartNote, warped: HTMLElement): void {
   const slide = document.createElement("img");
   slide.src = note.foot === "left" ? leftSlideUrl : rightSlideUrl;
   slide.style.cssText = note.endLane! < note.lane!
@@ -76,7 +76,7 @@ function mountStay(note: ChartNote, warped: HTMLElement): void {
   warped.append(stay);
 }
 
-function mountHorizontalSlide(note: ChartNote, warped: HTMLElement): void {
+function mountVerticalSlide(note: ChartNote, warped: HTMLElement): void {
   const slide = document.createElement("img");
   slide.src = note.foot === "left" ? horizontalLeftSlideUrl : horizontalRightSlideUrl;
   warped.append(slide);
@@ -198,7 +198,7 @@ export class PixiPlayfield {
     this.feedbackLabel.visible = true;
     this.feedback.visible = true;
     this.feedbackUntil = performance.now() + 380;
-    const lanes = result.note.type === "SLIDE" || result.note.type === "HORIZONTAL_SLIDE"
+    const lanes = result.note.type === "HORIZONTAL_SLIDE" || result.note.type === "VERTICAL_SLIDE"
       ? Array.from(
         { length: Math.abs(result.note.endLane! - result.note.lane!) + 1 },
         (_, index) => Math.min(result.note.lane!, result.note.endLane!) + index,
@@ -230,13 +230,13 @@ export class PixiPlayfield {
         view.container.visible = true;
         if (view.warped.offsetWidth && view.warped.offsetHeight) {
           const progress = Math.min(1, Math.max(0, (songTime - note.time) / (note.duration ?? 1)));
-          const startLane = note.type === "HORIZONTAL_SLIDE"
+          const startLane = note.type === "VERTICAL_SLIDE"
             ? note.lane! + (note.endLane! - note.lane!) * progress
             : note.lane!;
           const position = this.placeSustainedView(
             view,
             startLane,
-            note.type === "HORIZONTAL_SLIDE" ? note.endLane! : startLane,
+            note.type === "VERTICAL_SLIDE" ? note.endLane! : startLane,
             endProgress,
             startProgress,
           );
@@ -365,8 +365,8 @@ export class PixiPlayfield {
     const flat = document.createElement("div");
     flat.style.cssText = "position:absolute;top:0;left:0;transform-origin:0 0;pointer-events:none";
     if (note.type === "JUMP") mountJump(warped, flat);
-    else if (note.type === "SLIDE") mountSlide(note, warped);
     else if (note.type === "HORIZONTAL_SLIDE") mountHorizontalSlide(note, warped);
+    else if (note.type === "VERTICAL_SLIDE") mountVerticalSlide(note, warped);
     else if (note.type === "STAY") mountStay(note, warped);
     else mountStep(note, warped);
     root.append(warped, flat);
@@ -427,8 +427,8 @@ export class PixiPlayfield {
   private noteSpan(note: ChartNote): [number, number] {
     const { lanes } = this.chart.playfield;
     if (note.type === "JUMP") return [1, lanes];
-    if (note.type === "SLIDE") {
-      const bounds = slideBounds(note);
+    if (note.type === "HORIZONTAL_SLIDE") {
+      const bounds = horizontalSlideBounds(note);
       return [bounds.left + 1, bounds.right];
     }
     if (note.type === "STEP" || note.type === "STAY") {

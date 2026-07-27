@@ -14,8 +14,8 @@ import type { LoadedLevel, LevelChart, SongMetadata } from "./level.ts";
 import {
   horizontalSlideBounds,
   isSustainedNote,
-  slideBounds,
   stepBounds,
+  verticalSlideBounds,
   type ChartNote,
 } from "./rhythm-engine.ts";
 
@@ -32,11 +32,11 @@ type AddNoteType =
   | "RIGHT_STEP"
   | "LEFT_STAY"
   | "RIGHT_STAY"
-  | "LEFT_HORIZONTAL_SLIDE"
-  | "RIGHT_HORIZONTAL_SLIDE"
+  | "LEFT_VERTICAL_SLIDE"
+  | "RIGHT_VERTICAL_SLIDE"
   | "JUMP"
-  | "SLIDE_LEFT"
-  | "SLIDE_RIGHT";
+  | "HORIZONTAL_SLIDE_LEFT"
+  | "HORIZONTAL_SLIDE_RIGHT";
 
 type BuilderMenu =
   | { x: number; y: number; mode: "lane"; lane: number; laneOffset: 0 | 0.5; time: number }
@@ -56,7 +56,7 @@ type SustainedNoteResize = {
   y: number;
 };
 
-type HorizontalSlideTurn = {
+type VerticalSlideTurn = {
   edge: "start" | "end";
   note: ChartNote;
   pointerId: number;
@@ -99,29 +99,29 @@ export function createTimelineNote(
   laneOffset?: 0 | 0.5,
 ): ChartNote {
   if (type === "JUMP") return { id, time, type: "JUMP", foot: "both" };
-  if (type === "SLIDE_LEFT" || type === "SLIDE_RIGHT") {
-    const pointsRight = type === "SLIDE_RIGHT";
+  if (type === "HORIZONTAL_SLIDE_LEFT" || type === "HORIZONTAL_SLIDE_RIGHT") {
+    const pointsRight = type === "HORIZONTAL_SLIDE_RIGHT";
     const slidePosition = Math.max(0, Math.min(2, lane - 1 + (laneOffset ?? 0.5) - (pointsRight ? 0 : 2)));
     const firstLane = Math.min(2, Math.floor(slidePosition + 1));
     return {
       id,
       time,
-      type: "SLIDE",
+      type: "HORIZONTAL_SLIDE",
       lane: pointsRight ? firstLane : firstLane + 2,
       endLane: pointsRight ? firstLane + 2 : firstLane,
       slidePosition,
       foot: pointsRight ? "right" : "left",
     };
   }
-  if (type === "LEFT_HORIZONTAL_SLIDE" || type === "RIGHT_HORIZONTAL_SLIDE") {
+  if (type === "LEFT_VERTICAL_SLIDE" || type === "RIGHT_VERTICAL_SLIDE") {
     return {
       id,
       time,
-      type: "HORIZONTAL_SLIDE",
+      type: "VERTICAL_SLIDE",
       lane,
       endLane: lane,
       duration: 1,
-      foot: type === "LEFT_HORIZONTAL_SLIDE" ? "left" : "right",
+      foot: type === "LEFT_VERTICAL_SLIDE" ? "left" : "right",
     };
   }
   const stepPosition = Math.max(0, Math.min(3, lane - 1 + (laneOffset ?? 0)));
@@ -151,7 +151,7 @@ export function moveTimelineNote(note: ChartNote, laneDelta: number, timeDelta: 
   const time = Number(Math.max(0, Math.min(lastTime, note.time + timeDelta)).toFixed(1));
   if (note.type === "JUMP") return { ...note, time };
 
-  if (note.type === "HORIZONTAL_SLIDE") {
+  if (note.type === "VERTICAL_SLIDE") {
     const appliedLaneDelta = Math.sign(laneDelta) * Math.round(Math.abs(laneDelta));
     return {
       ...note,
@@ -161,8 +161,8 @@ export function moveTimelineNote(note: ChartNote, laneDelta: number, timeDelta: 
     };
   }
 
-  if (note.type === "SLIDE") {
-    const slidePosition = Math.max(0, Math.min(2, slideBounds(note).left + laneDelta));
+  if (note.type === "HORIZONTAL_SLIDE") {
+    const slidePosition = Math.max(0, Math.min(2, horizontalSlideBounds(note).left + laneDelta));
     const firstLane = Math.min(2, Math.floor(slidePosition + 1));
     return note.endLane! < note.lane!
       ? { ...note, time, lane: firstLane + 2, endLane: firstLane, slidePosition }
@@ -185,9 +185,9 @@ export function moveTimelineNotes(
   const boundedTimeDelta = Math.max(-minTime, Math.min(duration - maxTime, timeDelta));
   const laneBounds = notes
     .filter((note) => note.type !== "JUMP")
-    .map((note) => note.type === "SLIDE"
-      ? slideBounds(note)
-      : note.type === "HORIZONTAL_SLIDE" ? horizontalSlideBounds(note) : stepBounds(note));
+    .map((note) => note.type === "HORIZONTAL_SLIDE"
+      ? horizontalSlideBounds(note)
+      : note.type === "VERTICAL_SLIDE" ? verticalSlideBounds(note) : stepBounds(note));
   const boundedLaneDelta = laneBounds.length
     ? Math.max(
       -Math.min(...laneBounds.map((bounds) => bounds.left)),
@@ -231,9 +231,9 @@ export function timelineNotesInSelection(
   return notes.filter((note) => {
     const bounds = note.type === "STEP" || note.type === "STAY"
       ? stepBounds(note)
-      : note.type === "SLIDE"
-        ? slideBounds(note)
-        : note.type === "HORIZONTAL_SLIDE" ? horizontalSlideBounds(note) : { left: 0, right: 4 };
+      : note.type === "HORIZONTAL_SLIDE"
+        ? horizontalSlideBounds(note)
+        : note.type === "VERTICAL_SLIDE" ? verticalSlideBounds(note) : { left: 0, right: 4 };
     const x = (bounds.left + bounds.right) / 8 * timelineWidth;
     const y = timelineHeight - note.time * pixelsPerSecond;
     return x >= selection.left
@@ -253,9 +253,9 @@ export function pasteTimelineNotes(
   if (!copiedNotes.length) return [];
   const laneBounds = copiedNotes
     .filter((note) => note.type !== "JUMP")
-    .map((note) => note.type === "SLIDE"
-      ? slideBounds(note)
-      : note.type === "HORIZONTAL_SLIDE" ? horizontalSlideBounds(note) : stepBounds(note));
+    .map((note) => note.type === "HORIZONTAL_SLIDE"
+      ? horizontalSlideBounds(note)
+      : note.type === "VERTICAL_SLIDE" ? verticalSlideBounds(note) : stepBounds(note));
   const left = laneBounds.length ? Math.min(...laneBounds.map((bounds) => bounds.left)) : lanePosition;
   const firstTime = Math.min(...copiedNotes.map((note) => note.time));
   const movedNotes = moveTimelineNotes(copiedNotes, lanePosition - left, time - firstTime, duration);
@@ -270,7 +270,7 @@ export function turnTimelineSlide(note: ChartNote): ChartNote {
   return { ...note, lane: note.endLane, endLane: note.lane };
 }
 
-export function turnTimelineHorizontalSlide(
+export function turnTimelineVerticalSlide(
   note: ChartNote,
   laneDelta: number,
   edge: "start" | "end",
@@ -315,7 +315,7 @@ export function LevelBuilder({ level, onBack, onSave, onTest, onPlay }: LevelBui
   const wheelZoomDeltaRef = useRef(0);
   const noteDragRef = useRef<NoteDrag | undefined>(undefined);
   const sustainedNoteResizeRef = useRef<SustainedNoteResize | undefined>(undefined);
-  const horizontalSlideTurnRef = useRef<HorizontalSlideTurn | undefined>(undefined);
+  const verticalSlideTurnRef = useRef<VerticalSlideTurn | undefined>(undefined);
   const selectionDragRef = useRef<SelectionDrag | undefined>(undefined);
   const [chart, setChart] = useState<LevelChart>(() => structuredClone(level.chart));
   const [song, setSong] = useState<SongMetadata>(() => ({ ...level.song }));
@@ -387,8 +387,8 @@ export function LevelBuilder({ level, onBack, onSave, onTest, onPlay }: LevelBui
   useEffect(() => {
     const resize = (event: PointerEvent) => resizeSustainedNote(event);
     const endResize = (event: PointerEvent) => endSustainedNoteResize(event);
-    const turn = (event: PointerEvent) => turnHorizontalSlide(event);
-    const endTurn = (event: PointerEvent) => endHorizontalSlideTurn(event);
+    const turn = (event: PointerEvent) => turnVerticalSlide(event);
+    const endTurn = (event: PointerEvent) => endVerticalSlideTurn(event);
     window.addEventListener("pointermove", resize);
     window.addEventListener("pointerup", endResize);
     window.addEventListener("pointercancel", endResize);
@@ -601,7 +601,7 @@ export function LevelBuilder({ level, onBack, onSave, onTest, onPlay }: LevelBui
     sustainedNoteResizeRef.current = undefined;
   }
 
-  function startHorizontalSlideTurn(
+  function startVerticalSlideTurn(
     event: React.PointerEvent<HTMLSpanElement>,
     note: ChartNote,
     edge: "start" | "end",
@@ -609,7 +609,7 @@ export function LevelBuilder({ level, onBack, onSave, onTest, onPlay }: LevelBui
     event.preventDefault();
     event.stopPropagation();
     const lanes = event.currentTarget.closest(".timeline-lanes")!;
-    horizontalSlideTurnRef.current = {
+    verticalSlideTurnRef.current = {
       edge,
       note,
       pointerId: event.pointerId,
@@ -620,10 +620,10 @@ export function LevelBuilder({ level, onBack, onSave, onTest, onPlay }: LevelBui
     setMenu(undefined);
   }
 
-  function turnHorizontalSlide(event: { pointerId: number; clientX: number }): void {
-    const turn = horizontalSlideTurnRef.current;
+  function turnVerticalSlide(event: { pointerId: number; clientX: number }): void {
+    const turn = verticalSlideTurnRef.current;
     if (!turn || turn.pointerId !== event.pointerId) return;
-    const turned = turnTimelineHorizontalSlide(
+    const turned = turnTimelineVerticalSlide(
       turn.note,
       Math.round((event.clientX - turn.x) / turn.laneWidth),
       turn.edge,
@@ -631,10 +631,10 @@ export function LevelBuilder({ level, onBack, onSave, onTest, onPlay }: LevelBui
     updateNote(turn.note.id, turn.edge === "start" ? { lane: turned.lane } : { endLane: turned.endLane });
   }
 
-  function endHorizontalSlideTurn(event: { pointerId: number; clientX: number }): void {
-    if (horizontalSlideTurnRef.current?.pointerId !== event.pointerId) return;
-    turnHorizontalSlide(event);
-    horizontalSlideTurnRef.current = undefined;
+  function endVerticalSlideTurn(event: { pointerId: number; clientX: number }): void {
+    if (verticalSlideTurnRef.current?.pointerId !== event.pointerId) return;
+    turnVerticalSlide(event);
+    verticalSlideTurnRef.current = undefined;
   }
 
   function startTimelineSelection(event: React.PointerEvent<HTMLDivElement>): void {
@@ -881,35 +881,35 @@ export function LevelBuilder({ level, onBack, onSave, onTest, onPlay }: LevelBui
                 {notes.map((note) => {
                   let left = 0;
                   let width = 100;
-                  let horizontalSlideSpan = 1;
-                  let horizontalSlideTransform: string | undefined;
-                  let horizontalSlideTop = 50;
-                  let horizontalSlideBottom = 50;
+                  let verticalSlideSpan = 1;
+                  let verticalSlideTransform: string | undefined;
+                  let verticalSlideTop = 50;
+                  let verticalSlideBottom = 50;
                   if (note.type === "STEP" || note.type === "STAY") {
                     const bounds = stepBounds(note);
                     left = bounds.left * 25;
                     width = (bounds.right - bounds.left) * 25;
-                  } else if (note.type === "SLIDE") {
-                    const bounds = slideBounds(note);
-                    left = bounds.left * 25;
-                    width = (bounds.right - bounds.left) * 25;
                   } else if (note.type === "HORIZONTAL_SLIDE") {
                     const bounds = horizontalSlideBounds(note);
+                    left = bounds.left * 25;
+                    width = (bounds.right - bounds.left) * 25;
+                  } else if (note.type === "VERTICAL_SLIDE") {
+                    const bounds = verticalSlideBounds(note);
                     const span = bounds.right - bounds.left;
                     left = bounds.left * 25;
                     width = span * 25;
                     const bottomLeft = note.lane! - 1 - bounds.left;
                     const topLeft = note.endLane! - 1 - bounds.left;
-                    horizontalSlideSpan = span;
-                    horizontalSlideTransform = `matrix(1 0 ${bottomLeft - topLeft} 1 ${topLeft} 0)`;
-                    horizontalSlideTop = (topLeft + 0.5) / span * 100;
-                    horizontalSlideBottom = (bottomLeft + 0.5) / span * 100;
+                    verticalSlideSpan = span;
+                    verticalSlideTransform = `matrix(1 0 ${bottomLeft - topLeft} 1 ${topLeft} 0)`;
+                    verticalSlideTop = (topLeft + 0.5) / span * 100;
+                    verticalSlideBottom = (bottomLeft + 0.5) / span * 100;
                   }
                   const asset = note.type === "JUMP"
                     ? jumpUrl
-                    : note.type === "SLIDE"
+                    : note.type === "HORIZONTAL_SLIDE"
                       ? note.foot === "left" ? leftSlideUrl : rightSlideUrl
-                      : note.type === "HORIZONTAL_SLIDE"
+                      : note.type === "VERTICAL_SLIDE"
                         ? note.foot === "left" ? horizontalLeftSlideUrl : horizontalRightSlideUrl
                       : note.type === "STAY"
                         ? note.foot === "left" ? leftStayUrl : rightStayUrl
@@ -919,7 +919,7 @@ export function LevelBuilder({ level, onBack, onSave, onTest, onPlay }: LevelBui
                       type="button"
                       aria-label={`${note.type} at ${note.time.toFixed(1)} seconds`}
                       className={`timeline-note ${note.type.toLowerCase()} ${note.foot} ${selectedNoteIds.includes(note.id) ? "selected" : ""} ${draggingNoteIds.includes(note.id) ? "dragging" : ""}`}
-                      data-direction={note.type === "SLIDE" && note.endLane! < note.lane! ? "left" : "right"}
+                      data-direction={note.type === "HORIZONTAL_SLIDE" && note.endLane! < note.lane! ? "left" : "right"}
                       key={note.id}
                       style={{
                         bottom: note.time * pixelsPerSecond,
@@ -935,32 +935,32 @@ export function LevelBuilder({ level, onBack, onSave, onTest, onPlay }: LevelBui
                       onContextMenu={(event) => openNoteMenu(event, note.id)}
                       onPointerDown={(event) => startNoteDrag(event, note)}
                     >
-                      {horizontalSlideTransform
+                      {verticalSlideTransform
                         ? (
-                          <svg viewBox={`0 0 ${horizontalSlideSpan} 1`} preserveAspectRatio="none" aria-hidden="true">
+                          <svg viewBox={`0 0 ${verticalSlideSpan} 1`} preserveAspectRatio="none" aria-hidden="true">
                             <image
                               href={asset}
                               width="1"
                               height="1"
                               preserveAspectRatio="none"
-                              transform={horizontalSlideTransform}
+                              transform={verticalSlideTransform}
                             />
                           </svg>
                         )
                         : <img src={asset} alt="" />}
-                      {note.type === "HORIZONTAL_SLIDE" && (
+                      {note.type === "VERTICAL_SLIDE" && (
                         <>
                           <span
                             className="horizontal-slide-turn-handle top"
-                            style={{ left: `${horizontalSlideTop}%` }}
+                            style={{ left: `${verticalSlideTop}%` }}
                             title="Drag to turn the end lane"
-                            onPointerDown={(event) => startHorizontalSlideTurn(event, note, "end")}
+                            onPointerDown={(event) => startVerticalSlideTurn(event, note, "end")}
                           />
                           <span
                             className="horizontal-slide-turn-handle bottom"
-                            style={{ left: `${horizontalSlideBottom}%` }}
+                            style={{ left: `${verticalSlideBottom}%` }}
                             title="Drag to turn the start lane"
-                            onPointerDown={(event) => startHorizontalSlideTurn(event, note, "start")}
+                            onPointerDown={(event) => startVerticalSlideTurn(event, note, "start")}
                           />
                         </>
                       )}
@@ -978,7 +978,7 @@ export function LevelBuilder({ level, onBack, onSave, onTest, onPlay }: LevelBui
                           />
                         </>
                       )}
-                      {note.type === "SLIDE" && <span>{note.endLane! < note.lane! ? "↖" : "↗"}</span>}
+                      {note.type === "HORIZONTAL_SLIDE" && <span>{note.endLane! < note.lane! ? "↖" : "↗"}</span>}
                     </button>
                   );
                 })}
@@ -1007,7 +1007,7 @@ export function LevelBuilder({ level, onBack, onSave, onTest, onPlay }: LevelBui
                   <span>
                     {note.type === "JUMP"
                       ? "All lanes"
-                      : `Lane ${note.lane}${note.type === "SLIDE" || note.type === "HORIZONTAL_SLIDE" ? ` → ${note.endLane}` : ""}`}
+                      : `Lane ${note.lane}${note.type === "HORIZONTAL_SLIDE" || note.type === "VERTICAL_SLIDE" ? ` → ${note.endLane}` : ""}`}
                   </span>
                 </div>
                 <label>
@@ -1023,7 +1023,7 @@ export function LevelBuilder({ level, onBack, onSave, onTest, onPlay }: LevelBui
                     onChange={(event) => updateNote(note.id, { time: event.target.valueAsNumber })}
                   />
                 </label>
-                {note.type === "SLIDE" && (
+                {note.type === "HORIZONTAL_SLIDE" && (
                   <>
                     <label>
                       <span>DIRECTION</span>
@@ -1038,7 +1038,7 @@ export function LevelBuilder({ level, onBack, onSave, onTest, onPlay }: LevelBui
                     </label>
                   </>
                 )}
-                {note.type === "HORIZONTAL_SLIDE" && (
+                {note.type === "VERTICAL_SLIDE" && (
                   <label>
                     <span>END LANE</span>
                     <select
@@ -1095,11 +1095,11 @@ export function LevelBuilder({ level, onBack, onSave, onTest, onPlay }: LevelBui
           <button onClick={() => addNote("RIGHT_STEP", menu.lane, menu.laneOffset, menu.time)}><i className="right" /> Right step</button>
           <button onClick={() => addNote("LEFT_STAY", menu.lane, menu.laneOffset, menu.time)}><i className="left" /> Left stay</button>
           <button onClick={() => addNote("RIGHT_STAY", menu.lane, menu.laneOffset, menu.time)}><i className="right" /> Right stay</button>
-          <button onClick={() => addNote("LEFT_HORIZONTAL_SLIDE", menu.lane, menu.laneOffset, menu.time)}><i className="left" /> Left horizontal slide</button>
-          <button onClick={() => addNote("RIGHT_HORIZONTAL_SLIDE", menu.lane, menu.laneOffset, menu.time)}><i className="right" /> Right horizontal slide</button>
+          <button onClick={() => addNote("LEFT_VERTICAL_SLIDE", menu.lane, menu.laneOffset, menu.time)}><i className="left" /> Left vertical slide</button>
+          <button onClick={() => addNote("RIGHT_VERTICAL_SLIDE", menu.lane, menu.laneOffset, menu.time)}><i className="right" /> Right vertical slide</button>
           <button onClick={() => addNote("JUMP", menu.lane, menu.laneOffset, menu.time)}><i className="jump" /> Jump</button>
-          <button onClick={() => addNote("SLIDE_LEFT", menu.lane, menu.laneOffset, menu.time)}>↙ Slide left</button>
-          <button onClick={() => addNote("SLIDE_RIGHT", menu.lane, menu.laneOffset, menu.time)}>↗ Slide right</button>
+          <button onClick={() => addNote("HORIZONTAL_SLIDE_LEFT", menu.lane, menu.laneOffset, menu.time)}>↙ Horizontal slide left</button>
+          <button onClick={() => addNote("HORIZONTAL_SLIDE_RIGHT", menu.lane, menu.laneOffset, menu.time)}>↗ Horizontal slide right</button>
         </div>
       )}
 
@@ -1113,7 +1113,7 @@ export function LevelBuilder({ level, onBack, onSave, onTest, onPlay }: LevelBui
           onClick={(event) => event.stopPropagation()}
         >
           <small>{selectedNoteIds.length} SELECTED · {formatTime(menuNote.time)}</small>
-          {selectedNoteIds.length === 1 && menuNote.type === "SLIDE" && <button onClick={() => turnSlide(menuNote)}>↻ Turn 180°</button>}
+          {selectedNoteIds.length === 1 && menuNote.type === "HORIZONTAL_SLIDE" && <button onClick={() => turnSlide(menuNote)}>↻ Turn 180°</button>}
           <button onClick={() => copySelectedNotes(false)}>Copy</button>
           <button onClick={() => copySelectedNotes(true)}>Cut</button>
           <button className="danger" onClick={removeSelectedNotes}>× Delete</button>

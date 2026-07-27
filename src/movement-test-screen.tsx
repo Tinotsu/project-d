@@ -37,7 +37,7 @@ type MovementTestScreenProps = {
 
 function noteDescription(note: ChartNote): string {
   if (note.type === "JUMP") return "JUMP";
-  if (note.type === "SLIDE" || note.type === "HORIZONTAL_SLIDE") {
+  if (note.type === "HORIZONTAL_SLIDE" || note.type === "VERTICAL_SLIDE") {
     return `${note.foot.toUpperCase()} ${note.type.replace("_", " ")} · ${note.lane} → ${note.endLane}`;
   }
   return `${note.foot.toUpperCase()} ${note.type} · LANE ${note.lane}`;
@@ -75,9 +75,9 @@ export function MovementTestScreen({
           lane: targetLane,
         });
         notes.push({
-          id: `SLIDE-${side}-${targetLane}`,
+          id: `HORIZONTAL_SLIDE-${side}-${targetLane}`,
           time: noteTime,
-          type: "SLIDE",
+          type: "HORIZONTAL_SLIDE",
           foot: side,
           lane: targetLane,
           endLane: targetLane <= 2 ? targetLane + 2 : targetLane - 2,
@@ -91,9 +91,9 @@ export function MovementTestScreen({
           duration: 1,
         });
         notes.push({
-          id: `HORIZONTAL_SLIDE-${side}-${targetLane}`,
+          id: `VERTICAL_SLIDE-${side}-${targetLane}`,
           time: noteTime,
-          type: "HORIZONTAL_SLIDE",
+          type: "VERTICAL_SLIDE",
           foot: side,
           lane: targetLane,
           endLane: targetLane <= 2 ? targetLane + 2 : targetLane - 2,
@@ -261,7 +261,7 @@ export function MovementTestScreen({
             </label>
           </div>
           <div className="movement-game-buttons">
-            {(["STEP", "JUMP", "SLIDE", "STAY", "HORIZONTAL_SLIDE"] as const).map((type) => (
+            {(["STEP", "JUMP", "HORIZONTAL_SLIDE", "STAY", "VERTICAL_SLIDE"] as const).map((type) => (
               <Button
                 key={type}
                 disabled={!ready || !snapshot.calibrated || Boolean(attempt)}

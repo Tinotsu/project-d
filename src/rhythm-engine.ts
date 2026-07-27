@@ -1,6 +1,6 @@
 import { defaultCalibrationSettings, type CalibrationSettings } from "./calibration-settings.ts";
 
-export type NoteType = "STEP" | "JUMP" | "SLIDE" | "STAY" | "HORIZONTAL_SLIDE";
+export type NoteType = "STEP" | "JUMP" | "HORIZONTAL_SLIDE" | "STAY" | "VERTICAL_SLIDE";
 export type Foot = "left" | "right" | "both" | "either";
 
 export type ChartNote = {
@@ -32,14 +32,14 @@ type CameraFrame = {
   rightPoints: number[] | null;
 };
 
-export function slideBounds(note: ChartNote): { left: number; right: number } {
+export function horizontalSlideBounds(note: ChartNote): { left: number; right: number } {
   const start = note.lane! - 1 + (note.laneOffset ?? 0.5);
   const end = note.endLane! - 0.5;
   const left = Math.max(0, Math.min(2, note.slidePosition ?? Math.min(start, end)));
   return { left, right: left + 2 };
 }
 
-export function horizontalSlideBounds(note: ChartNote): { left: number; right: number } {
+export function verticalSlideBounds(note: ChartNote): { left: number; right: number } {
   return {
     left: Math.min(note.lane!, note.endLane!) - 1,
     right: Math.max(note.lane!, note.endLane!),
@@ -47,7 +47,7 @@ export function horizontalSlideBounds(note: ChartNote): { left: number; right: n
 }
 
 export function isSustainedNote(note: ChartNote): boolean {
-  return note.type === "STAY" || note.type === "HORIZONTAL_SLIDE";
+  return note.type === "STAY" || note.type === "VERTICAL_SLIDE";
 }
 
 export function stepBounds(note: ChartNote): { left: number; right: number } {
@@ -67,12 +67,12 @@ export function judgementForOffset(
   offsetMs: number,
   settings = defaultCalibrationSettings,
 ): Exclude<Judgement, "miss"> | null {
-  if (type === "STAY" || type === "HORIZONTAL_SLIDE") return null;
+  if (type === "STAY" || type === "VERTICAL_SLIDE") return null;
   const offset = Math.abs(offsetMs);
   if (offset <= settings.stepPerfectMs + Number.EPSILON) return "perfect";
   if (offset <= settings.stepGreatMs + Number.EPSILON) return "great";
   if (offset <= settings.stepGoodMs + Number.EPSILON) return "good";
-  if (type === "SLIDE" && offsetMs < 0 && offset <= settings.stepGoodMs + settings.stepGreatMs + Number.EPSILON) return "good";
+  if (type === "HORIZONTAL_SLIDE" && offsetMs < 0 && offset <= settings.stepGoodMs + settings.stepGreatMs + Number.EPSILON) return "good";
   return null;
 }
 
@@ -105,7 +105,7 @@ export class RhythmEngine {
     const results = [
       ...this.judgeSteps(time),
       ...this.judgeJumps(time),
-      ...this.judgeSlides(),
+      ...this.judgeHorizontalSlides(),
       ...this.trackSustainedNotes(frame),
     ];
     results.push(...this.collectMisses(time, finish));
@@ -120,7 +120,7 @@ export class RhythmEngine {
   private collectMisses(songTime: number, finish: boolean): JudgementResult[] {
     const misses: JudgementResult[] = [];
     for (const note of this.notes) {
-      const goodWindow = note.type === "SLIDE"
+      const goodWindow = note.type === "HORIZONTAL_SLIDE"
           ? this.settings.responseTimeoutMs
           : isSustainedNote(note)
             ? (note.duration ?? 1) * 1000
@@ -176,10 +176,10 @@ export class RhythmEngine {
     return results;
   }
 
-  private judgeSlides(): JudgementResult[] {
+  private judgeHorizontalSlides(): JudgementResult[] {
     const results: JudgementResult[] = [];
     for (const note of this.notes) {
-      if (note.type !== "SLIDE" || this.judgements.has(note.id)) continue;
+      if (note.type !== "HORIZONTAL_SLIDE" || this.judgements.has(note.id)) continue;
       const feet: ("leftLane" | "rightLane")[] = note.foot === "right"
         ? ["rightLane"]
         : note.foot === "either"
@@ -190,7 +190,7 @@ export class RhythmEngine {
         for (const start of this.frames) {
           if (
             start[foot] !== note.lane
-            || !judgementForOffset("SLIDE", (start.time - note.time) * 1000, this.settings)
+            || !judgementForOffset("HORIZONTAL_SLIDE", (start.time - note.time) * 1000, this.settings)
             || !this.frames.some((end) => (
               end.time >= start.time
               && (end.time - start.time) * 1000 <= this.settings.responseTimeoutMs
@@ -203,7 +203,7 @@ export class RhythmEngine {
       if (!closest) continue;
       results.push(this.applyJudgement(
         note,
-        judgementForOffset("SLIDE", (closest.time - note.time) * 1000, this.settings)!,
+        judgementForOffset("HORIZONTAL_SLIDE", (closest.time - note.time) * 1000, this.settings)!,
         closest.time - note.time,
       ));
     }
@@ -216,7 +216,7 @@ export class RhythmEngine {
       if (!isSustainedNote(note) || this.judgements.has(note.id) || frame.time < note.time) continue;
       const duration = note.duration ?? 1;
       const progress = Math.min(1, (frame.time - note.time) / duration);
-      const expectedLane = note.type === "HORIZONTAL_SLIDE"
+      const expectedLane = note.type === "VERTICAL_SLIDE"
         ? Math.round(note.lane! + (note.endLane! - note.lane!) * progress)
         : note.lane!;
       const tracked = this.trackedSustainedNotes.get(note.id) ?? { onPath: true, started: false };
