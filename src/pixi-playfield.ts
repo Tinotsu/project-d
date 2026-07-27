@@ -39,6 +39,10 @@ const hitY = 590;
 const laneColors = [0x00f300, 0x00f7fa, 0x9c45fa, 0xd52ba2];
 const floorDepthScale = 1 / 3;
 
+export function noteTravelProgress(timeUntil: number, travelTime: number): number {
+  return Math.max(0, 1 - timeUntil / travelTime) ** 1.65;
+}
+
 function mountJump(warped: HTMLElement, flat: HTMLElement): void {
   const base = document.createElement("img");
   base.src = jumpBaseUrl;
@@ -203,53 +207,62 @@ export class PixiPlayfield {
     lanes.forEach((lane) => this.laneGlowUntil[lane - 1] = performance.now() + 180);
   }
 
-  render(songTime: number, running: boolean, judged: (noteId: string) => boolean): void {
+  render(songTime: number, running: boolean, hidden: (noteId: string) => boolean): void {
     for (const note of this.chart.notes) {
       const view = this.noteViews.get(note.id)!;
-      if (!running || judged(note.id)) {
+      if (!running || hidden(note.id)) {
         view.container.visible = false;
         continue;
       }
       if (isSustainedNote(note)) {
         const timeUntil = note.time - songTime;
         const endTimeUntil = note.time + (note.duration ?? 1) - songTime;
-        if (timeUntil > this.chart.playfield.travelTime || endTimeUntil < 0) {
+        const startProgress = noteTravelProgress(timeUntil, this.chart.playfield.travelTime);
+        const endProgress = noteTravelProgress(endTimeUntil, this.chart.playfield.travelTime);
+        if (
+          timeUntil > this.chart.playfield.travelTime
+          || endTimeUntil < -this.chart.playfield.travelTime
+        ) {
           view.container.visible = false;
           continue;
         }
 
-        const startProgress = Math.min(1, Math.max(0, 1 - timeUntil / this.chart.playfield.travelTime)) ** 1.65;
-        const endProgress = Math.min(1, Math.max(0, 1 - endTimeUntil / this.chart.playfield.travelTime)) ** 1.65;
         view.container.visible = true;
         if (view.warped.offsetWidth && view.warped.offsetHeight) {
           const progress = Math.min(1, Math.max(0, (songTime - note.time) / (note.duration ?? 1)));
           const startLane = note.type === "HORIZONTAL_SLIDE"
             ? note.lane! + (note.endLane! - note.lane!) * progress
             : note.lane!;
-          this.placeSustainedView(
+          const position = this.placeSustainedView(
             view,
             startLane,
             note.type === "HORIZONTAL_SLIDE" ? note.endLane! : startLane,
             endProgress,
             startProgress,
           );
+          view.container.visible = Math.min(position.topY, position.bottomY) < gameHeight;
         }
         continue;
       }
       const timeUntil = note.time - songTime;
-      if (timeUntil > this.chart.playfield.travelTime || timeUntil < -0.2) {
+      const progress = noteTravelProgress(timeUntil, this.chart.playfield.travelTime);
+      if (
+        timeUntil > this.chart.playfield.travelTime
+        || timeUntil < -this.chart.playfield.travelTime
+      ) {
         view.container.visible = false;
         continue;
       }
 
-      const progress = Math.min(1, Math.max(0, 1 - timeUntil / this.chart.playfield.travelTime)) ** 1.65;
       view.container.visible = true;
       if (!view.warped.offsetWidth || !view.warped.offsetHeight) continue;
       const [startLane, endLane] = this.noteSpan(note);
       const bottom = this.placeWarpedView(view, startLane, endLane, progress);
-      const scale = bottom.width / view.warped.offsetWidth;
+      const scale = this.laneSpan(startLane, endLane, Math.min(1, progress)).width / view.warped.offsetWidth;
       const centerX = (bottom.left + bottom.right) / 2;
       view.flat.style.transform = `translate(${centerX - (view.flat.offsetWidth * scale) / 2}px, ${bottom.y - view.flat.offsetHeight * scale}px) scale(${scale})`;
+      const flatTop = view.flat.offsetHeight ? bottom.y - view.flat.offsetHeight * scale : bottom.topY;
+      view.container.visible = Math.min(bottom.topY, flatTop) < gameHeight;
     }
 
     this.laneGlow.clear();
@@ -376,7 +389,7 @@ export class PixiPlayfield {
     startLane: number,
     endLane: number,
     progress: number,
-  ): ReturnType<typeof this.laneSpan> {
+  ): ReturnType<typeof this.laneSpan> & { topY: number } {
     const bottom = this.laneSpan(startLane, endLane, progress);
     const topY = bottom.y - bottom.width * view.warped.offsetHeight / view.warped.offsetWidth * floorDepthScale;
     const top = this.laneSpan(startLane, endLane, (topY - horizonY) / (hitY - horizonY));
@@ -388,7 +401,7 @@ export class PixiPlayfield {
       [bottom.right, bottom.y],
       [bottom.left, bottom.y],
     );
-    return bottom;
+    return { ...bottom, topY };
   }
 
   private placeSustainedView(
@@ -397,7 +410,7 @@ export class PixiPlayfield {
     endLane: number,
     endProgress: number,
     startProgress: number,
-  ): void {
+  ): { topY: number; bottomY: number } {
     const top = this.laneSpan(endLane, endLane, endProgress);
     const bottom = this.laneSpan(startLane, startLane, startProgress);
     view.warped.style.transform = perspectiveMatrix3d(
@@ -408,6 +421,7 @@ export class PixiPlayfield {
       [bottom.right, bottom.y],
       [bottom.left, bottom.y],
     );
+    return { topY: top.y, bottomY: bottom.y };
   }
 
   private noteSpan(note: ChartNote): [number, number] {

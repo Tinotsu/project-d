@@ -57,7 +57,7 @@ export function GameScreen({ cameraInput, level, onExit, onFinish }: GameScreenP
       const playfield = playfieldRef.current;
       if (playfield) {
         const snapshot = session.snapshot();
-        playfield.render(snapshot.time, snapshot.running, (noteId) => session.judged(noteId));
+        playfield.render(snapshot.time, snapshot.running, () => false);
         if (now - lastHudUpdate > 50) {
           setHud(snapshot);
           lastHudUpdate = now;
