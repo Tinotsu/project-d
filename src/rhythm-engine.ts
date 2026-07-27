@@ -44,9 +44,9 @@ export function stepBounds(note: ChartNote): { left: number; right: number } {
 }
 
 const points: Record<Judgement, number> = {
-  perfect: 1000,
-  great: 700,
-  good: 400,
+  perfect: 800,
+  great: 400,
+  good: 50,
   miss: 0,
 };
 

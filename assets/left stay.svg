@@ -1,0 +1,112 @@
+<svg width="158" height="308" viewBox="0 0 158 308" fill="none" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<style>
+@keyframes kf_Rectangle_34_opacity_0 {
+  0% {
+    animation-timing-function: ease-out;
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+#Rectangle_34 {
+  animation: kf_Rectangle_34_opacity_0 0.5s linear infinite;
+}
+@keyframes kf_Rectangle_35_opacity_0 {
+  0% {
+    animation-timing-function: ease-out;
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+#Rectangle_35 {
+  animation: kf_Rectangle_35_opacity_0 0.5s linear infinite;
+}
+@keyframes kf_Rectangle_36_opacity_0 {
+  0% {
+    animation-timing-function: ease-out;
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+#Rectangle_36 {
+  animation: kf_Rectangle_36_opacity_0 0.5s linear infinite;
+}
+</style>
+<g id="left_slide" filter="url(#filter0_f_83_45)">
+<g clip-path="url(#clip0_83_45)">
+<rect width="150" height="300" fill="url(#paint0_linear_83_45)"/>
+<rect id="Rectangle_34" width="25" height="300" fill="url(#pattern0_83_45)" fill-opacity="0.5"/>
+<rect id="Rectangle_35" transform="translate(25)" width="100" height="300" fill="url(#pattern1_83_45)"/>
+<rect id="Rectangle_36" transform="translate(125)" width="25" height="300" fill="url(#pattern2_83_45)" fill-opacity="0.5"/>
+</g>
+</g>
+<defs>
+<filter id="filter0_f_83_45" x="0" y="0" width="158" height="308" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+<feGaussianBlur stdDeviation="0" result="effect1_foregroundBlur_83_45"/>
+</filter>
+<linearGradient id="paint0_linear_83_45" x1="150" y1="150" x2="0" y2="150" gradientUnits="userSpaceOnUse">
+<stop stop-color="#FC2500" stop-opacity="0"/>
+<stop offset="0.25" stop-color="#FC2500"/>
+<stop offset="0.754808" stop-color="#FC2500"/>
+<stop offset="1" stop-color="#FC2500" stop-opacity="0"/>
+</linearGradient>
+<clipPath id="clip0_83_45">
+<rect width="150" height="300" fill="white"/>
+</clipPath>
+<pattern id="pattern0_83_45" patternUnits="userSpaceOnUse" patternTransform="matrix(50 0 0 300 0 -1)" preserveAspectRatio="none" viewBox="0 -1 50 300" width="1" height="1">
+<use xlink:href="#pattern0_83_45_inner" transform="translate(0 -300)"/>
+<g id="pattern0_83_45_inner">
+<g id="Frame_24">
+<rect id="line_1" transform="translate(1.5)" width="2" height="300" fill="#FAF600"/>
+<rect id="line_2" transform="translate(6.5)" width="2" height="300" fill="#FAF600"/>
+<rect id="line_3" transform="translate(11.5)" width="2" height="300" fill="#FAF600"/>
+<rect id="line_4" transform="translate(16.5)" width="2" height="300" fill="#FAF600"/>
+<rect id="line_5" transform="translate(21.5)" width="2" height="300" fill="#FAF600"/>
+<rect id="line_6" transform="translate(26.5)" width="2" height="300" fill="#FAF600"/>
+<rect id="line_7" transform="translate(31.5)" width="2" height="300" fill="#FAF600"/>
+<rect id="line_8" transform="translate(36.5)" width="2" height="300" fill="#FAF600"/>
+<rect id="line_9" transform="translate(41.5)" width="2" height="300" fill="#FAF600"/>
+<rect id="line_10" transform="translate(46.5)" width="2" height="300" fill="#FAF600"/>
+</g>
+</g>
+</pattern><pattern id="pattern1_83_45" patternUnits="userSpaceOnUse" patternTransform="matrix(50 0 0 300 0 -1)" preserveAspectRatio="none" viewBox="0 -1 50 300" width="1" height="1">
+<use xlink:href="#pattern1_83_45_inner" transform="translate(0 -300)"/>
+<g id="pattern1_83_45_inner">
+<g id="Frame_24">
+<rect id="line_1" transform="translate(1.5)" width="2" height="300" fill="#FAF600"/>
+<rect id="line_2" transform="translate(6.5)" width="2" height="300" fill="#FAF600"/>
+<rect id="line_3" transform="translate(11.5)" width="2" height="300" fill="#FAF600"/>
+<rect id="line_4" transform="translate(16.5)" width="2" height="300" fill="#FAF600"/>
+<rect id="line_5" transform="translate(21.5)" width="2" height="300" fill="#FAF600"/>
+<rect id="line_6" transform="translate(26.5)" width="2" height="300" fill="#FAF600"/>
+<rect id="line_7" transform="translate(31.5)" width="2" height="300" fill="#FAF600"/>
+<rect id="line_8" transform="translate(36.5)" width="2" height="300" fill="#FAF600"/>
+<rect id="line_9" transform="translate(41.5)" width="2" height="300" fill="#FAF600"/>
+<rect id="line_10" transform="translate(46.5)" width="2" height="300" fill="#FAF600"/>
+</g>
+</g>
+</pattern><pattern id="pattern2_83_45" patternUnits="userSpaceOnUse" patternTransform="matrix(50 0 0 300 0 -1)" preserveAspectRatio="none" viewBox="0 -1 50 300" width="1" height="1">
+<use xlink:href="#pattern2_83_45_inner" transform="translate(0 -300)"/>
+<g id="pattern2_83_45_inner">
+<g id="Frame_24">
+<rect id="line_1" transform="translate(1.5)" width="2" height="300" fill="#FAF600"/>
+<rect id="line_2" transform="translate(6.5)" width="2" height="300" fill="#FAF600"/>
+<rect id="line_3" transform="translate(11.5)" width="2" height="300" fill="#FAF600"/>
+<rect id="line_4" transform="translate(16.5)" width="2" height="300" fill="#FAF600"/>
+<rect id="line_5" transform="translate(21.5)" width="2" height="300" fill="#FAF600"/>
+<rect id="line_6" transform="translate(26.5)" width="2" height="300" fill="#FAF600"/>
+<rect id="line_7" transform="translate(31.5)" width="2" height="300" fill="#FAF600"/>
+<rect id="line_8" transform="translate(36.5)" width="2" height="300" fill="#FAF600"/>
+<rect id="line_9" transform="translate(41.5)" width="2" height="300" fill="#FAF600"/>
+<rect id="line_10" transform="translate(46.5)" width="2" height="300" fill="#FAF600"/>
+</g>
+</g>
+</pattern></defs>
+</svg>
