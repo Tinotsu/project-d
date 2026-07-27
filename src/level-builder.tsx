@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import horizontalLeftSlideUrl from "../assets/horizontal left slide.svg?url";
 import horizontalRightSlideUrl from "../assets/horizontal right slide.svg?url";
 import jumpUrl from "../assets/jump base.svg?url";
@@ -78,6 +79,7 @@ type SelectionDrag = TimelineSelection & {
 
 const normalPixelsPerSecond = 720;
 const timelineZoomLevels = [0.02, 0.05, 0.1, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.25, 2.5, 2.75, 3];
+const timelineWheelZoomThreshold = 25;
 
 export function sampleWaveform(channel: Float32Array, barCount: number): number[] {
   const blockSize = Math.max(1, Math.floor(channel.length / barCount));
@@ -309,6 +311,8 @@ export function timelineNavigationNotes(notes: ChartNote[]): {
 export function LevelBuilder({ level, onBack, onSave, onTest, onPlay }: LevelBuilderProps) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
+  const zoomRef = useRef(1);
+  const wheelZoomDeltaRef = useRef(0);
   const noteDragRef = useRef<NoteDrag | undefined>(undefined);
   const sustainedNoteResizeRef = useRef<SustainedNoteResize | undefined>(undefined);
   const horizontalSlideTurnRef = useRef<HorizontalSlideTurn | undefined>(undefined);
@@ -353,8 +357,12 @@ export function LevelBuilder({ level, onBack, onSave, onTest, onPlay }: LevelBui
     const zoomTimeline = (event: WheelEvent) => {
       if (!event.ctrlKey && !event.metaKey) return;
       event.preventDefault();
+      wheelZoomDeltaRef.current += event.deltaY;
+      if (Math.abs(wheelZoomDeltaRef.current) < timelineWheelZoomThreshold) return;
+
       const pointerY = event.clientY - timeline.getBoundingClientRect().top;
-      changeTimelineZoom(event.deltaY < 0 ? "in" : "out", pointerY);
+      changeTimelineZoom(wheelZoomDeltaRef.current < 0 ? "in" : "out", pointerY);
+      wheelZoomDeltaRef.current = 0;
     };
     timeline.addEventListener("wheel", zoomTimeline, { passive: false });
     return () => timeline.removeEventListener("wheel", zoomTimeline);
@@ -502,24 +510,24 @@ export function LevelBuilder({ level, onBack, onSave, onTest, onPlay }: LevelBui
   function changeTimelineZoom(direction: "in" | "out" | "normal", anchorY?: number): void {
     const timeline = timelineRef.current;
     if (!timeline) return;
+    const currentZoom = zoomRef.current;
+    const nextZoom = direction === "normal" ? 1 : nextTimelineZoom(currentZoom, direction);
+    if (nextZoom === currentZoom) return;
+
     const oldScrollHeight = timeline.scrollHeight;
     const oldScrollTop = timeline.scrollTop;
     const zoomAnchorY = anchorY ?? timeline.clientHeight / 2;
 
-    setZoom((current) => {
-      const nextZoom = direction === "normal" ? 1 : nextTimelineZoom(current, direction);
-      requestAnimationFrame(() => {
-        timeline.scrollTop = timelineScrollTopAfterZoom(
-          oldScrollHeight,
-          oldScrollTop,
-          zoomAnchorY,
-          current,
-          timeline.scrollHeight,
-          nextZoom,
-        );
-      });
-      return nextZoom;
-    });
+    zoomRef.current = nextZoom;
+    flushSync(() => setZoom(nextZoom));
+    timeline.scrollTop = timelineScrollTopAfterZoom(
+      oldScrollHeight,
+      oldScrollTop,
+      zoomAnchorY,
+      currentZoom,
+      timeline.scrollHeight,
+      nextZoom,
+    );
   }
 
   function startNoteDrag(event: React.PointerEvent<HTMLButtonElement>, note: ChartNote): void {
