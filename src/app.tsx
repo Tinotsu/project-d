@@ -135,6 +135,12 @@ export function App() {
             setTrackReturn("builder");
             navigate("track");
           }}
+          onPlay={(playLevel) => {
+            setBuilderLevel(playLevel);
+            setLevel(playLevel);
+            if (cameraCalibrated && cameraInput) navigate("game");
+            else void openSetup();
+          }}
         />
       </Suspense>
     );

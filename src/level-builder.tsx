@@ -23,6 +23,7 @@ type LevelBuilderProps = {
   onBack: () => void;
   onSave: (level: LoadedLevel) => Promise<void>;
   onTest: (level: LoadedLevel) => void;
+  onPlay: (level: LoadedLevel) => void;
 };
 
 type AddNoteType =
@@ -305,7 +306,7 @@ export function timelineNavigationNotes(notes: ChartNote[]): {
   return { first: chronological[0], last: chronological.at(-1) };
 }
 
-export function LevelBuilder({ level, onBack, onSave, onTest }: LevelBuilderProps) {
+export function LevelBuilder({ level, onBack, onSave, onTest, onPlay }: LevelBuilderProps) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
   const noteDragRef = useRef<NoteDrag | undefined>(undefined);
@@ -722,6 +723,7 @@ export function LevelBuilder({ level, onBack, onSave, onTest }: LevelBuilderProp
         </div>
         <div className="builder-actions">
           <Button variant="outline" onClick={() => onTest(builtLevel())}>▶ Test level</Button>
+          <Button variant="outline" onClick={() => onPlay(builtLevel())}>▶ Play level</Button>
           <Button onClick={save}>Save</Button>
         </div>
       </header>
