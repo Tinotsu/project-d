@@ -1,17 +1,6 @@
 import * as THREE from "three";
 import { GLTFLoader, type GLTF } from "three/addons/loaders/GLTFLoader.js";
-import footBaseUrl from "../assets/foot base.svg?url";
-import footUrl from "../assets/foot.svg?url";
 import tvModelUrl from "../assets/glb/tv.glb?url";
-import horizontalLeftSlideUrl from "../assets/horizontal left slide.svg?url";
-import horizontalRightSlideUrl from "../assets/horizontal right slide.svg?url";
-import jumpBaseUrl from "../assets/jump base.svg?url";
-import jumpUrl from "../assets/jump.svg?url";
-import leftSlideUrl from "../assets/left slide.svg?url";
-import leftStayUrl from "../assets/left stay.svg?url";
-import trackUrl from "../assets/pist.svg?url";
-import rightSlideUrl from "../assets/right slide.svg?url";
-import rightStayUrl from "../assets/right stay.svg?url";
 import type { LevelChart } from "./level.ts";
 import {
   horizontalSlideBounds,
@@ -22,10 +11,9 @@ import {
   type JudgementResult,
 } from "./rhythm-engine.ts";
 import {
-  normalStepColors,
-  normalStepPatternShader,
-  type StepFoot,
-} from "./three-assets/normal-step.ts";
+  createProceduralMaterial,
+  type ProceduralAssetKind,
+} from "./three-assets/procedural-assets.ts";
 
 export const gameWidth = 1280;
 export const gameHeight = 720;
@@ -43,20 +31,6 @@ const tvVideoUrl = "https://interactive-examples.mdn.mozilla.net/media/cc0-video
 type Point = [number, number];
 type Quad = [Point, Point, Point, Point];
 type LaneSpan = { left: number; right: number; y: number; width: number };
-
-type Textures = {
-  foot: THREE.Texture;
-  footBase: THREE.Texture;
-  track: THREE.Texture;
-  jumpBase: THREE.Texture;
-  jump: THREE.Texture;
-  leftSlide: THREE.Texture;
-  rightSlide: THREE.Texture;
-  leftStay: THREE.Texture;
-  rightStay: THREE.Texture;
-  horizontalLeftSlide: THREE.Texture;
-  horizontalRightSlide: THREE.Texture;
-};
 
 type WarpedSprite = {
   mesh: THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial>;
@@ -95,20 +69,6 @@ const normalUvs: Quad = [[0, 1], [1, 1], [1, 0], [0, 0]];
 const mirroredUvs: Quad = [[1, 1], [0, 1], [0, 0], [1, 0]];
 const leftSlideUvs: Quad = [[1, 1], [1, 0], [0, 0], [0, 1]];
 const rightSlideUvs: Quad = [[0, 0], [0, 1], [1, 1], [1, 0]];
-
-const textureUrls: Record<keyof Textures, string> = {
-  foot: footUrl,
-  footBase: footBaseUrl,
-  track: trackUrl,
-  jumpBase: jumpBaseUrl,
-  jump: jumpUrl,
-  leftSlide: leftSlideUrl,
-  rightSlide: rightSlideUrl,
-  leftStay: leftStayUrl,
-  rightStay: rightStayUrl,
-  horizontalLeftSlide: horizontalLeftSlideUrl,
-  horizontalRightSlide: horizontalRightSlideUrl,
-};
 
 export function noteTravelProgress(timeUntil: number, travelTime: number): number {
   return Math.max(0, 1 - timeUntil / travelTime) ** 1.65;
@@ -162,117 +122,6 @@ function setQuadGeometry(geometry: THREE.BufferGeometry, quad: Quad): void {
   positions.needsUpdate = true;
 }
 
-function createWarpMaterial(texture: THREE.Texture): THREE.ShaderMaterial {
-  return new THREE.ShaderMaterial({
-    uniforms: {
-      map: { value: texture },
-      opacity: { value: 1 },
-      hU: { value: new THREE.Vector3() },
-      hV: { value: new THREE.Vector3() },
-      hW: { value: new THREE.Vector3() },
-    },
-    vertexShader: `
-      varying vec2 logicalPosition;
-
-      void main() {
-        logicalPosition = position.xy;
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-      }
-    `,
-    fragmentShader: `
-      uniform sampler2D map;
-      uniform float opacity;
-      uniform vec3 hU;
-      uniform vec3 hV;
-      uniform vec3 hW;
-      varying vec2 logicalPosition;
-
-      void main() {
-        vec3 point = vec3(logicalPosition, 1.0);
-        float denominator = dot(hW, point);
-        vec2 uv = vec2(dot(hU, point), dot(hV, point)) / denominator;
-        if (uv.x < -0.001 || uv.x > 1.001 || uv.y < -0.001 || uv.y > 1.001) discard;
-        vec4 color = texture2D(map, uv);
-        color.a *= opacity;
-        if (color.a < 0.01) discard;
-        gl_FragColor = color;
-        #include <tonemapping_fragment>
-        #include <colorspace_fragment>
-      }
-    `,
-    transparent: true,
-    side: THREE.DoubleSide,
-    depthTest: false,
-    depthWrite: false,
-    toneMapped: false,
-  });
-}
-
-function createNormalStepWarpMaterial(foot: StepFoot): THREE.ShaderMaterial {
-  const [edgeColor, centerColor] = normalStepColors(foot);
-  return new THREE.ShaderMaterial({
-    uniforms: {
-      edgeColor: { value: new THREE.Color(edgeColor) },
-      centerColor: { value: new THREE.Color(centerColor) },
-      time: { value: 0 },
-      hU: { value: new THREE.Vector3() },
-      hV: { value: new THREE.Vector3() },
-      hW: { value: new THREE.Vector3() },
-    },
-    vertexShader: `
-      varying vec2 logicalPosition;
-
-      void main() {
-        logicalPosition = position.xy;
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-      }
-    `,
-    fragmentShader: `
-      uniform vec3 edgeColor;
-      uniform vec3 centerColor;
-      uniform float time;
-      uniform vec3 hU;
-      uniform vec3 hV;
-      uniform vec3 hW;
-      varying vec2 logicalPosition;
-
-      ${normalStepPatternShader}
-
-      float roundedBoxDistance(vec2 point, vec2 halfSize, float radius) {
-        vec2 edge = abs(point) - halfSize + radius;
-        return min(max(edge.x, edge.y), 0.0)
-          + length(max(edge, 0.0))
-          - radius;
-      }
-
-      void main() {
-        vec3 point = vec3(logicalPosition, 1.0);
-        float denominator = dot(hW, point);
-        vec2 assetUv = vec2(dot(hU, point), dot(hV, point)) / denominator;
-        if (assetUv.x < 0.0 || assetUv.x > 1.0 || assetUv.y < 0.0 || assetUv.y > 1.0) discard;
-
-        vec2 assetPoint = (assetUv - 0.5) * vec2(1.49, 1.0);
-        float outerDistance = roundedBoxDistance(assetPoint, vec2(0.745, 0.5), 0.045);
-        if (outerDistance > 0.0) discard;
-
-        float innerDistance = roundedBoxDistance(assetPoint, vec2(0.72, 0.475), 0.025);
-        vec3 color = innerDistance > 0.0
-          ? vec3(0.947)
-          : normalStepPattern(assetUv, time, edgeColor, centerColor);
-        gl_FragColor = vec4(color, 1.0);
-
-        #include <tonemapping_fragment>
-        #include <colorspace_fragment>
-      }
-    `,
-    transparent: true,
-    side: THREE.DoubleSide,
-    depthTest: false,
-    depthWrite: false,
-    toneMapped: false,
-  });
-}
-
 function updateWarpedSprite(sprite: WarpedSprite, quad: Quad): void {
   setQuadGeometry(sprite.mesh.geometry, quad);
   const homography = solveHomography(quad, sprite.uvs);
@@ -304,7 +153,6 @@ export class ThreePlayfield {
   private readonly bursts: Burst[] = [];
   private readonly feedback: Feedback[] = [];
   private readonly resizeObserver: ResizeObserver;
-  private readonly textures: Textures;
   private readonly leftFoot: WarpedSprite;
   private readonly rightFoot: WarpedSprite;
   private readonly tv: Tv;
@@ -313,10 +161,8 @@ export class ThreePlayfield {
   private constructor(
     private readonly mount: HTMLElement,
     private readonly chart: LevelChart,
-    textures: Textures,
     tvGltf: GLTF,
   ) {
-    this.textures = textures;
     this.camera.position.z = 10;
     this.renderer.setClearColor(0x000000, 0);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -332,8 +178,8 @@ export class ThreePlayfield {
       this.noteViews.set(note.id, this.createNoteView(note));
     }
 
-    this.leftFoot = this.createWarpedSprite(this.textures.foot, 100, 100, normalUvs, 5);
-    this.rightFoot = this.createWarpedSprite(this.textures.foot, 100, 100, mirroredUvs, 5);
+    this.leftFoot = this.createProceduralSprite("foot", 100, 100, normalUvs, 5);
+    this.rightFoot = this.createProceduralSprite("foot", 100, 100, mirroredUvs, 5);
     this.leftFoot.mesh.visible = false;
     this.rightFoot.mesh.visible = false;
     this.tv = this.createTv(tvGltf);
@@ -348,26 +194,8 @@ export class ThreePlayfield {
   }
 
   static async create(mount: HTMLElement, chart: LevelChart): Promise<ThreePlayfield> {
-    const loader = new THREE.TextureLoader();
-    const [entries, tvGltf] = await Promise.all([
-      Promise.all(
-        Object.entries(textureUrls).map(async ([key, url]) => {
-          const texture = await loader.loadAsync(url);
-          texture.colorSpace = THREE.SRGBColorSpace;
-          texture.minFilter = THREE.LinearFilter;
-          texture.magFilter = THREE.LinearFilter;
-          texture.generateMipmaps = false;
-          return [key, texture] as const;
-        }),
-      ),
-      new GLTFLoader().loadAsync(tvModelUrl),
-    ]);
-    return new ThreePlayfield(
-      mount,
-      chart,
-      Object.fromEntries(entries) as Textures,
-      tvGltf,
-    );
+    const tvGltf = await new GLTFLoader().loadAsync(tvModelUrl);
+    return new ThreePlayfield(mount, chart, tvGltf);
   }
 
   showTrackedFeet(
@@ -468,7 +296,6 @@ export class ThreePlayfield {
         object.material.dispose();
       }
     });
-    Object.values(this.textures).forEach((texture) => texture.dispose());
     this.renderer.domElement.remove();
   }
 
@@ -523,25 +350,15 @@ export class ThreePlayfield {
 
   private createTrack(): void {
     const bottomProgress = (gameHeight - horizonY) / (hitY - horizonY);
-    for (let lane = 1; lane <= this.chart.playfield.lanes; lane++) {
-      const top = this.laneSpan(lane, lane, 0);
-      const bottom = this.laneSpan(lane, lane, bottomProgress);
-      const firstU = (lane - 1) / this.chart.playfield.lanes;
-      const lastU = lane / this.chart.playfield.lanes;
-      const sprite = this.createWarpedSprite(
-        this.textures.track,
-        100,
-        1200,
-        [[firstU, 1], [lastU, 1], [lastU, 0], [firstU, 0]],
-        0,
-      );
-      updateWarpedSprite(sprite, [
-        [top.left, horizonY],
-        [top.right, horizonY],
-        [bottom.right, gameHeight],
-        [bottom.left, gameHeight],
-      ]);
-    }
+    const top = this.laneSpan(1, this.chart.playfield.lanes, 0);
+    const bottom = this.laneSpan(1, this.chart.playfield.lanes, bottomProgress);
+    const sprite = this.createProceduralSprite("track", 400, 1200, normalUvs, 0);
+    updateWarpedSprite(sprite, [
+      [top.left, horizonY],
+      [top.right, horizonY],
+      [bottom.right, gameHeight],
+      [bottom.left, gameHeight],
+    ]);
   }
 
   private createLaneFlashes(): void {
@@ -572,57 +389,56 @@ export class ThreePlayfield {
   }
 
   private createFootZone(): void {
-    const footZone = this.createWarpedSprite(this.textures.footBase, 606, 104, normalUvs, 2);
+    const footZone = this.createProceduralSprite("foot-base", 606, 104, normalUvs, 2);
     this.placeWarpedSprite(footZone, 1, this.chart.playfield.lanes, 1);
   }
 
   private createNoteView(note: ChartNote): NoteView {
+    const foot = note.foot === "right" ? "right" : "left";
     if (note.type === "JUMP") {
       return {
         note,
-        warped: this.createWarpedSprite(this.textures.jumpBase, 600, 100, normalUvs, 3),
-        flat: this.createWarpedSprite(this.textures.jump, 600, 200, normalUvs, 4),
+        warped: this.createProceduralSprite("jump-base", 600, 100, normalUvs, 3),
+        flat: this.createProceduralSprite("jump", 600, 200, normalUvs, 4),
       };
     }
     if (note.type === "HORIZONTAL_SLIDE") {
-      const texture = note.foot === "right" ? this.textures.rightSlide : this.textures.leftSlide;
       const uvs = note.endLane! < note.lane! ? leftSlideUvs : rightSlideUvs;
-      return { note, warped: this.createWarpedSprite(texture, 300, 200, uvs, 3) };
+      return {
+        note,
+        warped: this.createProceduralSprite("slide", 300, 200, uvs, 3, foot),
+      };
     }
     if (note.type === "STAY") {
-      const texture = note.foot === "right" ? this.textures.rightStay : this.textures.leftStay;
-      return { note, warped: this.createWarpedSprite(texture, 150, 300, normalUvs, 3) };
+      return {
+        note,
+        warped: this.createProceduralSprite("stay", 150, 300, normalUvs, 3, foot),
+      };
     }
     if (note.type === "VERTICAL_SLIDE") {
-      const texture = note.foot === "right"
-        ? this.textures.horizontalRightSlide
-        : this.textures.horizontalLeftSlide;
-      return { note, warped: this.createWarpedSprite(texture, 150, 300, normalUvs, 3) };
+      return {
+        note,
+        warped: this.createProceduralSprite("vertical-slide", 150, 300, normalUvs, 3, foot),
+      };
     }
     return {
       note,
-      warped: this.createNormalStepSprite(note.foot === "right" ? "right" : "left"),
+      warped: this.createProceduralSprite("step", 152, 102, normalUvs, 3, foot),
     };
   }
 
-  private createWarpedSprite(
-    texture: THREE.Texture,
+  private createProceduralSprite(
+    kind: ProceduralAssetKind,
     width: number,
     height: number,
     uvs: Quad,
     renderOrder: number,
+    foot: "left" | "right" = "left",
   ): WarpedSprite {
-    const mesh = new THREE.Mesh(createQuadGeometry(), createWarpMaterial(texture));
+    const mesh = new THREE.Mesh(createQuadGeometry(), createProceduralMaterial(kind, foot, true));
     mesh.renderOrder = renderOrder;
     this.scene.add(mesh);
     return { mesh, width, height, uvs };
-  }
-
-  private createNormalStepSprite(foot: StepFoot): WarpedSprite {
-    const mesh = new THREE.Mesh(createQuadGeometry(), createNormalStepWarpMaterial(foot));
-    mesh.renderOrder = 3;
-    this.scene.add(mesh);
-    return { mesh, width: 152, height: 102, uvs: normalUvs };
   }
 
   private renderNote(view: NoteView, songTime: number): void {
@@ -636,9 +452,8 @@ export class ThreePlayfield {
     }
 
     const progress = noteTravelProgress(timeUntil, this.chart.playfield.travelTime);
-    if (view.note.type === "STEP") {
-      view.warped.mesh.material.uniforms.time.value = songTime;
-    }
+    view.warped.mesh.material.uniforms.time.value = songTime;
+    if (view.flat) view.flat.mesh.material.uniforms.time.value = songTime;
     const [startLane, endLane] = this.noteSpan(view.note);
     const bottom = this.placeWarpedSprite(view.warped, startLane, endLane, progress);
     view.warped.mesh.visible = bottom.topY < gameHeight;
@@ -677,6 +492,7 @@ export class ThreePlayfield {
     const endLane = note.type === "VERTICAL_SLIDE" ? note.endLane! : startLane;
     const top = this.laneSpan(endLane, endLane, endProgress);
     const bottom = this.laneSpan(startLane, startLane, startProgress);
+    view.warped.mesh.material.uniforms.time.value = songTime;
 
     if (Math.abs(bottom.y - top.y) < 0.01) {
       this.setNoteVisible(view, false);

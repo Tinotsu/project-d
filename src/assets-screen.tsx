@@ -2,16 +2,18 @@ import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { Button } from "./components/ui/button.tsx";
 import {
-  createNormalStep,
-  type NormalStepAsset,
-  type StepFoot,
-} from "./three-assets/normal-step.ts";
+  createProceduralAssetPreview,
+  proceduralAssets,
+  type ProceduralAssetDefinition,
+  type ProceduralAssetPreview,
+} from "./three-assets/procedural-assets.ts";
 
 export function AssetsScreen() {
   const mountRef = useRef<HTMLDivElement>(null);
-  const stepRef = useRef<NormalStepAsset | undefined>(undefined);
+  const sceneRef = useRef<THREE.Scene>(null);
+  const previewRef = useRef<ProceduralAssetPreview>(null);
   const playingRef = useRef(true);
-  const [foot, setFoot] = useState<StepFoot>("left");
+  const [selected, setSelected] = useState(proceduralAssets[0]);
   const [playing, setPlaying] = useState(true);
 
   useEffect(() => {
@@ -19,6 +21,7 @@ export function AssetsScreen() {
     if (!mount) return;
 
     const scene = new THREE.Scene();
+    sceneRef.current = scene;
     scene.background = new THREE.Color(0x050505);
 
     const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100);
@@ -28,7 +31,7 @@ export function AssetsScreen() {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.domElement.setAttribute("aria-label", "Animated Three.js normal step preview");
+    renderer.domElement.setAttribute("aria-label", "Animated procedural Three.js asset preview");
     mount.append(renderer.domElement);
 
     scene.add(new THREE.HemisphereLight(0xffffff, 0x171717, 2.4));
@@ -36,9 +39,9 @@ export function AssetsScreen() {
     keyLight.position.set(3, 4, 6);
     scene.add(keyLight);
 
-    const step = createNormalStep("left");
-    stepRef.current = step;
-    scene.add(step.group);
+    const preview = createProceduralAssetPreview(proceduralAssets[0]);
+    previewRef.current = preview;
+    scene.add(preview.group);
 
     let animationFrame = 0;
     let elapsed = 0;
@@ -48,7 +51,7 @@ export function AssetsScreen() {
       const delta = Math.min((now - previous) / 1000, 0.1);
       previous = now;
       if (playingRef.current) elapsed += delta;
-      step.update(elapsed);
+      previewRef.current?.update(elapsed);
       renderer.render(scene, camera);
       animationFrame = requestAnimationFrame(render);
     };
@@ -66,16 +69,26 @@ export function AssetsScreen() {
     return () => {
       cancelAnimationFrame(animationFrame);
       resizeObserver.disconnect();
-      step.dispose();
+      previewRef.current?.dispose();
       renderer.dispose();
       renderer.domElement.remove();
-      stepRef.current = undefined;
+      previewRef.current = null;
+      sceneRef.current = null;
     };
   }, []);
 
-  function chooseFoot(nextFoot: StepFoot): void {
-    setFoot(nextFoot);
-    stepRef.current?.setFoot(nextFoot);
+  function chooseAsset(definition: ProceduralAssetDefinition): void {
+    const scene = sceneRef.current;
+    if (!scene) return;
+    const current = previewRef.current;
+    if (current) {
+      scene.remove(current.group);
+      current.dispose();
+    }
+    const next = createProceduralAssetPreview(definition);
+    previewRef.current = next;
+    scene.add(next.group);
+    setSelected(definition);
   }
 
   function togglePlayback(): void {
@@ -88,8 +101,8 @@ export function AssetsScreen() {
     <main className="assets-screen">
       <div className="assets-heading">
         <div>
-          <small>ASSET LAB · 01</small>
-          <h1>Normal step</h1>
+          <small>ASSET LAB · {String(proceduralAssets.indexOf(selected) + 1).padStart(2, "0")}</small>
+          <h1>{selected.label}</h1>
         </div>
         <span className="asset-status"><i /> THREE.JS</span>
       </div>
@@ -98,32 +111,28 @@ export function AssetsScreen() {
         <div className="asset-preview-meta">
           <div>
             <small>OBJECT</small>
-            <strong>Step / {foot}</strong>
+            <strong>{selected.label}</strong>
           </div>
           <div>
-            <small>SOURCE</small>
-            <strong>Procedural geometry + shader</strong>
+            <small>REPLACES</small>
+            <strong>{selected.source}</strong>
           </div>
         </div>
 
         <div className="asset-canvas" ref={mountRef} />
 
         <div className="asset-controls">
-          <div className="asset-variant-controls" aria-label="Step variant">
-            <Button
-              size="sm"
-              variant={foot === "left" ? "default" : "outline"}
-              onClick={() => chooseFoot("left")}
-            >
-              Left
-            </Button>
-            <Button
-              size="sm"
-              variant={foot === "right" ? "default" : "outline"}
-              onClick={() => chooseFoot("right")}
-            >
-              Right
-            </Button>
+          <div className="asset-variant-controls" aria-label="Procedural asset">
+            {proceduralAssets.map((definition) => (
+              <Button
+                key={definition.id}
+                size="sm"
+                variant={definition.id === selected.id ? "default" : "outline"}
+                onClick={() => chooseAsset(definition)}
+              >
+                {definition.label}
+              </Button>
+            ))}
           </div>
           <Button size="sm" variant="outline" onClick={togglePlayback}>
             {playing ? "Pause" : "Play"}
@@ -131,7 +140,7 @@ export function AssetsScreen() {
         </div>
       </section>
 
-      <p className="asset-progress">1 Three.js object · 2 of 13 SVG source variants represented</p>
+      <p className="asset-progress">13 procedural variants · 13 of 13 SVG sources replaced</p>
     </main>
   );
 }

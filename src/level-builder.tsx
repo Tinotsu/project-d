@@ -1,14 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
-import horizontalLeftSlideUrl from "../assets/horizontal left slide.svg?url";
-import horizontalRightSlideUrl from "../assets/horizontal right slide.svg?url";
-import jumpUrl from "../assets/jump base.svg?url";
-import leftStepUrl from "../assets/left base.svg?url";
-import leftSlideUrl from "../assets/left slide.svg?url";
-import leftStayUrl from "../assets/left stay.svg?url";
-import rightStepUrl from "../assets/right base.svg?url";
-import rightSlideUrl from "../assets/right slide.svg?url";
-import rightStayUrl from "../assets/right stay.svg?url";
 import { Button } from "./components/ui/button.tsx";
 import type { LoadedLevel, LevelChart, SongMetadata } from "./level.ts";
 import {
@@ -881,8 +872,7 @@ export function LevelBuilder({ level, onBack, onSave, onTest, onPlay }: LevelBui
                 {notes.map((note) => {
                   let left = 0;
                   let width = 100;
-                  let verticalSlideSpan = 1;
-                  let verticalSlideTransform: string | undefined;
+                  let verticalSlideClipPath: string | undefined;
                   let verticalSlideTop = 50;
                   let verticalSlideBottom = 50;
                   if (note.type === "STEP" || note.type === "STAY") {
@@ -900,20 +890,16 @@ export function LevelBuilder({ level, onBack, onSave, onTest, onPlay }: LevelBui
                     width = span * 25;
                     const bottomLeft = note.lane! - 1 - bounds.left;
                     const topLeft = note.endLane! - 1 - bounds.left;
-                    verticalSlideSpan = span;
-                    verticalSlideTransform = `matrix(1 0 ${bottomLeft - topLeft} 1 ${topLeft} 0)`;
                     verticalSlideTop = (topLeft + 0.5) / span * 100;
                     verticalSlideBottom = (bottomLeft + 0.5) / span * 100;
+                    const halfLane = 50 / span;
+                    verticalSlideClipPath = `polygon(
+                      ${verticalSlideTop - halfLane}% 0%,
+                      ${verticalSlideTop + halfLane}% 0%,
+                      ${verticalSlideBottom + halfLane}% 100%,
+                      ${verticalSlideBottom - halfLane}% 100%
+                    )`;
                   }
-                  const asset = note.type === "JUMP"
-                    ? jumpUrl
-                    : note.type === "HORIZONTAL_SLIDE"
-                      ? note.foot === "left" ? leftSlideUrl : rightSlideUrl
-                      : note.type === "VERTICAL_SLIDE"
-                        ? note.foot === "left" ? horizontalLeftSlideUrl : horizontalRightSlideUrl
-                      : note.type === "STAY"
-                        ? note.foot === "left" ? leftStayUrl : rightStayUrl
-                        : note.foot === "left" ? leftStepUrl : rightStepUrl;
                   return (
                     <button
                       type="button"
@@ -935,19 +921,11 @@ export function LevelBuilder({ level, onBack, onSave, onTest, onPlay }: LevelBui
                       onContextMenu={(event) => openNoteMenu(event, note.id)}
                       onPointerDown={(event) => startNoteDrag(event, note)}
                     >
-                      {verticalSlideTransform
-                        ? (
-                          <svg viewBox={`0 0 ${verticalSlideSpan} 1`} preserveAspectRatio="none" aria-hidden="true">
-                            <image
-                              href={asset}
-                              width="1"
-                              height="1"
-                              preserveAspectRatio="none"
-                              transform={verticalSlideTransform}
-                            />
-                          </svg>
-                        )
-                        : <img src={asset} alt="" />}
+                      <span
+                        className="timeline-note-asset"
+                        style={{ clipPath: verticalSlideClipPath }}
+                        aria-hidden="true"
+                      />
                       {note.type === "VERTICAL_SLIDE" && (
                         <>
                           <span
@@ -978,7 +956,9 @@ export function LevelBuilder({ level, onBack, onSave, onTest, onPlay }: LevelBui
                           />
                         </>
                       )}
-                      {note.type === "HORIZONTAL_SLIDE" && <span>{note.endLane! < note.lane! ? "↖" : "↗"}</span>}
+                      {note.type === "HORIZONTAL_SLIDE" && (
+                        <span className="slide-direction">{note.endLane! < note.lane! ? "↖" : "↗"}</span>
+                      )}
                     </button>
                   );
                 })}
