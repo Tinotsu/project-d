@@ -136,16 +136,6 @@ button:focus-visible, input:focus-visible, select:focus-visible, audio:focus-vis
 .result-grid strong { font-size: 20px; }
 .results-card .hero-actions { justify-content: center; }
 
-.test-3d-screen { position: relative; width: 100vw; height: 100dvh; overflow: hidden; background: #050505; }
-.test-3d-screen::after { position: absolute; z-index: 3; inset: 0; background: repeating-linear-gradient(to bottom, transparent 0, transparent 3px, rgba(32, 18, 65, .24) 4px); content: ""; mix-blend-mode: screen; opacity: .34; pointer-events: none; }
-.test-3d-stage, .test-3d-stage canvas { width: 100%; height: 100%; }
-.test-3d-stage canvas { display: block; image-rendering: pixelated; touch-action: none; }
-.test-3d-toolbar { position: absolute; z-index: 4; top: 16px; right: 16px; left: 16px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 14px; border: 2px solid #8c83bd; border-radius: 0; padding: 9px; background: rgba(12, 7, 31, .9); box-shadow: 4px 4px 0 #000; font-family: monospace; text-transform: uppercase; }
-.test-3d-toolbar > div { display: grid; gap: 2px; min-width: 0; }
-.test-3d-toolbar strong { font-size: 13px; }
-.test-3d-toolbar span { overflow: hidden; color: #b4a8ee; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
-.test-3d-hint { position: absolute; z-index: 4; right: 20px; bottom: 16px; margin: 0; color: #c7bcf5; font-family: monospace; font-size: 10px; text-shadow: 2px 2px #000; text-transform: uppercase; pointer-events: none; }
-
 .builder-screen { width: 100%; height: 100dvh; overflow: hidden; background: #050505; }
 .builder-header { display: flex; align-items: center; justify-content: space-between; height: 64px; gap: 20px; border-bottom: 1px solid #343434; padding: 0 18px; background: #090909; }
 .builder-title, .builder-actions { display: flex; align-items: center; gap: 10px; }

@@ -90,10 +90,6 @@ type Tv = {
   mixer: THREE.AnimationMixer;
 };
 
-type ThreePlayfieldOptions = {
-  tv?: boolean;
-};
-
 const normalUvs: Quad = [[0, 1], [1, 1], [1, 0], [0, 0]];
 const mirroredUvs: Quad = [[1, 1], [0, 1], [0, 0], [1, 0]];
 const leftSlideUvs: Quad = [[1, 1], [1, 0], [0, 0], [0, 1]];
@@ -247,14 +243,14 @@ export class ThreePlayfield {
   private readonly textures: Textures;
   private readonly leftFoot: WarpedSprite;
   private readonly rightFoot: WarpedSprite;
-  private readonly tv?: Tv;
+  private readonly tv: Tv;
   private lastRenderAt = performance.now();
 
   private constructor(
     private readonly mount: HTMLElement,
     private readonly chart: LevelChart,
     textures: Textures,
-    tvGltf?: GLTF,
+    tvGltf: GLTF,
   ) {
     this.textures = textures;
     this.camera.position.z = 10;
@@ -276,7 +272,7 @@ export class ThreePlayfield {
     this.rightFoot = this.createWarpedSprite(this.textures.foot, 100, 100, mirroredUvs, 5);
     this.leftFoot.mesh.visible = false;
     this.rightFoot.mesh.visible = false;
-    this.tv = tvGltf ? this.createTv(tvGltf) : undefined;
+    this.tv = this.createTv(tvGltf);
 
     this.resizeObserver = new ResizeObserver(([entry]) => {
       const { width, height } = entry.contentRect;
@@ -287,11 +283,7 @@ export class ThreePlayfield {
     this.renderer.setSize(width, height, false);
   }
 
-  static async create(
-    mount: HTMLElement,
-    chart: LevelChart,
-    { tv = false }: ThreePlayfieldOptions = {},
-  ): Promise<ThreePlayfield> {
+  static async create(mount: HTMLElement, chart: LevelChart): Promise<ThreePlayfield> {
     const loader = new THREE.TextureLoader();
     const [entries, tvGltf] = await Promise.all([
       Promise.all(
@@ -304,7 +296,7 @@ export class ThreePlayfield {
           return [key, texture] as const;
         }),
       ),
-      tv ? new GLTFLoader().loadAsync(tvModelUrl) : undefined,
+      new GLTFLoader().loadAsync(tvModelUrl),
     ]);
     return new ThreePlayfield(
       mount,
@@ -390,17 +382,17 @@ export class ThreePlayfield {
     });
     this.updateBursts(delta);
     this.updateFeedback(delta);
-    this.tv?.mixer.update(delta);
+    this.tv.mixer.update(delta);
     this.renderer.render(this.scene, this.camera);
   }
 
   destroy(): void {
     this.resizeObserver.disconnect();
-    this.tv?.mixer.stopAllAction();
-    this.tv?.video.pause();
-    this.tv?.video.removeAttribute("src");
-    this.tv?.video.load();
-    this.tv?.texture.dispose();
+    this.tv.mixer.stopAllAction();
+    this.tv.video.pause();
+    this.tv.video.removeAttribute("src");
+    this.tv.video.load();
+    this.tv.texture.dispose();
     this.renderer.dispose();
     this.scene.traverse((object) => {
       if (object instanceof THREE.Mesh) {

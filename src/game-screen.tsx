@@ -12,10 +12,9 @@ type GameScreenProps = {
   level: LoadedLevel;
   onExit: () => void;
   onFinish: (result: GameSnapshot) => void;
-  showTv?: boolean;
 };
 
-export function GameScreen({ cameraInput, level, onExit, onFinish, showTv = false }: GameScreenProps) {
+export function GameScreen({ cameraInput, level, onExit, onFinish }: GameScreenProps) {
   const mountRef = useRef<HTMLDivElement>(null);
   const playfieldRef = useRef<ThreePlayfield | undefined>(undefined);
   const started = useRef(false);
@@ -31,7 +30,7 @@ export function GameScreen({ cameraInput, level, onExit, onFinish, showTv = fals
     let playfield: ThreePlayfield | undefined;
 
     Promise.all([
-      ThreePlayfield.create(mountRef.current!, level.chart, { tv: showTv }).then((created) => {
+      ThreePlayfield.create(mountRef.current!, level.chart).then((created) => {
         playfield = created;
         playfieldRef.current = created;
       }),
@@ -49,7 +48,7 @@ export function GameScreen({ cameraInput, level, onExit, onFinish, showTv = fals
       playfield?.destroy();
       playfieldRef.current = undefined;
     };
-  }, [level, session, showTv]);
+  }, [level, session]);
 
   useEffect(() => {
     let frame = 0;
