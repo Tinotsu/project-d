@@ -2,6 +2,28 @@ import * as THREE from "three";
 
 export type StepFoot = "left" | "right";
 
+export const normalStepPatternShader = `
+  vec3 normalStepPattern(
+    vec2 assetUv,
+    float time,
+    vec3 edgeColor,
+    vec3 centerColor
+  ) {
+    float wave = 0.5 + 0.5 * cos((assetUv.y + time * 0.3) * 6.28318530718);
+    wave = smoothstep(0.12, 0.88, wave);
+
+    vec2 dotCell = fract(assetUv * vec2(10.0, 7.0)) - 0.5;
+    float dotMask = 1.0 - smoothstep(0.16, 0.23, length(dotCell));
+
+    vec3 color = mix(edgeColor, centerColor, wave);
+    return mix(color, vec3(0.976), dotMask * 0.2);
+  }
+`;
+
+export function normalStepColors(foot: StepFoot): [number, number] {
+  return foot === "left" ? [0xfaf600, 0xfc2500] : [0x0532fa, 0x00f7fa];
+}
+
 export type NormalStepAsset = {
   group: THREE.Group;
   dispose: () => void;
@@ -70,17 +92,13 @@ export function createNormalStep(foot: StepFoot): NormalStepAsset {
       uniform float time;
       varying vec2 assetUv;
 
+      ${normalStepPatternShader}
+
       void main() {
-        float wave = 0.5 + 0.5 * cos((assetUv.y + time * 0.3) * 6.28318530718);
-        wave = smoothstep(0.12, 0.88, wave);
-
-        vec2 dotCell = fract(assetUv * vec2(10.0, 7.0)) - 0.5;
-        float dotMask = 1.0 - smoothstep(0.16, 0.23, length(dotCell));
-
-        vec3 color = mix(edgeColor, centerColor, wave);
-        color = mix(color, vec3(0.976), dotMask * 0.2);
-        gl_FragColor = vec4(color, 1.0);
-
+        gl_FragColor = vec4(
+          normalStepPattern(assetUv, time, edgeColor, centerColor),
+          1.0
+        );
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
       }
@@ -91,9 +109,9 @@ export function createNormalStep(foot: StepFoot): NormalStepAsset {
   group.add(face);
 
   function setFoot(nextFoot: StepFoot): void {
-    const isLeft = nextFoot === "left";
-    faceMaterial.uniforms.edgeColor.value.set(isLeft ? 0xfaf600 : 0x0532fa);
-    faceMaterial.uniforms.centerColor.value.set(isLeft ? 0xfc2500 : 0x00f7fa);
+    const [edgeColor, centerColor] = normalStepColors(nextFoot);
+    faceMaterial.uniforms.edgeColor.value.set(edgeColor);
+    faceMaterial.uniforms.centerColor.value.set(centerColor);
   }
 
   setFoot(foot);

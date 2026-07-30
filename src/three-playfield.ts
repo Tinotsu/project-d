@@ -9,11 +9,9 @@ import jumpBaseUrl from "../assets/jump base.svg?url";
 import jumpUrl from "../assets/jump.svg?url";
 import leftSlideUrl from "../assets/left slide.svg?url";
 import leftStayUrl from "../assets/left stay.svg?url";
-import leftStepUrl from "../assets/left base.svg?url";
 import trackUrl from "../assets/pist.svg?url";
 import rightSlideUrl from "../assets/right slide.svg?url";
 import rightStayUrl from "../assets/right stay.svg?url";
-import rightStepUrl from "../assets/right base.svg?url";
 import type { LevelChart } from "./level.ts";
 import {
   horizontalSlideBounds,
@@ -23,6 +21,11 @@ import {
   type Judgement,
   type JudgementResult,
 } from "./rhythm-engine.ts";
+import {
+  normalStepColors,
+  normalStepPatternShader,
+  type StepFoot,
+} from "./three-assets/normal-step.ts";
 
 export const gameWidth = 1280;
 export const gameHeight = 720;
@@ -47,8 +50,6 @@ type Textures = {
   track: THREE.Texture;
   jumpBase: THREE.Texture;
   jump: THREE.Texture;
-  leftStep: THREE.Texture;
-  rightStep: THREE.Texture;
   leftSlide: THREE.Texture;
   rightSlide: THREE.Texture;
   leftStay: THREE.Texture;
@@ -101,8 +102,6 @@ const textureUrls: Record<keyof Textures, string> = {
   track: trackUrl,
   jumpBase: jumpBaseUrl,
   jump: jumpUrl,
-  leftStep: leftStepUrl,
-  rightStep: rightStepUrl,
   leftSlide: leftSlideUrl,
   rightSlide: rightSlideUrl,
   leftStay: leftStayUrl,
@@ -197,6 +196,71 @@ function createWarpMaterial(texture: THREE.Texture): THREE.ShaderMaterial {
         color.a *= opacity;
         if (color.a < 0.01) discard;
         gl_FragColor = color;
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
+      }
+    `,
+    transparent: true,
+    side: THREE.DoubleSide,
+    depthTest: false,
+    depthWrite: false,
+    toneMapped: false,
+  });
+}
+
+function createNormalStepWarpMaterial(foot: StepFoot): THREE.ShaderMaterial {
+  const [edgeColor, centerColor] = normalStepColors(foot);
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      edgeColor: { value: new THREE.Color(edgeColor) },
+      centerColor: { value: new THREE.Color(centerColor) },
+      time: { value: 0 },
+      hU: { value: new THREE.Vector3() },
+      hV: { value: new THREE.Vector3() },
+      hW: { value: new THREE.Vector3() },
+    },
+    vertexShader: `
+      varying vec2 logicalPosition;
+
+      void main() {
+        logicalPosition = position.xy;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+      uniform vec3 edgeColor;
+      uniform vec3 centerColor;
+      uniform float time;
+      uniform vec3 hU;
+      uniform vec3 hV;
+      uniform vec3 hW;
+      varying vec2 logicalPosition;
+
+      ${normalStepPatternShader}
+
+      float roundedBoxDistance(vec2 point, vec2 halfSize, float radius) {
+        vec2 edge = abs(point) - halfSize + radius;
+        return min(max(edge.x, edge.y), 0.0)
+          + length(max(edge, 0.0))
+          - radius;
+      }
+
+      void main() {
+        vec3 point = vec3(logicalPosition, 1.0);
+        float denominator = dot(hW, point);
+        vec2 assetUv = vec2(dot(hU, point), dot(hV, point)) / denominator;
+        if (assetUv.x < 0.0 || assetUv.x > 1.0 || assetUv.y < 0.0 || assetUv.y > 1.0) discard;
+
+        vec2 assetPoint = (assetUv - 0.5) * vec2(1.49, 1.0);
+        float outerDistance = roundedBoxDistance(assetPoint, vec2(0.745, 0.5), 0.045);
+        if (outerDistance > 0.0) discard;
+
+        float innerDistance = roundedBoxDistance(assetPoint, vec2(0.72, 0.475), 0.025);
+        vec3 color = innerDistance > 0.0
+          ? vec3(0.947)
+          : normalStepPattern(assetUv, time, edgeColor, centerColor);
+        gl_FragColor = vec4(color, 1.0);
+
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
       }
@@ -535,8 +599,10 @@ export class ThreePlayfield {
         : this.textures.horizontalLeftSlide;
       return { note, warped: this.createWarpedSprite(texture, 150, 300, normalUvs, 3) };
     }
-    const texture = note.foot === "right" ? this.textures.rightStep : this.textures.leftStep;
-    return { note, warped: this.createWarpedSprite(texture, 152, 102, normalUvs, 3) };
+    return {
+      note,
+      warped: this.createNormalStepSprite(note.foot === "right" ? "right" : "left"),
+    };
   }
 
   private createWarpedSprite(
@@ -552,6 +618,13 @@ export class ThreePlayfield {
     return { mesh, width, height, uvs };
   }
 
+  private createNormalStepSprite(foot: StepFoot): WarpedSprite {
+    const mesh = new THREE.Mesh(createQuadGeometry(), createNormalStepWarpMaterial(foot));
+    mesh.renderOrder = 3;
+    this.scene.add(mesh);
+    return { mesh, width: 152, height: 102, uvs: normalUvs };
+  }
+
   private renderNote(view: NoteView, songTime: number): void {
     const timeUntil = view.note.time - songTime;
     if (
@@ -563,6 +636,9 @@ export class ThreePlayfield {
     }
 
     const progress = noteTravelProgress(timeUntil, this.chart.playfield.travelTime);
+    if (view.note.type === "STEP") {
+      view.warped.mesh.material.uniforms.time.value = songTime;
+    }
     const [startLane, endLane] = this.noteSpan(view.note);
     const bottom = this.placeWarpedSprite(view.warped, startLane, endLane, progress);
     view.warped.mesh.visible = bottom.topY < gameHeight;
