@@ -5,7 +5,7 @@ import type { GameSnapshot } from "./game-session.ts";
 import { loadLevel, type LoadedLevel } from "./level.ts";
 import { loadStoredLevels, storeLevel } from "./level-storage.ts";
 
-type Screen = "menu" | "camera" | "game" | "results" | "builder" | "track" | "movement-setup" | "movement-test";
+type Screen = "menu" | "camera" | "game" | "results" | "builder" | "track" | "movement-setup" | "movement-test" | "test-3d";
 
 const screenPaths: Record<Screen, string> = {
   menu: "/",
@@ -16,6 +16,7 @@ const screenPaths: Record<Screen, string> = {
   track: "/track",
   "movement-setup": "/movement/setup",
   "movement-test": "/movement/test",
+  "test-3d": "/test-3d",
 };
 
 export function screenFromPath(pathname: string): Screen {
@@ -27,6 +28,7 @@ const GameScreen = lazy(() => import("./game-screen.tsx").then((module) => ({ de
 const LevelBuilder = lazy(() => import("./level-builder.tsx").then((module) => ({ default: module.LevelBuilder })));
 const PlayfieldTestScreen = lazy(() => import("./playfield-test-screen.tsx").then((module) => ({ default: module.PlayfieldTestScreen })));
 const MovementTestScreen = lazy(() => import("./movement-test-screen.tsx").then((module) => ({ default: module.MovementTestScreen })));
+const Test3DScreen = lazy(() => import("./test-3d-screen.tsx").then((module) => ({ default: module.Test3DScreen })));
 
 export function App() {
   const [screen, setScreen] = useState<Screen>(() => screenFromPath(window.location.pathname));
@@ -170,6 +172,14 @@ export function App() {
     );
   }
 
+  if (screen === "test-3d") {
+    return (
+      <Suspense fallback={<LoadingScreen />}>
+        <Test3DScreen onBack={() => navigate("menu")} />
+      </Suspense>
+    );
+  }
+
   return (
     <div className="app-shell">
       <header className="app-header">
@@ -203,6 +213,7 @@ export function App() {
               setTrackReturn("menu");
               navigate("track");
             }}>Playfield test</Button>
+            <Button className="menu-item" size="lg" variant="outline" onClick={() => navigate("test-3d")}>3D TV test</Button>
           </div>
 
           <section className="published-levels panel">
