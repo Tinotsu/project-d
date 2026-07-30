@@ -5,7 +5,7 @@ import type { GameSnapshot } from "./game-session.ts";
 import { loadLevel, type LoadedLevel } from "./level.ts";
 import { loadStoredLevels, storeLevel } from "./level-storage.ts";
 
-type Screen = "menu" | "camera" | "game" | "results" | "builder" | "track" | "movement-setup" | "movement-test";
+type Screen = "menu" | "camera" | "game" | "results" | "builder" | "track" | "movement-setup" | "movement-test" | "assets";
 
 const screenPaths: Record<Screen, string> = {
   menu: "/",
@@ -16,6 +16,7 @@ const screenPaths: Record<Screen, string> = {
   track: "/track",
   "movement-setup": "/movement/setup",
   "movement-test": "/movement/test",
+  assets: "/assets",
 };
 
 export function screenFromPath(pathname: string): Screen {
@@ -27,6 +28,7 @@ const GameScreen = lazy(() => import("./game-screen.tsx").then((module) => ({ de
 const LevelBuilder = lazy(() => import("./level-builder.tsx").then((module) => ({ default: module.LevelBuilder })));
 const PlayfieldTestScreen = lazy(() => import("./playfield-test-screen.tsx").then((module) => ({ default: module.PlayfieldTestScreen })));
 const MovementTestScreen = lazy(() => import("./movement-test-screen.tsx").then((module) => ({ default: module.MovementTestScreen })));
+const AssetsScreen = lazy(() => import("./assets-screen.tsx").then((module) => ({ default: module.AssetsScreen })));
 
 export function App() {
   const [screen, setScreen] = useState<Screen>(() => screenFromPath(window.location.pathname));
@@ -203,6 +205,7 @@ export function App() {
               setTrackReturn("menu");
               navigate("track");
             }}>Playfield test</Button>
+            <Button className="menu-item" size="lg" variant="outline" onClick={() => navigate("assets")}>3D assets</Button>
           </div>
 
           <section className="published-levels panel">
@@ -241,6 +244,12 @@ export function App() {
             onCalibrationChange={setCameraCalibrated}
             onContinue={() => navigate(screen === "movement-setup" ? "movement-test" : "game")}
           />
+        </Suspense>
+      )}
+
+      {screen === "assets" && (
+        <Suspense fallback={<LoadingScreen />}>
+          <AssetsScreen />
         </Suspense>
       )}
 
