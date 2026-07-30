@@ -464,11 +464,12 @@ export class ThreePlayfield {
     const centerX = (bottom.left + bottom.right) / 2;
     const width = view.flat.width * scale;
     const height = view.flat.height * scale;
+    const arrowBaseY = (bottom.topY + bottom.y) / 2;
     updateWarpedSprite(
       view.flat,
-      rectangleQuad(centerX - width / 2, bottom.y - height, width, height),
+      rectangleQuad(centerX - width / 2, arrowBaseY - height, width, height),
     );
-    view.flat.mesh.visible = bottom.y - height < gameHeight;
+    view.flat.mesh.visible = arrowBaseY - height < gameHeight;
   }
 
   private renderSustainedNote(view: NoteView, songTime: number): void {

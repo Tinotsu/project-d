@@ -181,8 +181,8 @@ function assetFragmentBody(kind: ProceduralAssetKind): string {
   if (kind === "jump") {
     return `
       float scroll = time * 0.16;
-      float left = chevronBand(assetUv, 0.1, 0.095, 5.0, scroll);
-      float right = chevronBand(assetUv, 0.9, 0.095, 5.0, scroll);
+      float left = chevronBand(assetUv, 0.25, 0.095, 5.0, scroll);
+      float right = chevronBand(assetUv, 0.75, 0.095, 5.0, scroll);
       float mask = max(left, right);
       float pulse = 0.55 + 0.35 * sin(time * 5.0);
       if (mask < 0.01) discard;
