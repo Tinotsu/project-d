@@ -1,6 +1,8 @@
 import * as THREE from "three";
+import { GLTFLoader, type GLTF } from "three/addons/loaders/GLTFLoader.js";
 import footBaseUrl from "../assets/foot base.svg?url";
 import footUrl from "../assets/foot.svg?url";
+import tvModelUrl from "../assets/glb/tv.glb?url";
 import horizontalLeftSlideUrl from "../assets/horizontal left slide.svg?url";
 import horizontalRightSlideUrl from "../assets/horizontal right slide.svg?url";
 import jumpBaseUrl from "../assets/jump base.svg?url";
@@ -33,6 +35,7 @@ const horizonY = 100;
 const hitY = 590;
 const floorDepthScale = 1 / 3;
 const laneColors = [0x00f300, 0x00f7fa, 0x9c45fa, 0xd52ba2];
+const tvVideoUrl = "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4";
 
 type Point = [number, number];
 type Quad = [Point, Point, Point, Point];
@@ -79,6 +82,16 @@ type Feedback = {
   sprite: THREE.Sprite;
   age: number;
   duration: number;
+};
+
+type Tv = {
+  video: HTMLVideoElement;
+  texture: THREE.VideoTexture;
+  mixer: THREE.AnimationMixer;
+};
+
+type ThreePlayfieldOptions = {
+  tv?: boolean;
 };
 
 const normalUvs: Quad = [[0, 1], [1, 1], [1, 0], [0, 0]];
@@ -234,12 +247,14 @@ export class ThreePlayfield {
   private readonly textures: Textures;
   private readonly leftFoot: WarpedSprite;
   private readonly rightFoot: WarpedSprite;
+  private readonly tv?: Tv;
   private lastRenderAt = performance.now();
 
   private constructor(
     private readonly mount: HTMLElement,
     private readonly chart: LevelChart,
     textures: Textures,
+    tvGltf?: GLTF,
   ) {
     this.textures = textures;
     this.camera.position.z = 10;
@@ -261,6 +276,7 @@ export class ThreePlayfield {
     this.rightFoot = this.createWarpedSprite(this.textures.foot, 100, 100, mirroredUvs, 5);
     this.leftFoot.mesh.visible = false;
     this.rightFoot.mesh.visible = false;
+    this.tv = tvGltf ? this.createTv(tvGltf) : undefined;
 
     this.resizeObserver = new ResizeObserver(([entry]) => {
       const { width, height } = entry.contentRect;
@@ -271,19 +287,31 @@ export class ThreePlayfield {
     this.renderer.setSize(width, height, false);
   }
 
-  static async create(mount: HTMLElement, chart: LevelChart): Promise<ThreePlayfield> {
+  static async create(
+    mount: HTMLElement,
+    chart: LevelChart,
+    { tv = false }: ThreePlayfieldOptions = {},
+  ): Promise<ThreePlayfield> {
     const loader = new THREE.TextureLoader();
-    const entries = await Promise.all(
-      Object.entries(textureUrls).map(async ([key, url]) => {
-        const texture = await loader.loadAsync(url);
-        texture.colorSpace = THREE.SRGBColorSpace;
-        texture.minFilter = THREE.LinearFilter;
-        texture.magFilter = THREE.LinearFilter;
-        texture.generateMipmaps = false;
-        return [key, texture] as const;
-      }),
+    const [entries, tvGltf] = await Promise.all([
+      Promise.all(
+        Object.entries(textureUrls).map(async ([key, url]) => {
+          const texture = await loader.loadAsync(url);
+          texture.colorSpace = THREE.SRGBColorSpace;
+          texture.minFilter = THREE.LinearFilter;
+          texture.magFilter = THREE.LinearFilter;
+          texture.generateMipmaps = false;
+          return [key, texture] as const;
+        }),
+      ),
+      tv ? new GLTFLoader().loadAsync(tvModelUrl) : undefined,
+    ]);
+    return new ThreePlayfield(
+      mount,
+      chart,
+      Object.fromEntries(entries) as Textures,
+      tvGltf,
     );
-    return new ThreePlayfield(mount, chart, Object.fromEntries(entries) as Textures);
   }
 
   showTrackedFeet(
@@ -362,11 +390,17 @@ export class ThreePlayfield {
     });
     this.updateBursts(delta);
     this.updateFeedback(delta);
+    this.tv?.mixer.update(delta);
     this.renderer.render(this.scene, this.camera);
   }
 
   destroy(): void {
     this.resizeObserver.disconnect();
+    this.tv?.mixer.stopAllAction();
+    this.tv?.video.pause();
+    this.tv?.video.removeAttribute("src");
+    this.tv?.video.load();
+    this.tv?.texture.dispose();
     this.renderer.dispose();
     this.scene.traverse((object) => {
       if (object instanceof THREE.Mesh) {
@@ -380,6 +414,55 @@ export class ThreePlayfield {
     });
     Object.values(this.textures).forEach((texture) => texture.dispose());
     this.renderer.domElement.remove();
+  }
+
+  private createTv(gltf: GLTF): Tv {
+    const video = document.createElement("video");
+    video.src = tvVideoUrl;
+    video.crossOrigin = "anonymous";
+    video.loop = true;
+    video.muted = true;
+    video.playsInline = true;
+    video.preload = "auto";
+
+    const texture = new THREE.VideoTexture(video);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.minFilter = THREE.LinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+    texture.generateMipmaps = false;
+
+    const tv = gltf.scene;
+    tv.rotation.y = -Math.PI / 2;
+    tv.scale.set(6, 75, 75);
+
+    const screen = tv.getObjectByName("screen");
+    if (!(screen instanceof THREE.Mesh)) {
+      throw new Error('The TV model has no mesh named "screen".');
+    }
+    const oldMaterial = screen.material;
+    screen.material = new THREE.MeshBasicMaterial({
+      map: texture,
+      side: THREE.DoubleSide,
+      toneMapped: false,
+    });
+    if (Array.isArray(oldMaterial)) oldMaterial.forEach((material) => material.dispose());
+    else oldMaterial.dispose();
+
+    tv.updateMatrixWorld(true);
+    const bounds = new THREE.Box3().setFromObject(tv);
+    const center = bounds.getCenter(new THREE.Vector3());
+    tv.position.set(gameWidth / 2 - center.x, 80 - center.y, 1 - center.z);
+
+    this.scene.add(new THREE.HemisphereLight(0xffffff, 0x30274a, 2.4));
+    const light = new THREE.DirectionalLight(0xffffff, 2.2);
+    light.position.set(gameWidth / 2 - 300, -200, 500);
+    light.target.position.set(gameWidth / 2, 80, 0);
+    this.scene.add(light, light.target, tv);
+
+    const mixer = new THREE.AnimationMixer(tv);
+    gltf.animations.forEach((clip) => mixer.clipAction(clip).play());
+    void video.play().catch(() => undefined);
+    return { video, texture, mixer };
   }
 
   private createTrack(): void {
