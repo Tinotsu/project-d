@@ -5,7 +5,7 @@ import type { GameSnapshot } from "./game-session.ts";
 import { loadLevel, type LoadedLevel } from "./level.ts";
 import { loadStoredLevels, storeLevel } from "./level-storage.ts";
 
-type Screen = "menu" | "camera" | "game" | "results" | "builder" | "track" | "movement-setup" | "movement-test" | "test-3d";
+type Screen = "menu" | "camera" | "game" | "results" | "builder" | "track" | "movement-setup" | "movement-test" | "test-3d" | "test-3d-game";
 
 const screenPaths: Record<Screen, string> = {
   menu: "/",
@@ -17,6 +17,7 @@ const screenPaths: Record<Screen, string> = {
   "movement-setup": "/movement/setup",
   "movement-test": "/movement/test",
   "test-3d": "/test-3d",
+  "test-3d-game": "/test-3d-game",
 };
 
 export function screenFromPath(pathname: string): Screen {
@@ -29,6 +30,7 @@ const LevelBuilder = lazy(() => import("./level-builder.tsx").then((module) => (
 const PlayfieldTestScreen = lazy(() => import("./playfield-test-screen.tsx").then((module) => ({ default: module.PlayfieldTestScreen })));
 const MovementTestScreen = lazy(() => import("./movement-test-screen.tsx").then((module) => ({ default: module.MovementTestScreen })));
 const Test3DScreen = lazy(() => import("./test-3d-screen.tsx").then((module) => ({ default: module.Test3DScreen })));
+const Test3DGameScreen = lazy(() => import("./test-3d-game-screen.tsx").then((module) => ({ default: module.Test3DGameScreen })));
 
 export function App() {
   const [screen, setScreen] = useState<Screen>(() => screenFromPath(window.location.pathname));
@@ -176,6 +178,15 @@ export function App() {
     return (
       <Suspense fallback={<LoadingScreen />}>
         <Test3DScreen onBack={() => navigate("menu")} />
+      </Suspense>
+    );
+  }
+
+  if (screen === "test-3d-game") {
+    if (!level) return <LoadingScreen />;
+    return (
+      <Suspense fallback={<LoadingScreen />}>
+        <Test3DGameScreen level={level} onBack={() => navigate("test-3d")} />
       </Suspense>
     );
   }

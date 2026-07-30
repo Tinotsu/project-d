@@ -146,6 +146,15 @@ button:focus-visible, input:focus-visible, select:focus-visible, audio:focus-vis
 .test-3d-toolbar span { overflow: hidden; color: #b4a8ee; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .test-3d-hint { position: absolute; z-index: 4; right: 20px; bottom: 16px; margin: 0; color: #c7bcf5; font-family: monospace; font-size: 10px; text-shadow: 2px 2px #000; text-transform: uppercase; pointer-events: none; }
 
+.test-3d-game-screen { position: relative; width: 100vw; height: 100dvh; overflow: hidden; background: #05030b; }
+.test-3d-game-screen::after { position: absolute; z-index: 5; inset: 0; background: repeating-linear-gradient(to bottom, transparent 0, transparent 3px, rgba(32, 18, 65, .2) 4px); content: ""; mix-blend-mode: screen; opacity: .32; pointer-events: none; }
+.test-3d-game-stage, .test-3d-game-stage canvas, .test-3d-game-pixi { position: absolute; inset: 0; width: 100%; height: 100%; }
+.test-3d-game-stage { z-index: 0; }
+.test-3d-game-stage canvas { display: block; image-rendering: pixelated; }
+.test-3d-game-pixi { z-index: 1; }
+.test-3d-game-pixi .game-screen { background: transparent; }
+.test-3d-game-pixi .game-overlay { top: 50%; right: auto; bottom: auto; left: 50%; min-width: min(360px, calc(100% - 32px)); border: 2px solid #8c83bd; padding: 22px; background: rgba(5, 3, 11, .88); box-shadow: 5px 5px 0 #000; font-family: monospace; transform: translate(-50%, -50%); }
+
 .builder-screen { width: 100%; height: 100dvh; overflow: hidden; background: #050505; }
 .builder-header { display: flex; align-items: center; justify-content: space-between; height: 64px; gap: 20px; border-bottom: 1px solid #343434; padding: 0 18px; background: #090909; }
 .builder-title, .builder-actions { display: flex; align-items: center; gap: 10px; }
