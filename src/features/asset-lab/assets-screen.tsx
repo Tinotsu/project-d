@@ -99,50 +99,44 @@ export function AssetsScreen() {
     setPlaying(nextPlaying);
   }
 
+  function cycleAsset(offset: number): void {
+    const currentIndex = proceduralAssets.indexOf(selected);
+    const nextIndex = (currentIndex + offset + proceduralAssets.length) % proceduralAssets.length;
+    chooseAsset(proceduralAssets[nextIndex]);
+  }
+
   return (
     <main className="assets-screen">
-      <div className="assets-heading">
-        <div>
-          <small>ASSET LAB · {String(proceduralAssets.indexOf(selected) + 1).padStart(2, "0")}</small>
-          <h1>{selected.label}</h1>
-        </div>
-        <span className="asset-status"><i /> THREE.JS</span>
-      </div>
-
-      <section className="asset-preview panel">
-        <div className="asset-preview-meta">
-          <div>
-            <small>OBJECT</small>
-            <strong>{selected.label}</strong>
-          </div>
-          <div>
-            <small>SIZE</small>
-            <strong>{selected.width} × {selected.height}</strong>
-          </div>
-        </div>
-
+      <section className="asset-preview">
         <div className="asset-canvas" ref={mountRef} />
 
         <div className="asset-controls">
-          <div className="asset-variant-controls" aria-label="Procedural asset">
-            {proceduralAssets.map((definition) => (
-              <Button
-                key={definition.id}
-                size="sm"
-                variant={definition.id === selected.id ? "default" : "outline"}
-                onClick={() => chooseAsset(definition)}
-              >
-                {definition.label}
-              </Button>
-            ))}
-          </div>
-          <Button size="sm" variant="outline" onClick={togglePlayback}>
-            {playing ? "Pause" : "Play"}
+          <Button
+            aria-label="Previous asset"
+            className="asset-control"
+            variant="ghost"
+            onClick={() => cycleAsset(-1)}
+          >
+            ‹
+          </Button>
+          <Button
+            aria-label={playing ? "Pause animation" : "Play animation"}
+            className="asset-control"
+            variant="ghost"
+            onClick={togglePlayback}
+          >
+            {playing ? "Ⅱ" : "▶"}
+          </Button>
+          <Button
+            aria-label="Next asset"
+            className="asset-control"
+            variant="ghost"
+            onClick={() => cycleAsset(1)}
+          >
+            ›
           </Button>
         </div>
       </section>
-
-      <p className="asset-progress">{proceduralAssets.length} procedural variants</p>
     </main>
   );
 }
