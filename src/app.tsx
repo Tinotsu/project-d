@@ -213,7 +213,7 @@ export function App() {
               setTrackReturn("menu");
               navigate("track");
             }}>Playfield test</Button>
-            <Button className="menu-item" size="lg" variant="outline" onClick={() => navigate("test-3d")}>3D TV test</Button>
+            <Button className="menu-item" size="lg" variant="outline" onClick={() => navigate("test-3d")}>PS1 TV test</Button>
           </div>
 
           <section className="published-levels panel">

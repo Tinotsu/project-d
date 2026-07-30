@@ -2,10 +2,46 @@ import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
+import { RenderPixelatedPass } from "three/addons/postprocessing/RenderPixelatedPass.js";
+import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
 import tvModelUrl from "../assets/glb/tv.glb?url";
 import { Button } from "./components/ui/button.tsx";
 
 const VIDEO_URL = "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4";
+const RETRO_PALETTE_SHADER = {
+  uniforms: {
+    tDiffuse: { value: null },
+  },
+  vertexShader: `
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  `,
+  fragmentShader: `
+    uniform sampler2D tDiffuse;
+    varying vec2 vUv;
+
+    float bayer2(vec2 position) {
+      vec2 pixel = mod(floor(position), 2.0);
+      return mix(
+        mix(0.0, 2.0, pixel.x),
+        mix(3.0, 1.0, pixel.x),
+        pixel.y
+      ) / 4.0;
+    }
+
+    void main() {
+      vec4 color = texture2D(tDiffuse, vUv);
+      float dither = (bayer2(gl_FragCoord.xy) - 0.375) / 18.0;
+      color.rgb = floor(clamp(color.rgb + dither, 0.0, 1.0) * 24.0) / 24.0;
+      gl_FragColor = color;
+    }
+  `,
+};
 
 type Test3DScreenProps = {
   onBack: () => void;
@@ -29,14 +65,26 @@ export function Test3DScreen({ onBack }: Test3DScreenProps) {
     const camera = new THREE.PerspectiveCamera(38, 1, 0.01, 100);
     camera.position.set(4.5, 0.25, 0);
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    const renderer = new THREE.WebGLRenderer({ antialias: false, precision: "mediump" });
+    renderer.setPixelRatio(1);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.1;
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFShadowMap;
+    renderer.shadowMap.type = THREE.BasicShadowMap;
     stage.append(renderer.domElement);
+
+    const composer = new EffectComposer(renderer);
+    composer.setPixelRatio(1);
+    const pixelatedPass = new RenderPixelatedPass(4, scene, camera, {
+      normalEdgeStrength: 0.22,
+      depthEdgeStrength: 0.28,
+    });
+    const palettePass = new ShaderPass(RETRO_PALETTE_SHADER);
+    const outputPass = new OutputPass();
+    composer.addPass(pixelatedPass);
+    composer.addPass(palettePass);
+    composer.addPass(outputPass);
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
@@ -64,6 +112,10 @@ export function Test3DScreen({ onBack }: Test3DScreenProps) {
     floor.receiveShadow = true;
     scene.add(floor);
 
+    const grid = new THREE.GridHelper(18, 24, 0x6850d8, 0x211942);
+    grid.position.y = -1.015;
+    scene.add(grid);
+
     const video = document.createElement("video");
     videoRef.current = video;
     video.src = VIDEO_URL;
@@ -75,8 +127,9 @@ export function Test3DScreen({ onBack }: Test3DScreenProps) {
 
     const videoTexture = new THREE.VideoTexture(video);
     videoTexture.colorSpace = THREE.SRGBColorSpace;
-    videoTexture.minFilter = THREE.LinearFilter;
-    videoTexture.magFilter = THREE.LinearFilter;
+    videoTexture.minFilter = THREE.NearestFilter;
+    videoTexture.magFilter = THREE.NearestFilter;
+    videoTexture.generateMipmaps = false;
 
     const handlePlay = () => {
       mixerRef.current && (mixerRef.current.timeScale = 1);
@@ -101,6 +154,12 @@ export function Test3DScreen({ onBack }: Test3DScreenProps) {
         if (object instanceof THREE.Mesh) {
           object.castShadow = true;
           object.receiveShadow = true;
+          const materials = Array.isArray(object.material) ? object.material : [object.material];
+          materials.forEach((material) => {
+            if (material instanceof THREE.MeshStandardMaterial) material.flatShading = true;
+            material.dithering = true;
+            material.needsUpdate = true;
+          });
         }
       });
 
@@ -124,7 +183,7 @@ export function Test3DScreen({ onBack }: Test3DScreenProps) {
       gltf.animations.forEach((clip) => mixer.clipAction(clip).play());
       mixer.timeScale = video.paused ? 0 : 1;
 
-      setStatus(`${gltf.animations.length} speaker animations active`);
+      setStatus(`PS1 mode · ${gltf.animations.length} speaker animations active`);
       return video.play();
     }).catch((error: unknown) => {
       setStatus(error instanceof Error ? error.message : "Could not load the 3D TV");
@@ -136,12 +195,13 @@ export function Test3DScreen({ onBack }: Test3DScreenProps) {
       timer.update(time);
       mixerRef.current?.update(timer.getDelta());
       controls.update();
-      renderer.render(scene, camera);
+      composer.render(timer.getDelta());
     });
 
     const resize = new ResizeObserver(([entry]) => {
       const { width, height } = entry.contentRect;
       renderer.setSize(width, height, false);
+      composer.setSize(width, height);
       camera.aspect = width / Math.max(height, 1);
       camera.updateProjectionMatrix();
     });
@@ -170,6 +230,13 @@ export function Test3DScreen({ onBack }: Test3DScreenProps) {
       });
       floor.geometry.dispose();
       (floor.material as THREE.Material).dispose();
+      grid.geometry.dispose();
+      const gridMaterials = Array.isArray(grid.material) ? grid.material : [grid.material];
+      gridMaterials.forEach((material) => material.dispose());
+      pixelatedPass.dispose();
+      palettePass.dispose();
+      outputPass.dispose();
+      composer.dispose();
       renderer.dispose();
       renderer.domElement.remove();
     };
@@ -188,7 +255,7 @@ export function Test3DScreen({ onBack }: Test3DScreenProps) {
       <div className="test-3d-toolbar">
         <Button variant="outline" size="sm" onClick={onBack}>Back</Button>
         <div>
-          <strong>TV / Three.js test</strong>
+          <strong>TV / PS1 render test</strong>
           <span>{status}</span>
         </div>
         <Button size="sm" onClick={togglePlayback}>{playing ? "Pause" : "Play"}</Button>
