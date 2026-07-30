@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "./components/ui/button.tsx";
 import type { LoadedLevel } from "./level.ts";
-import { PixiPlayfield } from "./pixi-playfield.ts";
+import { ThreePlayfield } from "./three-playfield.ts";
 
 type PlayfieldTestScreenProps = {
   level: LoadedLevel;
@@ -14,7 +14,7 @@ const rightLaneKeys: Record<string, number> = { KeyQ: 1, KeyW: 2, KeyE: 3, KeyR:
 export function PlayfieldTestScreen({ level, onBack }: PlayfieldTestScreenProps) {
   const mountRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
-  const playfieldRef = useRef<PixiPlayfield | undefined>(undefined);
+  const playfieldRef = useRef<ThreePlayfield | undefined>(undefined);
   const timeRef = useRef(0);
   const playingRef = useRef(false);
   const leftLaneRef = useRef<number | null>(null);
@@ -30,9 +30,9 @@ export function PlayfieldTestScreen({ level, onBack }: PlayfieldTestScreenProps)
 
   useEffect(() => {
     let cancelled = false;
-    let playfield: PixiPlayfield | undefined;
+    let playfield: ThreePlayfield | undefined;
 
-    PixiPlayfield.create(mountRef.current!, level.chart)
+    ThreePlayfield.create(mountRef.current!, level.chart)
       .then((created) => {
         if (cancelled) {
           created.destroy();
@@ -177,7 +177,7 @@ export function PlayfieldTestScreen({ level, onBack }: PlayfieldTestScreenProps)
 
       <div className="game-layout">
         <section className="playfield-shell">
-          <div ref={mountRef} className="pixi-stage" />
+          <div ref={mountRef} className="three-playfield-stage" />
           {!ready && (
             <div className="game-overlay">
               <strong>{error ? "Playfield unavailable" : "Loading playfield…"}</strong>

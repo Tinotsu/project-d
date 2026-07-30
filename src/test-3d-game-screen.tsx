@@ -8,6 +8,7 @@ import tvModelUrl from "../assets/glb/tv.glb?url";
 import { CameraInput } from "./camera-input.ts";
 import { GameScreen } from "./game-screen.tsx";
 import type { LoadedLevel } from "./level.ts";
+import { createPlayfieldCamera, resizePlayfieldCamera } from "./playfield-camera.ts";
 
 const VIDEO_URL = "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4";
 
@@ -30,9 +31,7 @@ export function Test3DGameScreen({ level, onBack }: Test3DGameScreenProps) {
     scene.background = new THREE.Color(0x05030b);
     scene.fog = new THREE.Fog(0x05030b, 8, 18);
 
-    const camera = new THREE.PerspectiveCamera(48, 1, 0.01, 100);
-    camera.position.set(0, 4.15, 8.6);
-    camera.lookAt(0, -0.65, -1.5);
+    const camera = createPlayfieldCamera();
 
     const renderer = new THREE.WebGLRenderer({ antialias: false, precision: "mediump" });
     renderer.setPixelRatio(1);
@@ -143,8 +142,7 @@ export function Test3DGameScreen({ level, onBack }: Test3DGameScreenProps) {
       const { width, height } = entry.contentRect;
       renderer.setSize(width, height, false);
       composer.setSize(width, height);
-      camera.aspect = width / Math.max(height, 1);
-      camera.updateProjectionMatrix();
+      resizePlayfieldCamera(camera, width, height);
     });
     resize.observe(stage);
 
@@ -175,7 +173,7 @@ export function Test3DGameScreen({ level, onBack }: Test3DGameScreenProps) {
   return (
     <main className="test-3d-game-screen">
       <div className="test-3d-game-stage" ref={stageRef} />
-      <div className="test-3d-game-pixi">
+      <div className="test-3d-game-playfield">
         <GameScreen
           cameraInput={cameraInput}
           level={level}

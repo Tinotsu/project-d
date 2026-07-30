@@ -5,7 +5,7 @@ import { Button } from "./components/ui/button.tsx";
 import { GameSession, type GameSnapshot } from "./game-session.ts";
 import type { InputFrame } from "./foot-pose.ts";
 import type { LoadedLevel } from "./level.ts";
-import { PixiPlayfield } from "./pixi-playfield.ts";
+import { ThreePlayfield } from "./three-playfield.ts";
 
 type GameScreenProps = {
   cameraInput: CameraInput;
@@ -16,7 +16,7 @@ type GameScreenProps = {
 
 export function GameScreen({ cameraInput, level, onExit, onFinish }: GameScreenProps) {
   const mountRef = useRef<HTMLDivElement>(null);
-  const playfieldRef = useRef<PixiPlayfield | undefined>(undefined);
+  const playfieldRef = useRef<ThreePlayfield | undefined>(undefined);
   const started = useRef(false);
   const finished = useRef(false);
   const session = useMemo(() => new GameSession(level), [level]);
@@ -27,10 +27,10 @@ export function GameScreen({ cameraInput, level, onExit, onFinish }: GameScreenP
 
   useEffect(() => {
     let cancelled = false;
-    let playfield: PixiPlayfield | undefined;
+    let playfield: ThreePlayfield | undefined;
 
     Promise.all([
-      PixiPlayfield.create(mountRef.current!, level.chart).then((created) => {
+      ThreePlayfield.create(mountRef.current!, level.chart).then((created) => {
         playfield = created;
         playfieldRef.current = created;
       }),
@@ -83,8 +83,9 @@ export function GameScreen({ cameraInput, level, onExit, onFinish }: GameScreenP
   const receiveFrame = useCallback((frame: InputFrame) => {
     const results = session.submit(frame);
     if (results.length) {
-      results.forEach((result) => playfieldRef.current?.showResult(result));
-      setHud(session.snapshot());
+      const snapshot = session.snapshot();
+      results.forEach((result) => playfieldRef.current?.showResult(result, snapshot.combo));
+      setHud(snapshot);
     }
   }, [session]);
 
@@ -136,7 +137,7 @@ export function GameScreen({ cameraInput, level, onExit, onFinish }: GameScreenP
 
       <div className="game-layout">
         <section className="playfield-shell">
-          <div ref={mountRef} className="pixi-stage" />
+          <div ref={mountRef} className="three-playfield-stage" />
           {!hud.running && (
             <div className="game-overlay">
               <strong>{error ? "Level unavailable" : ready ? "Ready" : "Loading level…"}</strong>

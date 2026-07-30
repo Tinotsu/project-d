@@ -10,8 +10,8 @@ import { initialCameraSnapshot, type CameraInput, type CameraSnapshot } from "./
 import { Button } from "./components/ui/button.tsx";
 import type { InputFrame } from "./foot-pose.ts";
 import type { LoadedLevel } from "./level.ts";
-import { PixiPlayfield } from "./pixi-playfield.ts";
 import { RhythmEngine, type ChartNote, type Judgement, type NoteType } from "./rhythm-engine.ts";
+import { ThreePlayfield } from "./three-playfield.ts";
 
 const noteTime = 10;
 
@@ -51,7 +51,7 @@ export function MovementTestScreen({
   onCalibrationChange,
 }: MovementTestScreenProps) {
   const mountRef = useRef<HTMLDivElement>(null);
-  const playfieldRef = useRef<PixiPlayfield | undefined>(undefined);
+  const playfieldRef = useRef<ThreePlayfield | undefined>(undefined);
   const attemptRef = useRef<Attempt | null>(null);
   const [ready, setReady] = useState(false);
   const [snapshot, setSnapshot] = useState(initialCameraSnapshot);
@@ -110,8 +110,8 @@ export function MovementTestScreen({
 
   useEffect(() => {
     let cancelled = false;
-    let playfield: PixiPlayfield | undefined;
-    PixiPlayfield.create(mountRef.current!, chart).then((created) => {
+    let playfield: ThreePlayfield | undefined;
+    ThreePlayfield.create(mountRef.current!, chart).then((created) => {
       if (cancelled) created.destroy();
       else {
         playfield = created;
@@ -239,7 +239,7 @@ export function MovementTestScreen({
 
       <div className="game-layout">
         <section className="playfield-shell">
-          <div ref={mountRef} className="pixi-stage" />
+          <div ref={mountRef} className="three-playfield-stage" />
           {!ready && (
             <div className="game-overlay">
               <strong>{error ? "Playfield unavailable" : "Loading playfield…"}</strong>
