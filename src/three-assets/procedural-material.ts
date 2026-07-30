@@ -1,47 +1,42 @@
 import * as THREE from "three";
-import { footBasePatternShader } from "./foot-base.ts";
-import {
-  normalStepColors,
-  normalStepPatternShader,
-  type StepFoot,
-} from "./normal-step.ts";
+import type {
+  ProceduralAssetKind,
+  StepFoot,
+} from "./procedural-asset-definitions.ts";
 
-export type ProceduralAssetKind =
-  | "step"
-  | "foot-base"
-  | "foot"
-  | "track"
-  | "jump-base"
-  | "jump"
-  | "slide"
-  | "stay"
-  | "vertical-slide";
+const footBasePatternShader = `
+  vec3 footBasePattern(vec2 assetUv) {
+    float gradient = clamp(
+      1.01 - assetUv.x * 1.9 - assetUv.y * 0.061,
+      0.0,
+      1.0
+    );
 
-export type ProceduralAssetDefinition = {
-  id: string;
-  label: string;
-  kind: ProceduralAssetKind;
-  foot?: StepFoot;
-  source: string;
-  width: number;
-  height: number;
-};
+    vec2 dotCell = fract(assetUv * vec2(60.6, 10.4)) - 0.5;
+    float dotMask = 1.0 - smoothstep(0.27, 0.31, length(dotCell));
 
-export const proceduralAssets: ProceduralAssetDefinition[] = [
-  { id: "left-step", label: "Left step", kind: "step", foot: "left", source: "left base.svg", width: 152, height: 102 },
-  { id: "right-step", label: "Right step", kind: "step", foot: "right", source: "right base.svg", width: 152, height: 102 },
-  { id: "foot-base", label: "Foot base", kind: "foot-base", source: "foot base.svg", width: 606, height: 104 },
-  { id: "foot", label: "Tracked foot", kind: "foot", source: "foot.svg", width: 100, height: 100 },
-  { id: "track", label: "Track", kind: "track", source: "pist.svg", width: 400, height: 1200 },
-  { id: "jump-base", label: "Jump base", kind: "jump-base", source: "jump base.svg", width: 600, height: 100 },
-  { id: "jump", label: "Jump indicator", kind: "jump", source: "jump.svg", width: 600, height: 200 },
-  { id: "left-slide", label: "Left slide", kind: "slide", foot: "left", source: "left slide.svg", width: 200, height: 300 },
-  { id: "right-slide", label: "Right slide", kind: "slide", foot: "right", source: "right slide.svg", width: 200, height: 300 },
-  { id: "left-stay", label: "Left stay", kind: "stay", foot: "left", source: "left stay.svg", width: 150, height: 300 },
-  { id: "right-stay", label: "Right stay", kind: "stay", foot: "right", source: "right stay.svg", width: 150, height: 300 },
-  { id: "left-vertical-slide", label: "Left vertical slide", kind: "vertical-slide", foot: "left", source: "horizontal left slide.svg", width: 150, height: 300 },
-  { id: "right-vertical-slide", label: "Right vertical slide", kind: "vertical-slide", foot: "right", source: "horizontal right slide.svg", width: 150, height: 300 },
-];
+    vec3 color = mix(vec3(0.0), vec3(0.5725), gradient);
+    return mix(color, vec3(0.976), dotMask * 0.05);
+  }
+`;
+
+const normalStepPatternShader = `
+  vec3 normalStepPattern(
+    vec2 assetUv,
+    float time,
+    vec3 edgeColor,
+    vec3 centerColor
+  ) {
+    float wave = 0.5 + 0.5 * cos((assetUv.y + time * 0.3) * 6.28318530718);
+    wave = smoothstep(0.12, 0.88, wave);
+
+    vec2 dotCell = fract(assetUv * vec2(10.0, 7.0)) - 0.5;
+    float dotMask = 1.0 - smoothstep(0.16, 0.23, length(dotCell));
+
+    vec3 color = mix(edgeColor, centerColor, wave);
+    return mix(color, vec3(0.976), dotMask * 0.2);
+  }
+`;
 
 const assetShaderHelpers = `
   float roundedBoxDistance(vec2 point, vec2 halfSize, float radius) {
@@ -222,6 +217,10 @@ function footColors(foot: StepFoot): [number, number] {
   return foot === "left" ? [0xfaf600, 0xfc2500] : [0x00f7fa, 0x0532fa];
 }
 
+function normalStepColors(foot: StepFoot): [number, number] {
+  return foot === "left" ? [0xfaf600, 0xfc2500] : [0x0532fa, 0x00f7fa];
+}
+
 export function createProceduralMaterial(
   kind: ProceduralAssetKind,
   foot: StepFoot = "left",
@@ -298,51 +297,4 @@ export function createProceduralMaterial(
     depthWrite: false,
     toneMapped: false,
   });
-}
-
-export type ProceduralAssetPreview = {
-  group: THREE.Group;
-  dispose: () => void;
-  update: (elapsed: number) => void;
-};
-
-export function createProceduralAssetPreview(
-  definition: ProceduralAssetDefinition,
-): ProceduralAssetPreview {
-  const group = new THREE.Group();
-  const scale = 3.5 / Math.max(definition.width / definition.height, 1);
-  const width = definition.width / definition.height * scale;
-  const height = scale;
-  const faceGeometry = new THREE.PlaneGeometry(width, height);
-  const faceMaterial = createProceduralMaterial(definition.kind, definition.foot);
-  const face = new THREE.Mesh(faceGeometry, faceMaterial);
-  face.position.z = 0.071;
-  group.add(face);
-
-  const hasBody = !["foot", "jump", "stay"].includes(definition.kind);
-  const bodyGeometry = hasBody ? new THREE.BoxGeometry(width, height, 0.14) : undefined;
-  const bodyMaterial = hasBody
-    ? new THREE.MeshStandardMaterial({
-      color: definition.kind === "track" ? 0x07130d : 0xf9f9f9,
-      metalness: 0.05,
-      roughness: 0.3,
-    })
-    : undefined;
-  if (bodyGeometry && bodyMaterial) group.add(new THREE.Mesh(bodyGeometry, bodyMaterial));
-
-  return {
-    group,
-    update(elapsed) {
-      faceMaterial.uniforms.time.value = elapsed;
-      group.position.y = Math.sin(elapsed * 1.35) * 0.07;
-      group.rotation.x = -0.1 + Math.sin(elapsed * 0.65) * 0.025;
-      group.rotation.y = Math.sin(elapsed * 0.5) * 0.14;
-    },
-    dispose() {
-      faceGeometry.dispose();
-      faceMaterial.dispose();
-      bodyGeometry?.dispose();
-      bodyMaterial?.dispose();
-    },
-  };
 }

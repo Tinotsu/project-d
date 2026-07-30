@@ -10,10 +10,8 @@ import {
   type Judgement,
   type JudgementResult,
 } from "./rhythm-engine.ts";
-import {
-  createProceduralMaterial,
-  type ProceduralAssetKind,
-} from "./three-assets/procedural-assets.ts";
+import type { ProceduralAssetKind } from "./three-assets/procedural-asset-definitions.ts";
+import { createProceduralMaterial } from "./three-assets/procedural-material.ts";
 
 export const gameWidth = 1280;
 export const gameHeight = 720;

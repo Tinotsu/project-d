@@ -2,11 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { Button } from "./components/ui/button.tsx";
 import {
-  createProceduralAssetPreview,
   proceduralAssets,
   type ProceduralAssetDefinition,
+} from "./three-assets/procedural-asset-definitions.ts";
+import {
+  createProceduralAssetPreview,
   type ProceduralAssetPreview,
-} from "./three-assets/procedural-assets.ts";
+} from "./three-assets/procedural-asset-preview.ts";
 
 export function AssetsScreen() {
   const mountRef = useRef<HTMLDivElement>(null);
@@ -114,8 +116,8 @@ export function AssetsScreen() {
             <strong>{selected.label}</strong>
           </div>
           <div>
-            <small>REPLACES</small>
-            <strong>{selected.source}</strong>
+            <small>SIZE</small>
+            <strong>{selected.width} × {selected.height}</strong>
           </div>
         </div>
 
@@ -140,7 +142,7 @@ export function AssetsScreen() {
         </div>
       </section>
 
-      <p className="asset-progress">13 procedural variants · 13 of 13 SVG sources replaced</p>
+      <p className="asset-progress">{proceduralAssets.length} procedural variants</p>
     </main>
   );
 }
