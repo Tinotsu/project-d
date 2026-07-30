@@ -63,8 +63,8 @@ foot-pose/
 Convert both splits. The converter also writes `foot-pose.yaml` with the correct dataset path:
 
 ```bash
-python3 scripts/convert_cmu_to_yolo_pose.py person_keypoints_train2017_foot_v1.json /path/to/foot-pose train2017
-python3 scripts/convert_cmu_to_yolo_pose.py person_keypoints_val2017_foot_v1.json /path/to/foot-pose val2017
+python3 tools/foot_pose/convert_cmu.py person_keypoints_train2017_foot_v1.json /path/to/foot-pose train2017
+python3 tools/foot_pose/convert_cmu.py person_keypoints_val2017_foot_v1.json /path/to/foot-pose val2017
 ```
 
 The generated image lists include only CMU-annotated COCO images. Train and export a small pose model with Ultralytics:
@@ -95,15 +95,25 @@ Feet outside this rectangle are reported as `OUTSIDE`.
 
 Song metadata is shared in `public/levels/second-heaven/song.json`. The separate difficulty chart in `public/levels/second-heaven/test.json` contains the level settings, timing grid, playfield, notes, and visual-effect settings. Note times are seconds from the start of the decoded audio.
 
-The game uses Web Audio's context clock for gameplay timing and PixiJS for the playfield. Scoring is independent from rendering in `src/rhythm-engine.ts`. The chart editor can capture the current audio time, edit notes and timing, and download the resulting level JSON.
+The game uses Web Audio's context clock for gameplay timing and Three.js for the playfield. Scoring is independent from rendering in `src/domain/scoring/rhythm-engine.ts`. The chart editor can capture the current audio time, edit notes and timing, and save the resulting level in the browser.
 
 ## Application structure
 
-- React owns level selection, calibration, results, and chart editing.
-- `src/game-session.ts` coordinates the audio clock and deterministic rhythm engine.
-- `src/camera-input.ts` owns camera capture, calibration, and timestamped pose frames.
-- `src/pixi-playfield.ts` renders the playfield and the SVG note assets.
-- `src/level.ts` loads song metadata and level charts.
+- `src/app` owns application startup, routes, navigation, and application-level screens.
+- `src/domain` contains chart types, floor calibration, note geometry, and deterministic scoring.
+- `src/features` groups camera, gameplay, level-library, editor, and diagnostic screens.
+- `src/infrastructure` contains Web Audio and ONNX pose-detection adapters.
+- `src/rendering` contains the Three.js playfield and procedural shader assets.
+- `src/shared` contains reusable UI components; `src/styles` contains application styles.
+- `tools/foot_pose` contains model-training conversion utilities and their Python tests.
+
+## Test
+
+Run all TypeScript and Python tests:
+
+```bash
+npm run test:all
+```
 
 ## Current scope
 

@@ -6,8 +6,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && rm -rf dist && vite build && mkdir -p dist/server && cp sites-worker.js dist/server/index.js",
-    "test": "vitest run"
+    "build": "tsc --noEmit && rm -rf dist && vite build && mkdir -p dist/server && cp server/sites-worker.js dist/server/index.js",
+    "test": "vitest run",
+    "test:python": "python3 -m unittest discover -s tools/foot_pose/tests -v",
+    "test:all": "npm test && npm run test:python"
   },
   "dependencies": {
     "onnxruntime-web": "^1.27.0",
