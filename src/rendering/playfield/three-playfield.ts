@@ -48,7 +48,12 @@ type NoteView = {
 };
 
 export function noteTravelProgress(timeUntil: number, travelTime: number): number {
-  return Math.max(0, 1 - timeUntil / travelTime) ** 1.65;
+  return Math.min(1, Math.max(0, 1 - timeUntil / travelTime)) ** 1.65;
+}
+
+export function verticalSlideLaneAtTime(note: ChartNote, time: number): number {
+  const progress = Math.min(1, Math.max(0, (time - note.time) / (note.duration ?? 1)));
+  return note.lane! + (note.endLane! - note.lane!) * progress;
 }
 
 export class ThreePlayfield {
@@ -236,32 +241,32 @@ export class ThreePlayfield {
     if (note.type === "JUMP") {
       return {
         note,
-        warped: this.createProceduralSprite("jump-base", 600, 100, normalUvs, 3),
-        flat: this.createProceduralSprite("jump", 600, 200, normalUvs, 4),
+        warped: this.createProceduralSprite("jump-base", 600, 100, normalUvs, 3, "left", true),
+        flat: this.createProceduralSprite("jump", 600, 200, normalUvs, 4, "left", true),
       };
     }
     if (note.type === "HORIZONTAL_SLIDE") {
       const uvs = note.endLane! < note.lane! ? leftSlideUvs : rightSlideUvs;
       return {
         note,
-        warped: this.createProceduralSprite("slide", 300, 200, uvs, 3, foot),
+        warped: this.createProceduralSprite("slide", 300, 200, uvs, 3, foot, true),
       };
     }
     if (note.type === "STAY") {
       return {
         note,
-        warped: this.createProceduralSprite("stay", 150, 300, normalUvs, 3, foot),
+        warped: this.createProceduralSprite("stay", 150, 300, normalUvs, 3, foot, true),
       };
     }
     if (note.type === "VERTICAL_SLIDE") {
       return {
         note,
-        warped: this.createProceduralSprite("vertical-slide", 150, 300, normalUvs, 3, foot),
+        warped: this.createProceduralSprite("vertical-slide", 150, 300, normalUvs, 3, foot, true),
       };
     }
     return {
       note,
-      warped: this.createProceduralSprite("step", 152, 102, normalUvs, 3, foot),
+      warped: this.createProceduralSprite("step", 152, 102, normalUvs, 3, foot, true),
     };
   }
 
@@ -272,8 +277,12 @@ export class ThreePlayfield {
     uvs: Quad,
     renderOrder: number,
     foot: "left" | "right" = "left",
+    clipToTrack = false,
   ): WarpedSprite {
-    const mesh = new THREE.Mesh(createQuadGeometry(), createProceduralMaterial(kind, foot, true));
+    const mesh = new THREE.Mesh(
+      createQuadGeometry(),
+      createProceduralMaterial(kind, foot, true, clipToTrack ? [horizonY, hitY] : undefined),
+    );
     mesh.renderOrder = renderOrder;
     this.scene.add(mesh);
     return { mesh, width, height, uvs };
@@ -283,7 +292,7 @@ export class ThreePlayfield {
     const timeUntil = view.note.time - songTime;
     if (
       timeUntil > this.chart.playfield.travelTime
-      || timeUntil < -this.chart.playfield.travelTime
+      || timeUntil < 0
     ) {
       this.setNoteVisible(view, false);
       return;
@@ -294,7 +303,7 @@ export class ThreePlayfield {
     if (view.flat) view.flat.mesh.material.uniforms.time.value = songTime;
     const [startLane, endLane] = this.noteSpan(view.note);
     const bottom = this.placeWarpedSprite(view.warped, startLane, endLane, progress);
-    view.warped.mesh.visible = bottom.topY < gameHeight;
+    view.warped.mesh.visible = true;
 
     if (!view.flat) return;
     const scale = this.laneSpan(startLane, endLane, Math.min(1, progress)).width
@@ -307,7 +316,7 @@ export class ThreePlayfield {
       view.flat,
       rectangleQuad(centerX - width / 2, arrowBaseY - height, width, height),
     );
-    view.flat.mesh.visible = arrowBaseY - height < gameHeight;
+    view.flat.mesh.visible = true;
   }
 
   private renderSustainedNote(view: NoteView, songTime: number): void {
@@ -316,7 +325,7 @@ export class ThreePlayfield {
     const endTimeUntil = note.time + (note.duration ?? 1) - songTime;
     if (
       timeUntil > this.chart.playfield.travelTime
-      || endTimeUntil < -this.chart.playfield.travelTime
+      || endTimeUntil < 0
     ) {
       this.setNoteVisible(view, false);
       return;
@@ -324,11 +333,12 @@ export class ThreePlayfield {
 
     const startProgress = noteTravelProgress(timeUntil, this.chart.playfield.travelTime);
     const endProgress = noteTravelProgress(endTimeUntil, this.chart.playfield.travelTime);
-    const progress = Math.min(1, Math.max(0, (songTime - note.time) / (note.duration ?? 1)));
     const startLane = note.type === "VERTICAL_SLIDE"
-      ? note.lane! + (note.endLane! - note.lane!) * progress
+      ? verticalSlideLaneAtTime(note, songTime)
       : note.lane!;
-    const endLane = note.type === "VERTICAL_SLIDE" ? note.endLane! : startLane;
+    const endLane = note.type === "VERTICAL_SLIDE"
+      ? verticalSlideLaneAtTime(note, songTime + this.chart.playfield.travelTime)
+      : startLane;
     const top = this.laneSpan(endLane, endLane, endProgress);
     const bottom = this.laneSpan(startLane, startLane, startProgress);
     view.warped.mesh.material.uniforms.time.value = songTime;
@@ -344,7 +354,7 @@ export class ThreePlayfield {
       [bottom.right, bottom.y],
       [bottom.left, bottom.y],
     ]);
-    view.warped.mesh.visible = Math.min(top.y, bottom.y) < gameHeight;
+    view.warped.mesh.visible = true;
   }
 
   private placeWarpedSprite(

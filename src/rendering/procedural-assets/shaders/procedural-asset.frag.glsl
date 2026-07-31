@@ -6,6 +6,7 @@ uniform float time;
 uniform vec3 hU;
 uniform vec3 hV;
 uniform vec3 hW;
+uniform vec2 clipY;
 
 #ifdef WARPED
 varying vec2 logicalPosition;
@@ -96,6 +97,10 @@ vec3 normalStepPattern(
 
 void main() {
 #ifdef WARPED
+  #ifdef TRACK_CLIPPED
+  if (logicalPosition.y < clipY.x || logicalPosition.y > clipY.y) discard;
+  #endif
+
   vec3 point = vec3(logicalPosition, 1.0);
   float denominator = dot(hW, point);
   vec2 assetUv = vec2(dot(hU, point), dot(hV, point)) / denominator;

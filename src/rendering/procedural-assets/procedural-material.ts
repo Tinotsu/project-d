@@ -30,6 +30,7 @@ export function createProceduralMaterial(
   kind: ProceduralAssetKind,
   foot: StepFoot = "left",
   warped = false,
+  clipY?: [number, number],
 ): THREE.ShaderMaterial {
   const colorFoot = kind === "jump" || kind === "jump-base" ? "right" : foot;
   const [primaryColor, secondaryColor] = footColors(colorFoot);
@@ -43,11 +44,13 @@ export function createProceduralMaterial(
     hU: { value: new THREE.Vector3() },
     hV: { value: new THREE.Vector3() },
     hW: { value: new THREE.Vector3() },
+    clipY: { value: new THREE.Vector2(...(clipY ?? [0, 0])) },
   };
   return new THREE.ShaderMaterial({
     defines: {
       ASSET_KIND: assetKindIds[kind],
       ...(warped ? { WARPED: 1 } : {}),
+      ...(clipY ? { TRACK_CLIPPED: 1 } : {}),
     },
     uniforms,
     vertexShader,
