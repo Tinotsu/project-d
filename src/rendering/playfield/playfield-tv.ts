@@ -1,9 +1,5 @@
 import * as THREE from "three";
 import type { GLTF } from "three/addons/loaders/GLTFLoader.js";
-import floorFragmentShader from "./shaders/scene-floor.frag.glsl?raw";
-import floorVertexShader from "./shaders/scene-floor.vert.glsl?raw";
-import starsFragmentShader from "./shaders/scene-stars.frag.glsl?raw";
-import starsVertexShader from "./shaders/scene-stars.vert.glsl?raw";
 
 const tvVideoUrl = "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4";
 
@@ -33,7 +29,6 @@ export function createPlayfieldScene(
 
   const model = gltf.scene;
   removeDuplicateGroups(model);
-  setFloorShader(model);
 
   const tv = requireObject(model, "TV");
   const videoScreen = requireObject(model, "video_screen");
@@ -53,7 +48,7 @@ export function createPlayfieldScene(
   setScreenColor(verticalScreen, "screen2", 0x22d3ee);
   setScreenColor(verticalScreen, "screen3", 0xff4fd8);
 
-  scene.add(model, createStarfield(), new THREE.HemisphereLight(0xffffff, 0x30274a, 1.2));
+  scene.add(model, new THREE.HemisphereLight(0xffffff, 0x30274a, 1.2));
   const light = new THREE.DirectionalLight(0xffffff, 2);
   light.position.set(-8, 12, 8);
   light.target.position.set(0, 0, -18);
@@ -68,35 +63,6 @@ export function createPlayfieldScene(
   });
   void video.play().catch(() => undefined);
   return { video, texture, mixer };
-}
-
-function setFloorShader(model: THREE.Object3D): void {
-  const material = new THREE.ShaderMaterial({
-    vertexShader: floorVertexShader,
-    fragmentShader: floorFragmentShader,
-    side: THREE.DoubleSide,
-    toneMapped: false,
-  });
-  for (let lane = 1; lane <= 4; lane++) {
-    const mesh = requireObject(model, `lane${lane}`);
-    if (!(mesh instanceof THREE.Mesh)) throw new Error(`The scene lane${lane} is not a mesh.`);
-    mesh.material = material;
-  }
-}
-
-function createStarfield(): THREE.Mesh {
-  const stars = new THREE.Mesh(
-    new THREE.SphereGeometry(500, 64, 32),
-    new THREE.ShaderMaterial({
-      vertexShader: starsVertexShader,
-      fragmentShader: starsFragmentShader,
-      side: THREE.BackSide,
-      depthWrite: false,
-      toneMapped: false,
-    }),
-  );
-  stars.renderOrder = -1;
-  return stars;
 }
 
 function removeDuplicateGroups(model: THREE.Object3D): void {
