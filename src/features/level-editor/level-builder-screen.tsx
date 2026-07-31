@@ -66,11 +66,18 @@ type SelectionDrag = TimelineSelection & {
 };
 
 const timelineWheelZoomThreshold = 25;
+const timelineZoomStorageKey = "floorrush-level-builder-zoom";
+const timelineZoomLevels = [0.02, 0.05, 0.1, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.25, 2.5, 2.75, 3];
+
+function loadTimelineZoom(): number {
+  if (typeof localStorage === "undefined") return 1;
+  const savedZoom = Number(localStorage.getItem(timelineZoomStorageKey));
+  return timelineZoomLevels.includes(savedZoom) ? savedZoom : 1;
+}
 
 export function LevelBuilder({ level, onBack, onSave, onTest, onPlay }: LevelBuilderProps) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
-  const zoomRef = useRef(1);
   const wheelZoomDeltaRef = useRef(0);
   const noteDragRef = useRef<NoteDrag | undefined>(undefined);
   const sustainedNoteResizeRef = useRef<SustainedNoteResize | undefined>(undefined);
@@ -80,24 +87,27 @@ export function LevelBuilder({ level, onBack, onSave, onTest, onPlay }: LevelBui
   const [song, setSong] = useState<SongMetadata>(() => ({ ...level.song }));
   const [audioBlob, setAudioBlob] = useState(level.audioBlob);
   const [title, setTitle] = useState(level.song.title);
+  const [endTime, setEndTime] = useState(() => level.chart.level.endTime || Math.max(30, Math.ceil(level.song.duration || 60)));
   const [peaks, setPeaks] = useState<number[]>([]);
   const [playhead, setPlayhead] = useState(0);
-  const [zoom, setZoom] = useState(1);
+  const [zoom, setZoom] = useState(loadTimelineZoom);
+  const zoomRef = useRef(zoom);
   const [menu, setMenu] = useState<BuilderMenu>();
   const [selectedNoteIds, setSelectedNoteIds] = useState<string[]>([]);
   const [draggingNoteIds, setDraggingNoteIds] = useState<string[]>([]);
   const [selectionBox, setSelectionBox] = useState<TimelineSelection>();
   const [clipboard, setClipboard] = useState<ChartNote[]>([]);
   const [status, setStatus] = useState("");
+  const [leftPanelWidth, setLeftPanelWidth] = useState(250);
+  const [rightPanelWidth, setRightPanelWidth] = useState(320);
 
-  const duration = Math.max(30, Math.ceil(song.duration || chart.level.endTime || 60));
+  const duration = endTime;
   const pixelsPerSecond = timelinePixelsPerSecond(zoom);
   const timelineHeight = Math.max(1500, duration * pixelsPerSecond);
   const notes = useMemo(() => [...chart.notes].sort((left, right) => right.time - left.time), [chart.notes]);
   const moveCount = notes.filter((note) => note.type !== "STAY").length;
   const stayCount = notes.length - moveCount;
   const navigationNotes = useMemo(() => timelineNavigationNotes(chart.notes), [chart.notes]);
-  const selectedNote = chart.notes.find((note) => note.id === selectedNoteIds.at(-1));
   const markers = Array.from({ length: Math.floor(duration / 5) + 1 }, (_, index) => index * 5);
 
   useEffect(() => {
@@ -172,10 +182,29 @@ export function LevelBuilder({ level, onBack, onSave, onTest, onPlay }: LevelBui
       audioBlob,
       chart: {
         ...chart,
-        level: { ...chart.level, id, endTime: song.duration || chart.level.endTime },
+        level: { ...chart.level, id, endTime },
         notes: [...chart.notes].sort((left, right) => left.time - right.time),
       },
     };
+  }
+
+  function startPanelResize(event: React.PointerEvent<HTMLDivElement>, panel: "left" | "right"): void {
+    event.preventDefault();
+    const startX = event.clientX;
+    const startWidth = panel === "left" ? leftPanelWidth : rightPanelWidth;
+    const resize = (moveEvent: PointerEvent) => {
+      const delta = moveEvent.clientX - startX;
+      const nextWidth = panel === "left" ? startWidth + delta : startWidth - delta;
+      (panel === "left" ? setLeftPanelWidth : setRightPanelWidth)(Math.max(180, Math.min(520, nextWidth)));
+    };
+    const stop = () => {
+      window.removeEventListener("pointermove", resize);
+      window.removeEventListener("pointerup", stop);
+      window.removeEventListener("pointercancel", stop);
+    };
+    window.addEventListener("pointermove", resize);
+    window.addEventListener("pointerup", stop);
+    window.addEventListener("pointercancel", stop);
   }
 
   async function uploadMusic(file: File): Promise<void> {
@@ -186,6 +215,7 @@ export function LevelBuilder({ level, onBack, onSave, onTest, onPlay }: LevelBui
     setSong((current) => ({ ...current, title: nextTitle, audio: audioUrl, duration: buffer.duration }));
     setAudioBlob(file);
     setTitle(nextTitle);
+    setEndTime(Math.max(30, Math.ceil(buffer.duration)));
     setChart((current) => ({ ...current, level: { ...current.level, endTime: buffer.duration } }));
     setPeaks(sampleWaveform(buffer.getChannelData(0), 240));
     setStatus(`${file.name} ready`);
@@ -266,11 +296,11 @@ export function LevelBuilder({ level, onBack, onSave, onTest, onPlay }: LevelBui
     timeline.scrollTop = timeline.scrollHeight - note.time * pixelsPerSecond - timeline.clientHeight / 2;
   }
 
-  function changeTimelineZoom(direction: "in" | "out" | "normal", anchorY?: number): void {
+  function changeTimelineZoom(direction: "in" | "out", anchorY?: number): void {
     const timeline = timelineRef.current;
     if (!timeline) return;
     const currentZoom = zoomRef.current;
-    const nextZoom = direction === "normal" ? 1 : nextTimelineZoom(currentZoom, direction);
+    const nextZoom = nextTimelineZoom(currentZoom, direction);
     if (nextZoom === currentZoom) return;
 
     const oldScrollHeight = timeline.scrollHeight;
@@ -278,6 +308,7 @@ export function LevelBuilder({ level, onBack, onSave, onTest, onPlay }: LevelBui
     const zoomAnchorY = anchorY ?? timeline.clientHeight / 2;
 
     zoomRef.current = nextZoom;
+    localStorage.setItem(timelineZoomStorageKey, String(nextZoom));
     flushSync(() => setZoom(nextZoom));
     timeline.scrollTop = timelineScrollTopAfterZoom(
       oldScrollHeight,
@@ -496,7 +527,7 @@ export function LevelBuilder({ level, onBack, onSave, onTest, onPlay }: LevelBui
       </header>
 
       <div className="builder-workspace">
-        <aside className="builder-side builder-audio">
+        <aside className="builder-side builder-audio" style={{ width: leftPanelWidth }}>
           <section>
             <div className="builder-section-heading">
               <span>MUSIC</span>
@@ -546,25 +577,11 @@ export function LevelBuilder({ level, onBack, onSave, onTest, onPlay }: LevelBui
             <div className="builder-section-heading"><span>LEVEL DETAILS</span></div>
             <label>BPM<input type="number" min="1" value={chart.timing.bpm} onChange={(event) => setChart({ ...chart, timing: { ...chart.timing, bpm: event.target.valueAsNumber } })} /></label>
             <label>Offset<input type="number" step="0.001" value={chart.timing.offset} onChange={(event) => setChart({ ...chart, timing: { ...chart.timing, offset: event.target.valueAsNumber } })} /></label>
-            <label>Difficulty
-              <select value={chart.level.difficulty} onChange={(event) => setChart({ ...chart, level: { ...chart.level, difficulty: event.target.value } })}>
-                <option>Easy</option>
-                <option>Normal</option>
-                <option>Hard</option>
-                <option>Expert</option>
-              </select>
-            </label>
           </section>
 
-          <section className="builder-legend">
-            <div className="builder-section-heading"><span>QUICK GUIDE</span></div>
-            <p><strong>Drag empty space</strong> to select multiple moves.</p>
-            <p><strong>Right-click</strong> any lane to add a move.</p>
-            <p><strong>Drag a selected move</strong> to move the group.</p>
-            <p><strong>Right-click selected moves</strong> to copy, cut, or delete.</p>
-            <div><i className="legend-left" />Left <i className="legend-right" />Right <i className="legend-jump" />Jump</div>
-          </section>
         </aside>
+
+        <div className="panel-resizer" role="separator" aria-orientation="vertical" onPointerDown={(event) => startPanelResize(event, "left")} />
 
         <section className="timeline-panel">
           <div className="timeline-toolbar">
@@ -573,11 +590,9 @@ export function LevelBuilder({ level, onBack, onSave, onTest, onPlay }: LevelBui
               <span>{moveCount} moves · {stayCount} stays · {selectedNoteIds.length} selected · {formatTime(duration)}</span>
             </div>
             <div className="timeline-toolbar-actions">
-              <span className="scroll-hint">CTRL + SCROLL TO ZOOM</span>
               <div className="zoom-controls" aria-label="Timeline zoom">
                 <button type="button" aria-label="Zoom out" onClick={() => changeTimelineZoom("out")}>−</button>
                 <output>{Math.round(zoom * 100)}%</output>
-                <button type="button" className="zoom-normal" onClick={() => changeTimelineZoom("normal")}>Normal</button>
                 <button type="button" aria-label="Zoom in" onClick={() => changeTimelineZoom("in")}>＋</button>
               </div>
               <div className="timeline-navigation" aria-label="Timeline navigation">
@@ -736,11 +751,17 @@ export function LevelBuilder({ level, onBack, onSave, onTest, onPlay }: LevelBui
           </div>
         </section>
 
-        <aside className="builder-side note-inspector">
+        <div className="panel-resizer" role="separator" aria-orientation="vertical" onPointerDown={(event) => startPanelResize(event, "right")} />
+
+        <aside className="builder-side note-inspector" style={{ width: rightPanelWidth }}>
           <div className="builder-section-heading">
             <span>ALL ITEMS</span>
             <small>{notes.length}</small>
           </div>
+          <label className="level-end-time">
+            LEVEL END (SECONDS)
+            <input type="number" min="1" step="0.1" value={endTime} onChange={(event) => setEndTime(event.target.valueAsNumber)} />
+          </label>
           <div className="note-list">
             {notes.length === 0 && <p className="empty-notes">Right-click the timeline to add your first move.</p>}
             {notes.map((note, index) => (
@@ -816,11 +837,6 @@ export function LevelBuilder({ level, onBack, onSave, onTest, onPlay }: LevelBui
               </article>
             ))}
           </div>
-          {selectedNote && (
-            <Button className="inspector-delete" variant="destructive" size="sm" onClick={removeSelectedNotes}>
-              Delete {selectedNoteIds.length} selected {selectedNoteIds.length === 1 ? "item" : "items"}
-            </Button>
-          )}
         </aside>
       </div>
 
@@ -839,15 +855,15 @@ export function LevelBuilder({ level, onBack, onSave, onTest, onPlay }: LevelBui
               Paste {clipboard.length} {clipboard.length === 1 ? "move" : "moves"}
             </button>
           )}
-          <button onClick={() => addNote("LEFT_STEP", menu.lane, menu.laneOffset, menu.time)}><i className="left" /> Left step</button>
-          <button onClick={() => addNote("RIGHT_STEP", menu.lane, menu.laneOffset, menu.time)}><i className="right" /> Right step</button>
-          <button onClick={() => addNote("LEFT_STAY", menu.lane, menu.laneOffset, menu.time)}><i className="left" /> Left stay</button>
-          <button onClick={() => addNote("RIGHT_STAY", menu.lane, menu.laneOffset, menu.time)}><i className="right" /> Right stay</button>
-          <button onClick={() => addNote("LEFT_VERTICAL_SLIDE", menu.lane, menu.laneOffset, menu.time)}><i className="left" /> Left vertical slide</button>
-          <button onClick={() => addNote("RIGHT_VERTICAL_SLIDE", menu.lane, menu.laneOffset, menu.time)}><i className="right" /> Right vertical slide</button>
-          <button onClick={() => addNote("JUMP", menu.lane, menu.laneOffset, menu.time)}><i className="jump" /> Jump</button>
-          <button onClick={() => addNote("HORIZONTAL_SLIDE_LEFT", menu.lane, menu.laneOffset, menu.time)}>↙ Horizontal slide left</button>
-          <button onClick={() => addNote("HORIZONTAL_SLIDE_RIGHT", menu.lane, menu.laneOffset, menu.time)}>↗ Horizontal slide right</button>
+          <button onClick={() => addNote("LEFT_STEP", menu.lane, menu.laneOffset, menu.time)}>Left step</button>
+          <button onClick={() => addNote("RIGHT_STEP", menu.lane, menu.laneOffset, menu.time)}>Right step</button>
+          <button onClick={() => addNote("LEFT_STAY", menu.lane, menu.laneOffset, menu.time)}>Left stay</button>
+          <button onClick={() => addNote("RIGHT_STAY", menu.lane, menu.laneOffset, menu.time)}>Right stay</button>
+          <button onClick={() => addNote("LEFT_VERTICAL_SLIDE", menu.lane, menu.laneOffset, menu.time)}>Left vertical slide</button>
+          <button onClick={() => addNote("RIGHT_VERTICAL_SLIDE", menu.lane, menu.laneOffset, menu.time)}>Right vertical slide</button>
+          <button onClick={() => addNote("JUMP", menu.lane, menu.laneOffset, menu.time)}>Jump</button>
+          <button onClick={() => addNote("HORIZONTAL_SLIDE_LEFT", menu.lane, menu.laneOffset, menu.time)}>Horizontal slide left</button>
+          <button onClick={() => addNote("HORIZONTAL_SLIDE_RIGHT", menu.lane, menu.laneOffset, menu.time)}>Horizontal slide right</button>
         </div>
       )}
 

@@ -150,9 +150,11 @@ button:focus-visible, input:focus-visible, select:focus-visible, audio:focus-vis
 .builder-title > input { width: min(300px, 26vw); border: 0; border-left: 1px solid #343434; padding: 8px 12px; background: transparent; color: #fff; font-size: 17px; font-weight: 700; }
 .builder-title > small { color: #00f300; font-size: 9px; white-space: nowrap; }
 .builder-actions .button { height: 36px; }
-.builder-workspace { display: grid; grid-template-columns: 250px minmax(480px, 1fr) 320px; height: calc(100dvh - 64px); min-height: 0; }
-.builder-side { min-width: 0; overflow-y: auto; background: #090909; }
+.builder-workspace { display: flex; height: calc(100dvh - 64px); min-height: 0; }
+.builder-side { min-width: 0; flex: 0 0 auto; overflow-y: auto; background: #090909; }
 .builder-audio { border-right: 1px solid #343434; }
+.panel-resizer { z-index: 20; width: 5px; flex: 0 0 5px; cursor: col-resize; touch-action: none; }
+.panel-resizer:hover, .panel-resizer:active { background: #555; }
 .builder-side section { border-bottom: 1px solid #292929; padding: 16px; }
 .builder-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
 .builder-section-heading > span { color: #bbb; font-size: 9px; font-weight: 800; letter-spacing: .14em; }
@@ -167,28 +169,18 @@ button:focus-visible, input:focus-visible, select:focus-visible, audio:focus-vis
 .waveform-overview i { flex: 1; min-width: 1px; background: #00f300; opacity: .7; }
 .waveform-overview b { position: absolute; top: 0; bottom: 0; width: 1px; background: #fff; box-shadow: 0 0 6px #fff; }
 .builder-details { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.builder-details .builder-section-heading, .builder-details label:last-child { grid-column: 1 / -1; }
+.builder-details .builder-section-heading { grid-column: 1 / -1; }
 .builder-details label { display: grid; gap: 5px; color: #666; font-size: 9px; }
 .builder-details input, .builder-details select, .note-list input, .note-list select { width: 100%; min-width: 0; border: 1px solid #3c3c3c; border-radius: 4px; padding: 7px; background: #050505; color: #fff; font-size: 11px; }
-.builder-legend p { margin: 7px 0; color: #777; font-size: 10px; line-height: 1.4; }
-.builder-legend p strong { color: #ccc; }
-.builder-legend > div:last-child { display: flex; align-items: center; gap: 5px; margin-top: 13px; color: #666; font-size: 9px; }
-.builder-legend i, .builder-context-menu i { width: 7px; height: 7px; border-radius: 2px; }
-.legend-left, .builder-context-menu i.left { background: #faf600; }
-.legend-right, .builder-context-menu i.right { background: #00f7fa; }
-.legend-jump, .builder-context-menu i.jump { background: #9c45fa; }
-
-.timeline-panel { display: grid; grid-template-rows: 52px 30px minmax(0, 1fr); min-width: 0; min-height: 0; overflow: hidden; background: #030303; }
+.timeline-panel { display: grid; grid-template-rows: 52px 30px minmax(0, 1fr); min-width: 480px; min-height: 0; flex: 1 1 auto; overflow: hidden; background: #030303; }
 .timeline-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid #292929; padding: 0 16px; }
 .timeline-toolbar > div { display: grid; gap: 3px; }
 .timeline-toolbar strong { font-size: 11px; letter-spacing: .08em; }
 .timeline-toolbar span { color: #666; font-size: 9px; }
-.timeline-toolbar .scroll-hint { color: #00f300; font-weight: 700; letter-spacing: .08em; }
 .timeline-toolbar-actions { display: flex !important; align-items: center; gap: 12px !important; }
-.zoom-controls { display: grid; grid-template-columns: 26px 42px 48px 26px; align-items: center; border: 1px solid #3c3c3c; border-radius: 4px; overflow: hidden; }
+.zoom-controls { display: grid; grid-template-columns: 26px 42px 26px; align-items: center; border: 1px solid #3c3c3c; border-radius: 4px; overflow: hidden; }
 .zoom-controls button { height: 26px; border: 0; background: #111; color: #fff; font-size: 15px; }
 .zoom-controls button:hover { background: #2b2b2b; }
-.zoom-controls .zoom-normal { border-right: 1px solid #292929; border-left: 1px solid #292929; color: #aaa; font-size: 9px; }
 .zoom-controls output { color: #aaa; font-family: monospace; font-size: 9px; text-align: center; }
 .timeline-navigation { display: grid; grid-template-columns: repeat(2, 42px); overflow: hidden; border: 1px solid #3c3c3c; border-radius: 4px; }
 .timeline-navigation button { height: 26px; border: 0; background: #111; color: #aaa; font-size: 9px; }
@@ -236,19 +228,13 @@ button:focus-visible, input:focus-visible, select:focus-visible, audio:focus-vis
 .timeline-note.dragging { z-index: 10; cursor: grabbing; opacity: .82; outline-color: #00f300; }
 .timeline-start { position: absolute; z-index: 9; right: 0; bottom: 0; left: 92px; display: flex; justify-content: space-between; border-top: 2px solid #00f300; padding: 5px 8px; background: rgba(0, 40, 0, .88); color: #00f300; font-size: 8px; letter-spacing: .12em; pointer-events: none; }
 
-.note-inspector { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; border-left: 1px solid #343434; padding: 16px 12px 12px; overflow: hidden; }
+.note-inspector { display: grid; grid-template-rows: auto auto minmax(0, 1fr); border-left: 1px solid #343434; padding: 16px 12px 12px; overflow: hidden; }
+.level-end-time { display: grid; gap: 5px; margin-bottom: 12px; color: #666; font-size: 9px; }
+.level-end-time input { width: 100%; min-width: 0; border: 1px solid #3c3c3c; border-radius: 4px; padding: 7px; background: #050505; color: #fff; font-size: 11px; }
 .note-list { min-height: 0; overflow-y: auto; }
 .note-list article { display: grid; grid-template-columns: 30px minmax(72px, 1fr) 76px; align-items: center; gap: 8px; border: 1px solid transparent; border-bottom-color: #292929; padding: 9px 5px; cursor: pointer; }
 .note-list article:hover, .note-list article.selected { border-color: #555; background: #111; }
 .note-index { display: grid; width: 28px; height: 28px; place-items: center; border-radius: 4px; background: #222; color: #aaa; font-size: 9px; font-weight: 800; }
-.note-index.step.left { background: #302f00; color: #faf600; }
-.note-index.step.right { background: #003032; color: #00f7fa; }
-.note-index.jump { background: #210d34; color: #c885ff; }
-.note-index.horizontal_slide { background: #35102c; color: #ff8cdd; }
-.note-index.stay.left { background: #302f00; color: #faf600; }
-.note-index.stay.right { background: #003032; color: #00f7fa; }
-.note-index.vertical_slide.left { background: #302f00; color: #faf600; }
-.note-index.vertical_slide.right { background: #003032; color: #00f7fa; }
 .note-list article > div:nth-child(2) { display: grid; gap: 3px; min-width: 0; text-transform: capitalize; }
 .note-list article strong { overflow: hidden; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .note-list article > div span { color: #666; font-size: 8px; }
@@ -256,7 +242,6 @@ button:focus-visible, input:focus-visible, select:focus-visible, audio:focus-vis
 .note-list article label:last-child { grid-column: 2 / -1; margin-left: 38px; }
 .note-list input, .note-list select { padding: 5px; font-family: monospace; font-size: 9px; }
 .empty-notes { margin: 20px 8px; color: #666; font-size: 11px; line-height: 1.5; text-align: center; }
-.inspector-delete { width: 100%; margin-top: 10px; }
 .builder-context-menu { position: fixed; z-index: 30; display: grid; width: 190px; overflow: hidden; border: 1px solid #666; border-radius: 6px; padding: 5px; background: #111; box-shadow: 0 14px 40px rgba(0,0,0,.8); }
 .builder-context-menu small { border-bottom: 1px solid #292929; padding: 7px 8px; color: #777; font-size: 8px; letter-spacing: .08em; }
 .builder-context-menu button { display: flex; align-items: center; gap: 8px; border: 0; border-radius: 3px; padding: 9px 8px; background: transparent; color: #eee; font-size: 11px; text-align: left; }
@@ -296,6 +281,6 @@ button:focus-visible, input:focus-visible, select:focus-visible, audio:focus-vis
 }
 
 @media (max-width: 1050px) {
-  .builder-workspace { grid-template-columns: 210px minmax(450px, 1fr) 270px; overflow-x: auto; }
+  .builder-workspace { overflow-x: auto; }
   .builder-title > small { display: none; }
 }
