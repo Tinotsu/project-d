@@ -1,11 +1,9 @@
-import { useState } from "react";
 import type { LoadedLevel } from "../../domain/chart/types.ts";
 import { Button } from "../../shared/ui/button.tsx";
 
 type MenuScreenProps = {
   level?: LoadedLevel;
   savedLevels: LoadedLevel[];
-  storedLevelIds: ReadonlySet<string>;
   loadError: string;
   onPlay: () => void;
   onOpenCamera: () => void;
@@ -15,13 +13,11 @@ type MenuScreenProps = {
   onOpenAssets: () => void;
   onPlayLevel: (level: LoadedLevel) => void;
   onEditLevel: (level: LoadedLevel) => void;
-  onDeleteLevel: (level: LoadedLevel) => Promise<void>;
 };
 
 export function MenuScreen({
   level,
   savedLevels,
-  storedLevelIds,
   loadError,
   onPlay,
   onOpenCamera,
@@ -31,24 +27,7 @@ export function MenuScreen({
   onOpenAssets,
   onPlayLevel,
   onEditLevel,
-  onDeleteLevel,
 }: MenuScreenProps) {
-  const [deletingLevelId, setDeletingLevelId] = useState<string>();
-  const [deleteError, setDeleteError] = useState("");
-
-  async function removeLevel(levelToDelete: LoadedLevel): Promise<void> {
-    if (!window.confirm(`Delete “${levelToDelete.song.title}”? This cannot be undone.`)) return;
-    setDeletingLevelId(levelToDelete.song.id);
-    setDeleteError("");
-    try {
-      await onDeleteLevel(levelToDelete);
-    } catch {
-      setDeleteError("Could not delete level");
-    } finally {
-      setDeletingLevelId(undefined);
-    }
-  }
-
   return (
     <main className="menu-screen">
       <h1>Project D</h1>
@@ -74,20 +53,10 @@ export function MenuScreen({
             </div>
             <Button size="sm" onClick={() => onPlayLevel(libraryLevel)}>Play</Button>
             <Button size="sm" variant="outline" onClick={() => onEditLevel(libraryLevel)}>Edit</Button>
-            {storedLevelIds.has(libraryLevel.song.id) && (
-              <Button
-                size="sm"
-                variant="destructive"
-                disabled={deletingLevelId === libraryLevel.song.id}
-                onClick={() => void removeLevel(libraryLevel)}
-              >
-                {deletingLevelId === libraryLevel.song.id ? "Deleting…" : "Delete"}
-              </Button>
-            )}
           </div>
         ))}
       </section>
-      {(loadError || deleteError) && <p className="error-message">{loadError || deleteError}</p>}
+      {loadError && <p className="error-message">{loadError}</p>}
     </main>
   );
 }

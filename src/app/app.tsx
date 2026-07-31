@@ -110,6 +110,7 @@ export function App() {
       <Suspense fallback={<LoadingScreen />}>
         <LevelBuilder
           level={builderLevel}
+          canDelete={storedLevelIds.has(builderLevel.song.id)}
           onBack={() => navigate("menu")}
           onSave={async (savedLevel) => {
             await storeLevel(savedLevel);
@@ -132,6 +133,19 @@ export function App() {
             setLevel(playLevel);
             if (cameraCalibrated && cameraInput) navigate("game");
             else void openSetup();
+          }}
+          onDelete={async () => {
+            await deleteStoredLevel(builderLevel.song.id);
+            const remainingLevels = savedLevels.filter((candidate) => candidate.song.id !== builderLevel.song.id);
+            setSavedLevels(remainingLevels);
+            setStoredLevelIds((current) => {
+              const next = new Set(current);
+              next.delete(builderLevel.song.id);
+              return next;
+            });
+            if (level?.song.id === builderLevel.song.id) setLevel(remainingLevels[0]);
+            setBuilderLevel(remainingLevels[0]);
+            navigate("menu");
           }}
         />
       </Suspense>
@@ -175,7 +189,6 @@ export function App() {
         <MenuScreen
           level={level}
           savedLevels={savedLevels}
-          storedLevelIds={storedLevelIds}
           loadError={loadError}
           onPlay={play}
           onOpenCamera={() => void openSetup()}
@@ -207,18 +220,6 @@ export function App() {
           onEditLevel={(libraryLevel) => {
             setBuilderLevel(structuredClone(libraryLevel));
             navigate("builder");
-          }}
-          onDeleteLevel={async (libraryLevel) => {
-            await deleteStoredLevel(libraryLevel.song.id);
-            const remainingLevels = savedLevels.filter((candidate) => candidate.song.id !== libraryLevel.song.id);
-            setSavedLevels(remainingLevels);
-            setStoredLevelIds((current) => {
-              const next = new Set(current);
-              next.delete(libraryLevel.song.id);
-              return next;
-            });
-            if (level?.song.id === libraryLevel.song.id) setLevel(remainingLevels[0]);
-            if (builderLevel?.song.id === libraryLevel.song.id) setBuilderLevel(remainingLevels[0]);
           }}
         />
       )}

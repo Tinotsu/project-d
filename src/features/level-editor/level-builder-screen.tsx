@@ -24,10 +24,13 @@ import {
   type AddNoteType,
   type TimelineSelection,
 } from "./editor-math.ts";
+import { levelHistoryShortcut } from "./editor-history.ts";
 
 type LevelBuilderProps = {
   level: LoadedLevel;
+  canDelete: boolean;
   onBack: () => void;
+  onDelete: () => Promise<void>;
   onSave: (level: LoadedLevel) => Promise<void>;
   onTest: (level: LoadedLevel) => void;
   onPlay: (level: LoadedLevel) => void;
@@ -38,6 +41,7 @@ type BuilderMenu =
   | { x: number; y: number; mode: "note"; noteId: string };
 
 type NoteDrag = {
+  historyCaptured: boolean;
   notes: ChartNote[];
   pointerId: number;
   x: number;
@@ -46,6 +50,7 @@ type NoteDrag = {
 
 type SustainedNoteResize = {
   edge: "start" | "end";
+  historyCaptured: boolean;
   note: ChartNote;
   pointerId: number;
   y: number;
@@ -53,6 +58,7 @@ type SustainedNoteResize = {
 
 type VerticalSlideTurn = {
   edge: "start" | "end";
+  historyCaptured: boolean;
   note: ChartNote;
   pointerId: number;
   x: number;
@@ -65,7 +71,16 @@ type SelectionDrag = TimelineSelection & {
   startY: number;
 };
 
+type BuilderHistorySnapshot = {
+  chart: LevelChart;
+  song: SongMetadata;
+  audioBlob?: Blob;
+  title: string;
+  endTime: number;
+};
+
 const timelineWheelZoomThreshold = 25;
+const maximumHistoryLength = 100;
 const timelineZoomStorageKey = "floorrush-level-builder-zoom";
 const timelineZoomLevels = [0.02, 0.05, 0.1, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.25, 2.5, 2.75, 3];
 
@@ -75,7 +90,7 @@ function loadTimelineZoom(): number {
   return timelineZoomLevels.includes(savedZoom) ? savedZoom : 1;
 }
 
-export function LevelBuilder({ level, onBack, onSave, onTest, onPlay }: LevelBuilderProps) {
+export function LevelBuilder({ level, canDelete, onBack, onDelete, onSave, onTest, onPlay }: LevelBuilderProps) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
   const wheelZoomDeltaRef = useRef(0);
@@ -87,6 +102,8 @@ export function LevelBuilder({ level, onBack, onSave, onTest, onPlay }: LevelBui
   const saveRevisionRef = useRef(0);
   const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
   const lastSavedSignatureRef = useRef<string | undefined>(undefined);
+  const undoStackRef = useRef<BuilderHistorySnapshot[]>([]);
+  const redoStackRef = useRef<BuilderHistorySnapshot[]>([]);
   const onSaveRef = useRef(onSave);
   onSaveRef.current = onSave;
   const [chart, setChart] = useState<LevelChart>(() => structuredClone(level.chart));
@@ -104,8 +121,13 @@ export function LevelBuilder({ level, onBack, onSave, onTest, onPlay }: LevelBui
   const [selectionBox, setSelectionBox] = useState<TimelineSelection>();
   const [clipboard, setClipboard] = useState<ChartNote[]>([]);
   const [status, setStatus] = useState("");
+  const [deleteConfirmationOpen, setDeleteConfirmationOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
   const [leftPanelWidth, setLeftPanelWidth] = useState(250);
   const [rightPanelWidth, setRightPanelWidth] = useState(320);
+  const historyStateRef = useRef<BuilderHistorySnapshot>({ chart, song, audioBlob, title, endTime });
+  historyStateRef.current = { chart, song, audioBlob, title, endTime };
 
   const duration = endTime;
   const pixelsPerSecond = timelinePixelsPerSecond(zoom);
@@ -115,6 +137,71 @@ export function LevelBuilder({ level, onBack, onSave, onTest, onPlay }: LevelBui
   const stayCount = notes.length - moveCount;
   const navigationNotes = useMemo(() => timelineNavigationNotes(chart.notes), [chart.notes]);
   const markers = Array.from({ length: Math.floor(duration / 5) + 1 }, (_, index) => index * 5);
+
+  function currentHistorySnapshot(): BuilderHistorySnapshot {
+    const current = historyStateRef.current;
+    return {
+      chart: structuredClone(current.chart),
+      song: { ...current.song },
+      audioBlob: current.audioBlob,
+      title: current.title,
+      endTime: current.endTime,
+    };
+  }
+
+  function historySignature(snapshot: BuilderHistorySnapshot): string {
+    return JSON.stringify(snapshot);
+  }
+
+  function pushHistory(stack: BuilderHistorySnapshot[], snapshot: BuilderHistorySnapshot): void {
+    stack.push(snapshot);
+    if (stack.length > maximumHistoryLength) stack.shift();
+  }
+
+  function captureHistory(): void {
+    const snapshot = currentHistorySnapshot();
+    const previous = undoStackRef.current.at(-1);
+    if (!previous || historySignature(previous) !== historySignature(snapshot)) {
+      pushHistory(undoStackRef.current, snapshot);
+    }
+    redoStackRef.current = [];
+  }
+
+  function restoreHistorySnapshot(snapshot: BuilderHistorySnapshot): void {
+    setChart(structuredClone(snapshot.chart));
+    setSong({ ...snapshot.song });
+    setAudioBlob(snapshot.audioBlob);
+    setTitle(snapshot.title);
+    setEndTime(snapshot.endTime);
+    setSelectedNoteIds([]);
+    setMenu(undefined);
+  }
+
+  function undo(): boolean {
+    const current = currentHistorySnapshot();
+    let previous = undoStackRef.current.pop();
+    while (previous && historySignature(previous) === historySignature(current)) {
+      previous = undoStackRef.current.pop();
+    }
+    if (!previous) return false;
+
+    pushHistory(redoStackRef.current, current);
+    restoreHistorySnapshot(previous);
+    return true;
+  }
+
+  function redo(): boolean {
+    const current = currentHistorySnapshot();
+    let next = redoStackRef.current.pop();
+    while (next && historySignature(next) === historySignature(current)) {
+      next = redoStackRef.current.pop();
+    }
+    if (!next) return false;
+
+    pushHistory(undoStackRef.current, current);
+    restoreHistorySnapshot(next);
+    return true;
+  }
 
   useEffect(() => {
     const draft = builtLevel();
@@ -132,6 +219,19 @@ export function LevelBuilder({ level, onBack, onSave, onTest, onPlay }: LevelBui
     }, 800);
     return () => window.clearTimeout(autosaveTimerRef.current);
   }, [audioBlob, chart, endTime, song, title]);
+
+  useEffect(() => {
+    const handleHistoryShortcut = (event: KeyboardEvent) => {
+      if (deleteConfirmationOpen || event.defaultPrevented) return;
+      const shortcut = levelHistoryShortcut(event);
+      if (!shortcut) return;
+
+      const changed = shortcut === "undo" ? undo() : redo();
+      if (changed) event.preventDefault();
+    };
+    window.addEventListener("keydown", handleHistoryShortcut);
+    return () => window.removeEventListener("keydown", handleHistoryShortcut);
+  }, [audioBlob, chart, deleteConfirmationOpen, endTime, song, title]);
 
   useEffect(() => {
     navigateToNote(navigationNotes.first);
@@ -161,7 +261,10 @@ export function LevelBuilder({ level, onBack, onSave, onTest, onPlay }: LevelBui
   }, []);
 
   useEffect(() => {
-    if (!song.audio) return;
+    if (!song.audio) {
+      setPeaks([]);
+      return;
+    }
     let cancelled = false;
     (audioBlob ? audioBlob.arrayBuffer() : fetch(song.audio).then((response) => response.arrayBuffer()))
       .then(async (data) => {
@@ -235,6 +338,7 @@ export function LevelBuilder({ level, onBack, onSave, onTest, onPlay }: LevelBui
     const context = new AudioContext();
     const buffer = await context.decodeAudioData(await file.arrayBuffer());
     const nextTitle = title === "Untitled level" ? file.name.replace(/\.[^.]+$/, "") : title;
+    captureHistory();
     setSong((current) => ({ ...current, title: nextTitle, audio: audioUrl, duration: buffer.duration }));
     setAudioBlob(file);
     setTitle(nextTitle);
@@ -254,12 +358,14 @@ export function LevelBuilder({ level, onBack, onSave, onTest, onPlay }: LevelBui
       Number(time.toFixed(1)),
       laneOffset,
     );
+    captureHistory();
     setChart((current) => ({ ...current, notes: [...current.notes, note] }));
     setSelectedNoteIds([note.id]);
     setMenu(undefined);
   }
 
-  function updateNote(id: string, patch: Partial<ChartNote>): void {
+  function updateNote(id: string, patch: Partial<ChartNote>, recordHistory = true): void {
+    if (recordHistory) captureHistory();
     setChart((current) => ({
       ...current,
       notes: current.notes.map((note) => note.id === id ? { ...note, ...patch } : note),
@@ -267,6 +373,8 @@ export function LevelBuilder({ level, onBack, onSave, onTest, onPlay }: LevelBui
   }
 
   function removeSelectedNotes(): void {
+    if (selectedNoteIds.length === 0) return;
+    captureHistory();
     setChart((current) => ({
       ...current,
       notes: current.notes.filter((note) => !selectedNoteIds.includes(note.id)),
@@ -277,10 +385,11 @@ export function LevelBuilder({ level, onBack, onSave, onTest, onPlay }: LevelBui
 
   function turnSlide(note: ChartNote): void {
     const turned = turnTimelineSlide(note);
+    captureHistory();
     updateNote(note.id, {
       lane: turned.lane,
       endLane: turned.endLane,
-    });
+    }, false);
     setMenu(undefined);
   }
 
@@ -349,6 +458,7 @@ export function LevelBuilder({ level, onBack, onSave, onTest, onPlay }: LevelBui
     event.currentTarget.setPointerCapture(event.pointerId);
     const draggedIds = selectedNoteIds.includes(note.id) ? selectedNoteIds : [note.id];
     noteDragRef.current = {
+      historyCaptured: false,
       notes: chart.notes.filter((candidate) => draggedIds.includes(candidate.id)),
       pointerId: event.pointerId,
       x: event.clientX,
@@ -370,6 +480,10 @@ export function LevelBuilder({ level, onBack, onSave, onTest, onPlay }: LevelBui
       (drag.y - event.clientY) / pixelsPerSecond,
       duration,
     );
+    if (!drag.historyCaptured && JSON.stringify(movedNotes) !== JSON.stringify(drag.notes)) {
+      captureHistory();
+      drag.historyCaptured = true;
+    }
     const movedById = new Map(movedNotes.map((note) => [note.id, note]));
     setChart((current) => ({
       ...current,
@@ -390,7 +504,7 @@ export function LevelBuilder({ level, onBack, onSave, onTest, onPlay }: LevelBui
   ): void {
     event.preventDefault();
     event.stopPropagation();
-    sustainedNoteResizeRef.current = { edge, note, pointerId: event.pointerId, y: event.clientY };
+    sustainedNoteResizeRef.current = { edge, historyCaptured: false, note, pointerId: event.pointerId, y: event.clientY };
     setSelectedNoteIds([note.id]);
     setMenu(undefined);
   }
@@ -405,7 +519,11 @@ export function LevelBuilder({ level, onBack, onSave, onTest, onPlay }: LevelBui
       duration,
       resize.edge,
     );
-    updateNote(resize.note.id, { time: resized.time, duration: resized.duration });
+    if (!resize.historyCaptured && (resized.time !== resize.note.time || resized.duration !== resize.note.duration)) {
+      captureHistory();
+      resize.historyCaptured = true;
+    }
+    updateNote(resize.note.id, { time: resized.time, duration: resized.duration }, false);
   }
 
   function endSustainedNoteResize(event: { pointerId: number; clientY: number }): void {
@@ -424,6 +542,7 @@ export function LevelBuilder({ level, onBack, onSave, onTest, onPlay }: LevelBui
     const lanes = event.currentTarget.closest(".timeline-lanes")!;
     verticalSlideTurnRef.current = {
       edge,
+      historyCaptured: false,
       note,
       pointerId: event.pointerId,
       x: event.clientX,
@@ -441,7 +560,12 @@ export function LevelBuilder({ level, onBack, onSave, onTest, onPlay }: LevelBui
       Math.round((event.clientX - turn.x) / turn.laneWidth),
       turn.edge,
     );
-    updateNote(turn.note.id, turn.edge === "start" ? { lane: turned.lane } : { endLane: turned.endLane });
+    const changed = turn.edge === "start" ? turned.lane !== turn.note.lane : turned.endLane !== turn.note.endLane;
+    if (!turn.historyCaptured && changed) {
+      captureHistory();
+      turn.historyCaptured = true;
+    }
+    updateNote(turn.note.id, turn.edge === "start" ? { lane: turned.lane } : { endLane: turned.endLane }, false);
   }
 
   function endVerticalSlideTurn(event: { pointerId: number; clientX: number }): void {
@@ -505,6 +629,7 @@ export function LevelBuilder({ level, onBack, onSave, onTest, onPlay }: LevelBui
     const copiedNotes = chart.notes.filter((note) => selectedNoteIds.includes(note.id));
     setClipboard(structuredClone(copiedNotes));
     if (cut) {
+      captureHistory();
       setChart((current) => ({
         ...current,
         notes: current.notes.filter((note) => !selectedNoteIds.includes(note.id)),
@@ -516,6 +641,7 @@ export function LevelBuilder({ level, onBack, onSave, onTest, onPlay }: LevelBui
 
   function pasteNotes(lane: number, laneOffset: 0 | 0.5, time: number): void {
     const pastedNotes = pasteTimelineNotes(clipboard, chart.notes, lane - 1 + laneOffset, time, duration);
+    captureHistory();
     setChart((current) => ({ ...current, notes: [...current.notes, ...pastedNotes] }));
     setSelectedNoteIds(pastedNotes.map((note) => note.id));
     setMenu(undefined);
@@ -556,6 +682,20 @@ export function LevelBuilder({ level, onBack, onSave, onTest, onPlay }: LevelBui
     onBack();
   }
 
+  async function deleteLevel(): Promise<void> {
+    window.clearTimeout(autosaveTimerRef.current);
+    ++saveRevisionRef.current;
+    setDeleting(true);
+    setDeleteError("");
+    try {
+      await saveQueueRef.current.catch(() => undefined);
+      await onDelete();
+    } catch {
+      setDeleteError("Could not delete level");
+      setDeleting(false);
+    }
+  }
+
   const menuNote = menu?.mode === "note" ? chart.notes.find((note) => note.id === menu.noteId) : undefined;
 
   return (
@@ -564,10 +704,14 @@ export function LevelBuilder({ level, onBack, onSave, onTest, onPlay }: LevelBui
         <div className="builder-title">
           <Button variant="ghost" size="sm" onClick={() => void returnHome()}>← Home</Button>
           <span>LEVEL BUILDER</span>
-          <input aria-label="Level title" value={title} onChange={(event) => setTitle(event.target.value)} />
+          <input aria-label="Level title" value={title} onChange={(event) => {
+            captureHistory();
+            setTitle(event.target.value);
+          }} />
           {status && <small>{status}</small>}
         </div>
         <div className="builder-actions">
+          {canDelete && <Button variant="destructive" onClick={() => setDeleteConfirmationOpen(true)}>Delete level</Button>}
           <Button variant="outline" onClick={() => onTest(builtLevel())}>▶ Test level</Button>
           <Button variant="outline" onClick={() => onPlay(builtLevel())}>▶ Play level</Button>
           <Button onClick={save}>Save</Button>
@@ -623,8 +767,14 @@ export function LevelBuilder({ level, onBack, onSave, onTest, onPlay }: LevelBui
 
           <section className="builder-details">
             <div className="builder-section-heading"><span>LEVEL DETAILS</span></div>
-            <label>BPM<input type="number" min="1" value={chart.timing.bpm} onChange={(event) => setChart({ ...chart, timing: { ...chart.timing, bpm: event.target.valueAsNumber } })} /></label>
-            <label>Offset<input type="number" step="0.001" value={chart.timing.offset} onChange={(event) => setChart({ ...chart, timing: { ...chart.timing, offset: event.target.valueAsNumber } })} /></label>
+            <label>BPM<input type="number" min="1" value={chart.timing.bpm} onChange={(event) => {
+              captureHistory();
+              setChart({ ...chart, timing: { ...chart.timing, bpm: event.target.valueAsNumber } });
+            }} /></label>
+            <label>Offset<input type="number" step="0.001" value={chart.timing.offset} onChange={(event) => {
+              captureHistory();
+              setChart({ ...chart, timing: { ...chart.timing, offset: event.target.valueAsNumber } });
+            }} /></label>
           </section>
 
         </aside>
@@ -808,7 +958,10 @@ export function LevelBuilder({ level, onBack, onSave, onTest, onPlay }: LevelBui
           </div>
           <label className="level-end-time">
             LEVEL END (SECONDS)
-            <input type="number" min="1" step="0.1" value={endTime} onChange={(event) => setEndTime(event.target.valueAsNumber)} />
+            <input type="number" min="1" step="0.1" value={endTime} onChange={(event) => {
+              captureHistory();
+              setEndTime(event.target.valueAsNumber);
+            }} />
           </label>
           <div className="note-list">
             {notes.length === 0 && <p className="empty-notes">Right-click the timeline to add your first move.</p>}
@@ -929,6 +1082,28 @@ export function LevelBuilder({ level, onBack, onSave, onTest, onPlay }: LevelBui
           <button onClick={() => copySelectedNotes(false)}>Copy</button>
           <button onClick={() => copySelectedNotes(true)}>Cut</button>
           <button className="danger" onClick={removeSelectedNotes}>× Delete</button>
+        </div>
+      )}
+
+      {deleteConfirmationOpen && (
+        <div className="builder-modal-backdrop" role="presentation" onMouseDown={() => !deleting && setDeleteConfirmationOpen(false)}>
+          <section
+            className="builder-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-level-title"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <h2 id="delete-level-title">Are you sure?</h2>
+            <p>“{title}” and its uploaded music will be permanently deleted.</p>
+            {deleteError && <p className="error-message">{deleteError}</p>}
+            <div className="builder-modal-actions">
+              <Button variant="outline" disabled={deleting} onClick={() => setDeleteConfirmationOpen(false)}>Cancel</Button>
+              <Button variant="destructive" disabled={deleting} onClick={() => void deleteLevel()}>
+                {deleting ? "Deleting…" : "Yes, delete level"}
+              </Button>
+            </div>
+          </section>
         </div>
       )}
     </main>
