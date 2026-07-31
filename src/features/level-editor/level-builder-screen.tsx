@@ -83,6 +83,12 @@ export function LevelBuilder({ level, onBack, onSave, onTest, onPlay }: LevelBui
   const sustainedNoteResizeRef = useRef<SustainedNoteResize | undefined>(undefined);
   const verticalSlideTurnRef = useRef<VerticalSlideTurn | undefined>(undefined);
   const selectionDragRef = useRef<SelectionDrag | undefined>(undefined);
+  const autosaveTimerRef = useRef<number | undefined>(undefined);
+  const saveRevisionRef = useRef(0);
+  const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const lastSavedSignatureRef = useRef<string | undefined>(undefined);
+  const onSaveRef = useRef(onSave);
+  onSaveRef.current = onSave;
   const [chart, setChart] = useState<LevelChart>(() => structuredClone(level.chart));
   const [song, setSong] = useState<SongMetadata>(() => ({ ...level.song }));
   const [audioBlob, setAudioBlob] = useState(level.audioBlob);
@@ -109,6 +115,23 @@ export function LevelBuilder({ level, onBack, onSave, onTest, onPlay }: LevelBui
   const stayCount = notes.length - moveCount;
   const navigationNotes = useMemo(() => timelineNavigationNotes(chart.notes), [chart.notes]);
   const markers = Array.from({ length: Math.floor(duration / 5) + 1 }, (_, index) => index * 5);
+
+  useEffect(() => {
+    const draft = builtLevel();
+    const signature = JSON.stringify(draft);
+    if (lastSavedSignatureRef.current === undefined) {
+      lastSavedSignatureRef.current = signature;
+      return;
+    }
+    if (signature === lastSavedSignatureRef.current) return;
+
+    const revision = ++saveRevisionRef.current;
+    setStatus("Unsaved changes");
+    autosaveTimerRef.current = window.setTimeout(() => {
+      void persistLevel(draft, signature, revision, "Saved automatically");
+    }, 800);
+    return () => window.clearTimeout(autosaveTimerRef.current);
+  }, [audioBlob, chart, endTime, song, title]);
 
   useEffect(() => {
     navigateToNote(navigationNotes.first);
@@ -175,7 +198,7 @@ export function LevelBuilder({ level, onBack, onSave, onTest, onPlay }: LevelBui
   }, [duration, pixelsPerSecond]);
 
   function builtLevel(): LoadedLevel {
-    const id = title.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "untitled-level";
+    const id = level.song.id;
     return {
       path: level.path,
       song: { ...song, id, title },
@@ -498,14 +521,39 @@ export function LevelBuilder({ level, onBack, onSave, onTest, onPlay }: LevelBui
     setMenu(undefined);
   }
 
-  async function save(): Promise<void> {
+  async function persistLevel(
+    draft: LoadedLevel,
+    signature: string,
+    revision: number,
+    successStatus: string,
+  ): Promise<boolean> {
     setStatus("Saving…");
+    const request = saveQueueRef.current
+      .catch(() => undefined)
+      .then(() => onSaveRef.current(draft));
+    saveQueueRef.current = request;
     try {
-      await onSave(builtLevel());
-      setStatus("Saved just now");
+      await request;
+      if (revision !== saveRevisionRef.current) return true;
+      lastSavedSignatureRef.current = signature;
+      setStatus(successStatus);
+      return true;
     } catch {
-      setStatus("Could not save");
+      if (revision === saveRevisionRef.current) setStatus("Could not save");
+      return false;
     }
+  }
+
+  async function save(): Promise<boolean> {
+    window.clearTimeout(autosaveTimerRef.current);
+    const draft = builtLevel();
+    return persistLevel(draft, JSON.stringify(draft), ++saveRevisionRef.current, "Saved just now");
+  }
+
+  async function returnHome(): Promise<void> {
+    const signature = JSON.stringify(builtLevel());
+    if (signature !== lastSavedSignatureRef.current && !await save()) return;
+    onBack();
   }
 
   const menuNote = menu?.mode === "note" ? chart.notes.find((note) => note.id === menu.noteId) : undefined;
@@ -514,7 +562,7 @@ export function LevelBuilder({ level, onBack, onSave, onTest, onPlay }: LevelBui
     <main className="builder-screen">
       <header className="builder-header">
         <div className="builder-title">
-          <Button variant="ghost" size="sm" onClick={onBack}>← Home</Button>
+          <Button variant="ghost" size="sm" onClick={() => void returnHome()}>← Home</Button>
           <span>LEVEL BUILDER</span>
           <input aria-label="Level title" value={title} onChange={(event) => setTitle(event.target.value)} />
           {status && <small>{status}</small>}

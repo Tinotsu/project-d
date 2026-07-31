@@ -62,6 +62,9 @@ async function handleRequest(request, response) {
   } else if (request.method === "PUT") {
     await storeLevel(request, response, id);
     return;
+  } else if (request.method === "DELETE") {
+    deleteLevel(response, id);
+    return;
   }
 
   writeText(response, 405, "Method not allowed");
@@ -112,6 +115,18 @@ async function storeLevelAudio(request, response, id) {
     throw error;
   }
 
+  if (level.audio_file) rmSync(resolve(musicDirectory, level.audio_file), { force: true });
+  response.writeHead(204).end();
+}
+
+function deleteLevel(response, id) {
+  const level = database.prepare("SELECT audio_file FROM levels WHERE id = ?").get(id);
+  if (!level) {
+    writeText(response, 404, "Level not found");
+    return;
+  }
+
+  database.prepare("DELETE FROM levels WHERE id = ?").run(id);
   if (level.audio_file) rmSync(resolve(musicDirectory, level.audio_file), { force: true });
   response.writeHead(204).end();
 }

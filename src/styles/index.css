@@ -35,7 +35,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, audio:focus-vis
 .menu-item:first-child { grid-column: 1 / -1; }
 .published-levels { margin-top: 16px; padding: 12px; }
 .published-levels .section-heading { margin-bottom: 4px; }
-.published-level { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 8px; border-top: 1px solid #929292; padding: 10px 0; }
+.published-level { display: grid; grid-template-columns: minmax(0, 1fr) repeat(3, auto); align-items: center; gap: 8px; border-top: 1px solid #929292; padding: 10px 0; }
 .published-level > div { display: grid; gap: 3px; min-width: 0; }
 .published-level > div strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .published-level > div span { color: #929292; font-size: 11px; text-transform: capitalize; }

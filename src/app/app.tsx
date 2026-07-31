@@ -3,7 +3,7 @@ import type { CameraInput } from "../features/camera/camera-input.ts";
 import { Button } from "../shared/ui/button.tsx";
 import type { GameSnapshot } from "../features/gameplay/game-session.ts";
 import { loadLevel, type LoadedLevel } from "../features/level-library/level-loader.ts";
-import { loadStoredLevels, storeLevel } from "../features/level-library/level-repository.ts";
+import { deleteStoredLevel, loadStoredLevels, storeLevel } from "../features/level-library/level-repository.ts";
 import { screenFromPath, screenPaths, type Screen } from "./routes.ts";
 import { MenuScreen } from "./screens/menu-screen.tsx";
 import { ResultsScreen } from "./screens/results-screen.tsx";
@@ -22,6 +22,7 @@ export function App() {
   const [level, setLevel] = useState<LoadedLevel>();
   const [builderLevel, setBuilderLevel] = useState<LoadedLevel>();
   const [savedLevels, setSavedLevels] = useState<LoadedLevel[]>([]);
+  const [storedLevelIds, setStoredLevelIds] = useState<Set<string>>(new Set());
   const [trackReturn, setTrackReturn] = useState<"menu" | "builder">("menu");
   const [loadError, setLoadError] = useState("");
   const [cameraCalibrated, setCameraCalibrated] = useState(false);
@@ -41,6 +42,7 @@ export function App() {
       ];
       setLevel(stored[0] ?? loadedLevel);
       setSavedLevels(library);
+      setStoredLevelIds(new Set(stored.map((saved) => saved.song.id)));
       if (window.location.pathname === screenPaths.builder) setBuilderLevel(stored[0] ?? loadedLevel);
     }).catch((error: unknown) => {
       setLoadError(error instanceof Error ? error.message : "Could not load levels");
@@ -113,6 +115,7 @@ export function App() {
             await storeLevel(savedLevel);
             setBuilderLevel(savedLevel);
             setLevel(savedLevel);
+            setStoredLevelIds((current) => new Set(current).add(savedLevel.song.id));
             setSavedLevels((current) => [
               savedLevel,
               ...current.filter((candidate) => candidate.song.id !== savedLevel.song.id),
@@ -172,6 +175,7 @@ export function App() {
         <MenuScreen
           level={level}
           savedLevels={savedLevels}
+          storedLevelIds={storedLevelIds}
           loadError={loadError}
           onPlay={play}
           onOpenCamera={() => void openSetup()}
@@ -179,11 +183,12 @@ export function App() {
           onNewLevel={() => {
             if (!level) return;
             const draft = structuredClone(level);
-            draft.song = { ...draft.song, id: "untitled-level", title: "Untitled level", audio: "", duration: 60 };
+            const id = `level-${crypto.randomUUID()}`;
+            draft.song = { ...draft.song, id, title: "Untitled level", audio: "", duration: 60 };
             draft.chart = {
               ...draft.chart,
               song: "",
-              level: { ...draft.chart.level, id: "untitled-level", difficulty: "Normal", endTime: 60 },
+              level: { ...draft.chart.level, id, difficulty: "Normal", endTime: 60 },
               notes: [],
             };
             setBuilderLevel(draft);
@@ -202,6 +207,18 @@ export function App() {
           onEditLevel={(libraryLevel) => {
             setBuilderLevel(structuredClone(libraryLevel));
             navigate("builder");
+          }}
+          onDeleteLevel={async (libraryLevel) => {
+            await deleteStoredLevel(libraryLevel.song.id);
+            const remainingLevels = savedLevels.filter((candidate) => candidate.song.id !== libraryLevel.song.id);
+            setSavedLevels(remainingLevels);
+            setStoredLevelIds((current) => {
+              const next = new Set(current);
+              next.delete(libraryLevel.song.id);
+              return next;
+            });
+            if (level?.song.id === libraryLevel.song.id) setLevel(remainingLevels[0]);
+            if (builderLevel?.song.id === libraryLevel.song.id) setBuilderLevel(remainingLevels[0]);
           }}
         />
       )}
