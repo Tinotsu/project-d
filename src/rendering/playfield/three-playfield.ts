@@ -51,9 +51,19 @@ export function noteTravelProgress(timeUntil: number, travelTime: number): numbe
   return Math.min(1, Math.max(0, 1 - timeUntil / travelTime)) ** 1.65;
 }
 
+function verticalSlideProgressAtTime(note: ChartNote, time: number): number {
+  return Math.min(1, Math.max(0, (time - note.time) / (note.duration ?? 1)));
+}
+
 export function verticalSlideLaneAtTime(note: ChartNote, time: number): number {
-  const progress = Math.min(1, Math.max(0, (time - note.time) / (note.duration ?? 1)));
+  const progress = verticalSlideProgressAtTime(note, time);
   return note.lane! + (note.endLane! - note.lane!) * progress;
+}
+
+export function verticalSlideUvsAtTime(note: ChartNote, time: number, travelTime: number): Quad {
+  const bottom = verticalSlideProgressAtTime(note, time);
+  const top = verticalSlideProgressAtTime(note, time + travelTime);
+  return [[0, top], [1, top], [1, bottom], [0, bottom]];
 }
 
 export class ThreePlayfield {
@@ -342,6 +352,9 @@ export class ThreePlayfield {
     const top = this.laneSpan(endLane, endLane, endProgress);
     const bottom = this.laneSpan(startLane, startLane, startProgress);
     view.warped.mesh.material.uniforms.time.value = songTime;
+    if (note.type === "VERTICAL_SLIDE") {
+      view.warped.uvs = verticalSlideUvsAtTime(note, songTime, this.chart.playfield.travelTime);
+    }
 
     if (Math.abs(bottom.y - top.y) < 0.01) {
       this.setNoteVisible(view, false);
