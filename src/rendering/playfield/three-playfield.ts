@@ -1,6 +1,7 @@
 import * as THREE from "three";
+import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { GLTFLoader, type GLTF } from "three/addons/loaders/GLTFLoader.js";
-import tvModelUrl from "../../../assets/glb/tv.glb?url";
+import sceneModelUrl from "../../../assets/glb/scene.glb?url";
 import type { LevelChart } from "../../domain/chart/types.ts";
 import {
   horizontalSlideBounds,
@@ -12,7 +13,10 @@ import type { JudgementResult } from "../../domain/scoring/rhythm-engine.ts";
 import type { ProceduralAssetKind } from "../procedural-assets/procedural-asset-definitions.ts";
 import { createProceduralMaterial } from "../procedural-assets/procedural-material.ts";
 import { PlayfieldEffects } from "./playfield-effects.ts";
-import { createPlayfieldTv, type PlayfieldTv } from "./playfield-tv.ts";
+import {
+  createPlayfieldScene,
+  type PlayfieldScene,
+} from "./playfield-tv.ts";
 import {
   createQuadGeometry,
   leftSlideUvs,
@@ -33,7 +37,7 @@ const farLeft = 580;
 const farRight = 700;
 const nearLeft = 20;
 const nearRight = 1260;
-const horizonY = 100;
+const horizonY = 200;
 const hitY = 590;
 const floorDepthScale = 1 / 3;
 
@@ -49,33 +53,54 @@ export function noteTravelProgress(timeUntil: number, travelTime: number): numbe
 
 export class ThreePlayfield {
   private readonly scene = new THREE.Scene();
-  private readonly camera = new THREE.OrthographicCamera(0, gameWidth, 0, gameHeight, 0.1, 100);
+  private readonly backgroundScene = new THREE.Scene();
+  private readonly camera = new THREE.OrthographicCamera(0, gameWidth, 0, gameHeight, 0.1, 2000);
+  private readonly backgroundCamera = new THREE.PerspectiveCamera(
+    34.88,
+    gameWidth / gameHeight,
+    0.1,
+    2000,
+  );
   private readonly renderer = new THREE.WebGLRenderer({
     alpha: true,
     antialias: true,
     precision: "highp",
   });
+  private readonly environment: THREE.Texture;
   private readonly noteViews = new Map<string, NoteView>();
   private readonly effects: PlayfieldEffects;
   private readonly resizeObserver: ResizeObserver;
   private readonly leftFoot: WarpedSprite;
   private readonly rightFoot: WarpedSprite;
-  private readonly tv: PlayfieldTv;
+  private readonly playfieldScene: PlayfieldScene;
   private lastRenderAt = performance.now();
 
   private constructor(
     private readonly mount: HTMLElement,
     private readonly chart: LevelChart,
-    tvGltf: GLTF,
+    gltf: GLTF,
   ) {
     this.camera.position.z = 10;
+    this.backgroundCamera.position.set(0, 1.371, 5.532);
+    this.backgroundCamera.lookAt(0, 0, -2.26);
     this.renderer.setClearColor(0x000000, 0);
+    this.renderer.autoClear = false;
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 0.9;
+
+    const roomEnvironment = new RoomEnvironment();
+    const pmremGenerator = new THREE.PMREMGenerator(this.renderer);
+    this.environment = pmremGenerator.fromScene(roomEnvironment).texture;
+    this.backgroundScene.environment = this.environment;
+    this.backgroundScene.environmentIntensity = 0.3;
+    roomEnvironment.dispose();
+    pmremGenerator.dispose();
+
     this.renderer.domElement.setAttribute("aria-label", "Four-lane 3D rhythm game playfield");
     this.mount.append(this.renderer.domElement);
 
-    this.createTrack();
     this.effects = new PlayfieldEffects(
       this.scene,
       this.chart.playfield.lanes,
@@ -94,7 +119,7 @@ export class ThreePlayfield {
     this.rightFoot = this.createProceduralSprite("foot", 100, 100, mirroredUvs, 5);
     this.leftFoot.mesh.visible = false;
     this.rightFoot.mesh.visible = false;
-    this.tv = createPlayfieldTv(this.scene, tvGltf, gameWidth);
+    this.playfieldScene = createPlayfieldScene(this.backgroundScene, gltf);
 
     this.resizeObserver = new ResizeObserver(([entry]) => {
       const { width, height } = entry.contentRect;
@@ -106,8 +131,8 @@ export class ThreePlayfield {
   }
 
   static async create(mount: HTMLElement, chart: LevelChart): Promise<ThreePlayfield> {
-    const tvGltf = await new GLTFLoader().loadAsync(tvModelUrl);
-    return new ThreePlayfield(mount, chart, tvGltf);
+    const gltf = await new GLTFLoader().loadAsync(sceneModelUrl);
+    return new ThreePlayfield(mount, chart, gltf);
   }
 
   showTrackedFeet(
@@ -166,17 +191,21 @@ export class ThreePlayfield {
     const delta = Math.min((now - this.lastRenderAt) / 1000, 1 / 20);
     this.lastRenderAt = now;
     this.effects.update(now, delta);
-    this.tv.mixer.update(delta);
+    this.playfieldScene.mixer.update(delta);
+    this.renderer.clear();
+    this.renderer.render(this.backgroundScene, this.backgroundCamera);
+    this.renderer.clearDepth();
     this.renderer.render(this.scene, this.camera);
   }
 
   destroy(): void {
     this.resizeObserver.disconnect();
-    this.tv.mixer.stopAllAction();
-    this.tv.video.pause();
-    this.tv.video.removeAttribute("src");
-    this.tv.video.load();
-    this.tv.texture.dispose();
+    this.playfieldScene.mixer.stopAllAction();
+    this.playfieldScene.video.pause();
+    this.playfieldScene.video.removeAttribute("src");
+    this.playfieldScene.video.load();
+    this.playfieldScene.texture.dispose();
+    this.environment.dispose();
     this.renderer.dispose();
     this.scene.traverse((object) => {
       if (object instanceof THREE.Mesh) {
@@ -188,20 +217,13 @@ export class ThreePlayfield {
         object.material.dispose();
       }
     });
+    this.backgroundScene.traverse((object) => {
+      if (!(object instanceof THREE.Mesh)) return;
+      object.geometry.dispose();
+      if (Array.isArray(object.material)) object.material.forEach((material) => material.dispose());
+      else object.material.dispose();
+    });
     this.renderer.domElement.remove();
-  }
-
-  private createTrack(): void {
-    const bottomProgress = (gameHeight - horizonY) / (hitY - horizonY);
-    const top = this.laneSpan(1, this.chart.playfield.lanes, 0);
-    const bottom = this.laneSpan(1, this.chart.playfield.lanes, bottomProgress);
-    const sprite = this.createProceduralSprite("track", 400, 1200, normalUvs, 0);
-    updateWarpedSprite(sprite, [
-      [top.left, horizonY],
-      [top.right, horizonY],
-      [bottom.right, gameHeight],
-      [bottom.left, gameHeight],
-    ]);
   }
 
   private createFootZone(): void {
