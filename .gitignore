@@ -1,5 +1,6 @@
 node_modules/
 dist/
+.local-data/
 music mp3/
 public/music/*.mp3
 

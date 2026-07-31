@@ -5,8 +5,9 @@
   "license": "AGPL-3.0-only",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc --noEmit && rm -rf dist && vite build && mkdir -p dist/server && cp server/sites-worker.js dist/server/index.js",
+    "dev": "node server/dev.js",
+    "server": "node server/local-storage-server.js",
+    "build": "tsc --noEmit && rm -rf dist && vite build",
     "test": "vitest run",
     "test:python": "python3 -m unittest discover -s tools/foot_pose/tests -v",
     "test:all": "npm test && npm run test:python"

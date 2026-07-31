@@ -95,7 +95,9 @@ Feet outside this rectangle are reported as `OUTSIDE`.
 
 Song metadata is shared in `public/levels/second-heaven/song.json`. The separate difficulty chart in `public/levels/second-heaven/test.json` contains the level settings, timing grid, playfield, notes, and visual-effect settings. Note times are seconds from the start of the decoded audio.
 
-The game uses Web Audio's context clock for gameplay timing and Three.js for the playfield. Scoring is independent from rendering in `src/domain/scoring/rhythm-engine.ts`. The chart editor can capture the current audio time, edit notes and timing, and save the resulting level in the browser.
+The game uses Web Audio's context clock for gameplay timing and Three.js for the playfield. Scoring is independent from rendering in `src/domain/scoring/rhythm-engine.ts`. The chart editor can capture the current audio time, edit notes and timing, and save the resulting level to a local SQLite database.
+
+`npm run dev` starts Vite and the local storage server together. Level data is stored in `.local-data/project-d.sqlite`; uploaded music is stored as local objects under `.local-data/music/`. The complete `.local-data` directory is ignored by Git.
 
 ## Application structure
 
