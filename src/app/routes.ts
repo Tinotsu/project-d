@@ -5,8 +5,6 @@ export type Screen =
   | "results"
   | "builder"
   | "track"
-  | "movement-setup"
-  | "movement-test"
   | "assets";
 
 export const screenPaths: Record<Screen, string> = {
@@ -16,8 +14,6 @@ export const screenPaths: Record<Screen, string> = {
   results: "/results",
   builder: "/builder",
   track: "/track",
-  "movement-setup": "/movement/setup",
-  "movement-test": "/movement/test",
   assets: "/assets",
 };
 

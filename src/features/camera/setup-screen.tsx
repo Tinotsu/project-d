@@ -6,12 +6,11 @@ import { Button } from "../../shared/ui/button.tsx";
 type SetupScreenProps = {
   cameraInput: CameraInput;
   levelReady: boolean;
-  mode?: "play" | "movement-test";
   onCalibrationChange: (calibrated: boolean) => void;
   onContinue: () => void;
 };
 
-export function SetupScreen({ cameraInput, levelReady, mode = "play", onCalibrationChange, onContinue }: SetupScreenProps) {
+export function SetupScreen({ cameraInput, levelReady, onCalibrationChange, onContinue }: SetupScreenProps) {
   const [snapshot, setSnapshot] = useState(initialCameraSnapshot);
   const receiveSnapshot = useCallback((next: CameraSnapshot) => {
     setSnapshot(next);
@@ -21,9 +20,9 @@ export function SetupScreen({ cameraInput, levelReady, mode = "play", onCalibrat
   return (
     <main className="setup-screen">
       <div className="page-toolbar">
-        <strong>{mode === "play" ? "Camera" : "Movement test"}</strong>
+        <strong>Camera</strong>
         <Button disabled={!snapshot.calibrated || !levelReady} onClick={onContinue}>
-          {mode === "play" ? "Continue to level" : "Continue to playfield"}
+          Continue to level
         </Button>
       </div>
       <CameraPanel input={cameraInput} onSnapshot={receiveSnapshot} />

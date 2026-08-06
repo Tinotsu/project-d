@@ -114,20 +114,6 @@ button:focus-visible, input:focus-visible, select:focus-visible, audio:focus-vis
 .playfield-test-keys strong { font-size: 13px; }
 .playfield-test-keys span { color: #00f7fa; font-size: 11px; font-weight: 600; }
 
-.movement-game-hud { grid-template-columns: auto minmax(140px, 1fr) minmax(160px, auto) auto minmax(180px, auto); }
-.movement-game-panel { position: absolute; z-index: 3; top: 12px; left: 12px; width: min(520px, calc(100% - 288px)); max-height: calc(100dvh - 88px); overflow-y: auto; padding: 14px; }
-.movement-game-target { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.movement-game-target label, .number-setting { color: #929292; font-size: 11px; }
-.movement-game-target label { display: grid; gap: 6px; }
-.movement-game-target select, .number-setting input { min-width: 0; border: 1px solid #929292; border-radius: 6px; padding: 8px; background: #000000; color: #f9f9f9; }
-.movement-game-buttons { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
-.movement-game-result { display: flex; justify-content: space-between; gap: 8px; margin-top: 8px; border-radius: 6px; padding: 10px; background: #f9f9f9; color: #000000; font-size: 11px; }
-.movement-game-result.perfect { background: #00f300; }
-.movement-game-result.great { background: #00f7fa; }
-.movement-game-result.good { background: #faf600; }
-.movement-game-result.wrong, .movement-game-result.outside, .movement-game-result.miss { background: #fc2500; }
-.movement-game-settings { display: grid; grid-template-columns: 1fr 1fr; gap: 7px 12px; margin-top: 12px; border-top: 1px solid #929292; padding-top: 10px; }
-.movement-game-settings .section-heading, .movement-save { grid-column: 1 / -1; }
 .number-setting { display: grid; grid-template-columns: 1fr 72px 20px; align-items: center; gap: 6px; }
 .number-setting input { width: 100%; }
 .number-setting small { color: #929292; font-size: 10px; }
@@ -259,7 +245,6 @@ button:focus-visible, input:focus-visible, select:focus-visible, audio:focus-vis
 @media (max-width: 980px) {
   .hud-track, .judgements { display: none !important; }
   .game-hud { grid-template-columns: auto 1fr repeat(2, auto); }
-  .movement-game-hud { grid-template-columns: auto 1fr auto; }
 }
 
 @media (max-width: 720px) {
@@ -279,9 +264,6 @@ button:focus-visible, input:focus-visible, select:focus-visible, audio:focus-vis
   .camera-panel.compact .camera-stage { flex-basis: 80px; }
   .camera-panel.compact .camera-details, .camera-panel.compact .camera-readout { display: none; }
   .game-hud { gap: 8px; min-height: 56px; padding: 8px; }
-  .movement-game-panel { top: 8px; left: 8px; width: calc(100% - 184px); min-width: 190px; max-height: calc(100dvh - 72px); padding: 8px; }
-  .movement-game-settings { grid-template-columns: 1fr; gap: 3px; }
-  .movement-game-settings .section-heading, .movement-save { grid-column: auto; }
   .number-setting { gap: 4px; font-size: 10px; }
   .number-setting input { padding: 4px; }
   .result-grid { grid-template-columns: repeat(2, 1fr); }

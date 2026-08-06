@@ -14,7 +14,6 @@ const SetupScreen = lazy(() => import("../features/camera/setup-screen.tsx").the
 const GameScreen = lazy(() => import("../features/gameplay/game-screen.tsx").then((module) => ({ default: module.GameScreen })));
 const LevelBuilder = lazy(() => import("../features/level-editor/level-builder-screen.tsx").then((module) => ({ default: module.LevelBuilder })));
 const PlayfieldTestScreen = lazy(() => import("../features/playfield-test/playfield-test-screen.tsx").then((module) => ({ default: module.PlayfieldTestScreen })));
-const MovementTestScreen = lazy(() => import("../features/movement-test/movement-test-screen.tsx").then((module) => ({ default: module.MovementTestScreen })));
 const AssetsScreen = lazy(() => import("../features/asset-lab/assets-screen.tsx").then((module) => ({ default: module.AssetsScreen })));
 
 export function App() {
@@ -56,7 +55,7 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    if (cameraInput || !["camera", "game", "movement-setup", "movement-test"].includes(screen)) return;
+    if (cameraInput || !["camera", "game"].includes(screen)) return;
 	    void import("../features/camera/camera-input.ts").then(({ CameraInput }) => {
       const input = new CameraInput();
       cameraInputRef.current = input;
@@ -80,14 +79,14 @@ export function App() {
     navigate("results");
   }, [navigate]);
 
-  async function openSetup(destination: "camera" | "movement-setup" = "camera"): Promise<void> {
+  async function openSetup(): Promise<void> {
     if (!cameraInput) {
       const { CameraInput } = await import("../features/camera/camera-input.ts");
       const input = new CameraInput();
       cameraInputRef.current = input;
       setCameraInput(input);
     }
-    navigate(destination);
+    navigate("camera");
   }
 
   function play(): void {
@@ -161,21 +160,6 @@ export function App() {
     );
   }
 
-  if (screen === "movement-test") {
-    if (!level || !cameraInput) return <LoadingScreen />;
-    return (
-      <Suspense fallback={<LoadingScreen />}>
-        <MovementTestScreen
-          cameraInput={cameraInput}
-          level={level}
-          onBack={() => navigate("menu")}
-          onRecalibrate={() => navigate("movement-setup")}
-          onCalibrationChange={setCameraCalibrated}
-        />
-      </Suspense>
-    );
-  }
-
   return (
     <div className="app-shell">
       <header className="app-header">
@@ -192,7 +176,6 @@ export function App() {
           loadError={loadError}
           onPlay={play}
           onOpenCamera={() => void openSetup()}
-          onOpenMovementTest={() => void openSetup("movement-setup")}
           onNewLevel={() => {
             if (!level) return;
             const draft = structuredClone(level);
@@ -207,10 +190,6 @@ export function App() {
             setBuilderLevel(draft);
             navigate("builder");
           }}
-          onOpenPlayfieldTest={() => {
-            setTrackReturn("menu");
-            navigate("track");
-          }}
           onOpenAssets={() => navigate("assets")}
           onPlayLevel={(libraryLevel) => {
             setLevel(libraryLevel);
@@ -224,14 +203,13 @@ export function App() {
         />
       )}
 
-      {(screen === "camera" || screen === "movement-setup") && cameraInput && (
+      {screen === "camera" && cameraInput && (
         <Suspense fallback={<LoadingScreen />}>
           <SetupScreen
             cameraInput={cameraInput}
             levelReady={Boolean(level)}
-            mode={screen === "movement-setup" ? "movement-test" : "play"}
             onCalibrationChange={setCameraCalibrated}
-            onContinue={() => navigate(screen === "movement-setup" ? "movement-test" : "game")}
+            onContinue={() => navigate("game")}
           />
         </Suspense>
       )}

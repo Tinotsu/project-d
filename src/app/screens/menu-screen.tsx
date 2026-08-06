@@ -7,9 +7,7 @@ type MenuScreenProps = {
   loadError: string;
   onPlay: () => void;
   onOpenCamera: () => void;
-  onOpenMovementTest: () => void;
   onNewLevel: () => void;
-  onOpenPlayfieldTest: () => void;
   onOpenAssets: () => void;
   onPlayLevel: (level: LoadedLevel) => void;
   onEditLevel: (level: LoadedLevel) => void;
@@ -21,9 +19,7 @@ export function MenuScreen({
   loadError,
   onPlay,
   onOpenCamera,
-  onOpenMovementTest,
   onNewLevel,
-  onOpenPlayfieldTest,
   onOpenAssets,
   onPlayLevel,
   onEditLevel,
@@ -34,9 +30,7 @@ export function MenuScreen({
       <div className="menu-grid">
         <Button className="menu-item" size="lg" disabled={!level} onClick={onPlay}>Play</Button>
         <Button className="menu-item" size="lg" variant="outline" onClick={onOpenCamera}>Camera</Button>
-        <Button className="menu-item" size="lg" variant="outline" onClick={onOpenMovementTest}>Movement test</Button>
         <Button className="menu-item" size="lg" variant="outline" disabled={!level} onClick={onNewLevel}>Level builder</Button>
-        <Button className="menu-item" size="lg" variant="outline" disabled={!level} onClick={onOpenPlayfieldTest}>Playfield test</Button>
         <Button className="menu-item" size="lg" variant="outline" onClick={onOpenAssets}>3D assets</Button>
       </div>
 
