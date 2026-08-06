@@ -25,13 +25,16 @@ import {
   type TimelineSelection,
 } from "./editor-math.ts";
 import { levelHistoryShortcut } from "./editor-history.ts";
+import type { LevelVisibility } from "../level-library/level-repository.ts";
 
 type LevelBuilderProps = {
   level: LoadedLevel;
   canDelete: boolean;
+  visibility: LevelVisibility;
   onBack: () => void;
   onDelete: () => Promise<void>;
   onSave: (level: LoadedLevel) => Promise<void>;
+  onVisibilityChange: (level: LoadedLevel, visibility: LevelVisibility) => Promise<void>;
   onTest: (level: LoadedLevel) => void;
   onPlay: (level: LoadedLevel) => void;
 };
@@ -90,7 +93,17 @@ function loadTimelineZoom(): number {
   return timelineZoomLevels.includes(savedZoom) ? savedZoom : 1;
 }
 
-export function LevelBuilder({ level, canDelete, onBack, onDelete, onSave, onTest, onPlay }: LevelBuilderProps) {
+export function LevelBuilder({
+  level,
+  canDelete,
+  visibility,
+  onBack,
+  onDelete,
+  onSave,
+  onVisibilityChange,
+  onTest,
+  onPlay,
+}: LevelBuilderProps) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
   const wheelZoomDeltaRef = useRef(0);
@@ -123,6 +136,7 @@ export function LevelBuilder({ level, canDelete, onBack, onDelete, onSave, onTes
   const [status, setStatus] = useState("");
   const [deleteConfirmationOpen, setDeleteConfirmationOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [changingVisibility, setChangingVisibility] = useState(false);
   const [deleteError, setDeleteError] = useState("");
   const [leftPanelWidth, setLeftPanelWidth] = useState(250);
   const [rightPanelWidth, setRightPanelWidth] = useState(320);
@@ -696,6 +710,20 @@ export function LevelBuilder({ level, canDelete, onBack, onDelete, onSave, onTes
     }
   }
 
+  async function changeVisibility(): Promise<void> {
+    if (!await save()) return;
+    setChangingVisibility(true);
+    const nextVisibility = visibility === "public" ? "private" : "public";
+    try {
+      await onVisibilityChange(builtLevel(), nextVisibility);
+      setStatus(nextVisibility === "public" ? "Published" : "Made private");
+    } catch {
+      setStatus("Could not change visibility");
+    } finally {
+      setChangingVisibility(false);
+    }
+  }
+
   const menuNote = menu?.mode === "note" ? chart.notes.find((note) => note.id === menu.noteId) : undefined;
 
   return (
@@ -711,6 +739,9 @@ export function LevelBuilder({ level, canDelete, onBack, onDelete, onSave, onTes
           {status && <small>{status}</small>}
         </div>
         <div className="builder-actions">
+          <Button variant="outline" disabled={changingVisibility} onClick={() => void changeVisibility()}>
+            {changingVisibility ? "Updating…" : visibility === "public" ? "Make private" : "Publish"}
+          </Button>
           {canDelete && <Button variant="destructive" onClick={() => setDeleteConfirmationOpen(true)}>Delete level</Button>}
           <Button variant="outline" onClick={() => onTest(builtLevel())}>▶ Test level</Button>
           <Button variant="outline" onClick={() => onPlay(builtLevel())}>▶ Play level</Button>

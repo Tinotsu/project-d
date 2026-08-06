@@ -15,16 +15,19 @@ Camera
 
 ## Run locally
 
-Requirements: Node.js and a browser with camera access.
+Requirements: Node.js and a browser with camera access. No separate Node.js backend is needed; the API runs locally in the Cloudflare Workers runtime.
 
 ```bash
 npm install
+cp .dev.vars.example .dev.vars
 npm run dev
 ```
 
-Open the localhost URL printed by Vite. Camera access requires localhost or HTTPS. The ONNX model and runtime are bundled with the app.
+Set a local `BETTER_AUTH_SECRET` of at least 32 random characters in `.dev.vars`, then open the localhost URL printed by Vite. `npm run dev` applies pending D1 migrations before starting Vite. Camera access requires localhost or HTTPS. The ONNX model and runtime are bundled with the app.
 
-The browser app includes level selection, camera calibration, gameplay, results, and a chart editor for **Second Heaven**. The recording is not distributed with this repository; provide a copy you are licensed to use at `public/music/second-heaven.mp3`.
+Email/password authentication supports account creation, login, persistent sessions, logout, password recovery, password reset, and password changes. In local development, password-reset emails are logged to the terminal and saved under `.wrangler/tmp/email/` instead of being delivered. Follow the logged reset URL to test the complete flow.
+
+The browser app includes level selection, camera calibration, gameplay, results, and a chart editor for **Second Heaven**. The bundled test level runs with a silent timer until an audio file is added in the level editor.
 
 To create a production build:
 
@@ -95,9 +98,9 @@ Feet outside this rectangle are reported as `OUTSIDE`.
 
 Song metadata is shared in `public/levels/second-heaven/song.json`. The separate difficulty chart in `public/levels/second-heaven/test.json` contains the level settings, timing grid, playfield, notes, and visual-effect settings. Note times are seconds from the start of the decoded audio.
 
-The game uses Web Audio's context clock for gameplay timing and Three.js for the playfield. Scoring is independent from rendering in `src/domain/scoring/rhythm-engine.ts`. The chart editor can capture the current audio time, edit notes and timing, and save the resulting level to a local SQLite database.
+The game uses Web Audio's context clock for gameplay timing and Three.js for the playfield. Scoring is independent from rendering in `src/domain/scoring/rhythm-engine.ts`. The chart editor can capture the current audio time, edit notes and timing, and save the resulting level to local Cloudflare D1 storage.
 
-`npm run dev` starts Vite and the local storage server together. Level data is stored in `.local-data/project-d.sqlite`; uploaded music is stored as local objects under `.local-data/music/`. The complete `.local-data` directory is ignored by Git.
+Accounts, sessions, reset tokens, ownership, and level documents use D1. Uploaded level audio uses R2. Local Cloudflare state is stored under `.wrangler/`, which is ignored by Git. New levels are private until their owner publishes them; only public levels and their audio are available without a session.
 
 ## Application structure
 
@@ -107,6 +110,8 @@ The game uses Web Audio's context clock for gameplay timing and Three.js for the
 - `src/infrastructure` contains Web Audio and ONNX pose-detection adapters.
 - `src/rendering` contains the Three.js playfield and procedural shader assets.
 - `src/shared` contains reusable UI components; `src/styles` contains application styles.
+- `worker` contains Better Auth and the server-enforced level and audio APIs.
+- `migrations` contains the D1 schema for authentication and owned levels.
 - `tools/foot_pose` contains model-training conversion utilities and their Python tests.
 
 ## Test
@@ -115,7 +120,21 @@ Run all TypeScript and Python tests:
 
 ```bash
 npm run test:all
+npm run typecheck
 ```
+
+## Cloudflare deployment
+
+Before deployment, configure the two required Worker secrets and onboard the sender domain in Cloudflare Email Service:
+
+```bash
+npx wrangler secret put BETTER_AUTH_SECRET
+npx wrangler secret put AUTH_EMAIL_FROM
+npm run db:migrate:remote
+npm run deploy
+```
+
+`AUTH_EMAIL_FROM` must be an address on the domain configured for Cloudflare Email Service. The production Worker, D1 database, R2 bucket, and static app stay in the same Cloudflare project.
 
 ## Current scope
 

@@ -3,7 +3,19 @@ import type { CameraInput } from "../features/camera/camera-input.ts";
 import { Button } from "../shared/ui/button.tsx";
 import type { GameSnapshot } from "../features/gameplay/game-session.ts";
 import { loadLevel, type LoadedLevel } from "../features/level-library/level-loader.ts";
-import { deleteStoredLevel, loadStoredLevels, storeLevel } from "../features/level-library/level-repository.ts";
+import {
+  changeLevelVisibility,
+  deleteStoredLevel,
+  loadPublicLevel,
+  loadStoredLevels,
+  storeLevel,
+  type LevelVisibility,
+  type StoredLevel,
+} from "../features/level-library/level-repository.ts";
+import { authClient } from "../features/auth/auth-client.ts";
+import { AuthScreen, type AuthScreenMode } from "../features/auth/auth-screen.tsx";
+import { AccountScreen } from "../features/auth/account-screen.tsx";
+import { PublicLevelsScreen } from "../features/level-library/public-levels-screen.tsx";
 import { screenFromPath, screenPaths, type Screen } from "./routes.ts";
 import { MenuScreen } from "./screens/menu-screen.tsx";
 import { ResultsScreen } from "./screens/results-screen.tsx";
@@ -16,12 +28,16 @@ const LevelBuilder = lazy(() => import("../features/level-editor/level-builder-s
 const PlayfieldTestScreen = lazy(() => import("../features/playfield-test/playfield-test-screen.tsx").then((module) => ({ default: module.PlayfieldTestScreen })));
 const AssetsScreen = lazy(() => import("../features/asset-lab/assets-screen.tsx").then((module) => ({ default: module.AssetsScreen })));
 
+const authScreens: AuthScreenMode[] = ["login", "signup", "forgot-password", "reset-password"];
+
 export function App() {
   const [screen, setScreen] = useState<Screen>(() => screenFromPath(window.location.pathname));
+  const { data: session, isPending: sessionPending, refetch: refreshSession } = authClient.useSession();
+  const [bundledLevel, setBundledLevel] = useState<LoadedLevel>();
   const [level, setLevel] = useState<LoadedLevel>();
   const [builderLevel, setBuilderLevel] = useState<LoadedLevel>();
-  const [savedLevels, setSavedLevels] = useState<LoadedLevel[]>([]);
-  const [storedLevelIds, setStoredLevelIds] = useState<Set<string>>(new Set());
+  const [builderVisibility, setBuilderVisibility] = useState<LevelVisibility>("private");
+  const [savedLevels, setSavedLevels] = useState<StoredLevel[]>([]);
   const [trackReturn, setTrackReturn] = useState<"menu" | "builder">("menu");
   const [loadError, setLoadError] = useState("");
   const [cameraCalibrated, setCameraCalibrated] = useState(false);
@@ -29,24 +45,49 @@ export function App() {
   const [cameraInput, setCameraInput] = useState<CameraInput>();
   const cameraInputRef = useRef<CameraInput | undefined>(undefined);
 
+  const navigate = useCallback((destination: Screen) => {
+    window.history.pushState({}, "", screenPaths[destination]);
+    setScreen(destination);
+  }, []);
+
   useEffect(() => {
-    Promise.all([
-      loadLevel("/levels/second-heaven/test.json"),
-      loadStoredLevels().catch(() => []),
-    ]).then(([loadedLevel, storedLevels]) => {
-      const stored = storedLevels.map((stored) => stored.level);
-      const library = [
-        ...stored,
-        ...(!stored.some((saved) => saved.song.id === loadedLevel.song.id) ? [loadedLevel] : []),
-      ];
-      setLevel(stored[0] ?? loadedLevel);
-      setSavedLevels(library);
-      setStoredLevelIds(new Set(stored.map((saved) => saved.song.id)));
-      if (window.location.pathname === screenPaths.builder) setBuilderLevel(stored[0] ?? loadedLevel);
+    loadLevel("/levels/second-heaven/test.json").then((loadedLevel) => {
+      setBundledLevel(loadedLevel);
+      setLevel((current) => current ?? loadedLevel);
     }).catch((error: unknown) => {
-      setLoadError(error instanceof Error ? error.message : "Could not load levels");
+      setLoadError(error instanceof Error ? error.message : "Could not load the bundled level");
     });
   }, []);
+
+  useEffect(() => {
+    if (sessionPending) return;
+    if (!session?.user) {
+      setSavedLevels([]);
+      return;
+    }
+
+    let cancelled = false;
+    setSavedLevels([]);
+    setLoadError("");
+    loadStoredLevels().then((storedLevels) => {
+      if (cancelled) return;
+      setSavedLevels(storedLevels);
+      if (window.location.pathname === screenPaths.builder) {
+        const stored = storedLevels[0];
+        if (stored) {
+          setBuilderLevel(stored.level);
+          setBuilderVisibility(stored.visibility);
+        } else {
+          navigate("menu");
+        }
+      }
+    }).catch((error: unknown) => {
+      if (!cancelled) setLoadError(error instanceof Error ? error.message : "Could not load your levels");
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [navigate, session?.user.id, sessionPending]);
 
   useEffect(() => {
     const followBrowserNavigation = () => setScreen(screenFromPath(window.location.pathname));
@@ -55,8 +96,14 @@ export function App() {
   }, []);
 
   useEffect(() => {
+    if (sessionPending) return;
+    if (!session?.user && (screen === "builder" || screen === "account")) navigate("login");
+    if (session?.user && authScreens.includes(screen as AuthScreenMode)) navigate("menu");
+  }, [navigate, screen, session?.user.id, sessionPending]);
+
+  useEffect(() => {
     if (cameraInput || !["camera", "game"].includes(screen)) return;
-	    void import("../features/camera/camera-input.ts").then(({ CameraInput }) => {
+    void import("../features/camera/camera-input.ts").then(({ CameraInput }) => {
       const input = new CameraInput();
       cameraInputRef.current = input;
       setCameraInput(input);
@@ -64,11 +111,6 @@ export function App() {
   }, [cameraInput, screen]);
 
   useEffect(() => () => cameraInputRef.current?.destroy(), []);
-
-  const navigate = useCallback((destination: Screen) => {
-    window.history.pushState({}, "", screenPaths[destination]);
-    setScreen(destination);
-  }, []);
 
   useEffect(() => {
     if (screen === "results" && !result) navigate("menu");
@@ -94,6 +136,43 @@ export function App() {
     else void openSetup();
   }
 
+  async function playPublicLevel(id: string): Promise<void> {
+    const publicLevel = await loadPublicLevel(id);
+    setLevel(publicLevel);
+    if (cameraCalibrated && cameraInput) navigate("game");
+    else await openSetup();
+  }
+
+  async function updateVisibility(id: string, visibility: LevelVisibility): Promise<void> {
+    await changeLevelVisibility(id, visibility);
+    setSavedLevels((current) => current.map((stored) => (
+      stored.level.song.id === id ? { ...stored, visibility, updatedAt: Date.now() } : stored
+    )));
+    if (builderLevel?.song.id === id) setBuilderVisibility(visibility);
+  }
+
+  function openNewLevel(): void {
+    if (!session?.user) {
+      navigate("login");
+      return;
+    }
+    if (!level) return;
+    const draft = structuredClone(level);
+    const id = `level-${crypto.randomUUID()}`;
+    draft.path = "";
+    draft.audioBlob = undefined;
+    draft.song = { ...draft.song, id, title: "Untitled level", audio: "", duration: 60 };
+    draft.chart = {
+      ...draft.chart,
+      song: "",
+      level: { ...draft.chart.level, id, difficulty: "Normal", endTime: 60 },
+      notes: [],
+    };
+    setBuilderLevel(draft);
+    setBuilderVisibility("private");
+    navigate("builder");
+  }
+
   if (screen === "game") {
     if (!level || !cameraInput) return <LoadingScreen />;
     return (
@@ -104,22 +183,27 @@ export function App() {
   }
 
   if (screen === "builder") {
-    if (!builderLevel) return <LoadingScreen />;
+    if (sessionPending || !session?.user || !builderLevel) return <LoadingScreen />;
     return (
       <Suspense fallback={<LoadingScreen />}>
         <LevelBuilder
           level={builderLevel}
-          canDelete={storedLevelIds.has(builderLevel.song.id)}
+          canDelete={savedLevels.some((stored) => stored.level.song.id === builderLevel.song.id)}
+          visibility={builderVisibility}
           onBack={() => navigate("menu")}
           onSave={async (savedLevel) => {
             await storeLevel(savedLevel);
+            const existing = savedLevels.find((stored) => stored.level.song.id === savedLevel.song.id);
+            const visibility = existing?.visibility ?? builderVisibility;
             setBuilderLevel(savedLevel);
             setLevel(savedLevel);
-            setStoredLevelIds((current) => new Set(current).add(savedLevel.song.id));
             setSavedLevels((current) => [
-              savedLevel,
-              ...current.filter((candidate) => candidate.song.id !== savedLevel.song.id),
+              { level: savedLevel, visibility, updatedAt: Date.now() },
+              ...current.filter((stored) => stored.level.song.id !== savedLevel.song.id),
             ]);
+          }}
+          onVisibilityChange={async (savedLevel, visibility) => {
+            await updateVisibility(savedLevel.song.id, visibility);
           }}
           onTest={(testLevel) => {
             setBuilderLevel(testLevel);
@@ -135,15 +219,11 @@ export function App() {
           }}
           onDelete={async () => {
             await deleteStoredLevel(builderLevel.song.id);
-            const remainingLevels = savedLevels.filter((candidate) => candidate.song.id !== builderLevel.song.id);
+            const remainingLevels = savedLevels.filter((stored) => stored.level.song.id !== builderLevel.song.id);
             setSavedLevels(remainingLevels);
-            setStoredLevelIds((current) => {
-              const next = new Set(current);
-              next.delete(builderLevel.song.id);
-              return next;
-            });
-            if (level?.song.id === builderLevel.song.id) setLevel(remainingLevels[0]);
-            setBuilderLevel(remainingLevels[0]);
+            if (level?.song.id === builderLevel.song.id) setLevel(remainingLevels[0]?.level ?? bundledLevel);
+            setBuilderLevel(undefined);
+            setBuilderVisibility("private");
             navigate("menu");
           }}
         />
@@ -166,30 +246,27 @@ export function App() {
         <Button className="brand" variant="ghost" onClick={() => navigate("menu")}>
           <img src="/icon-d.png" alt="Project D" />
         </Button>
-        {screen !== "menu" && <Button variant="outline" size="sm" onClick={() => navigate("menu")}>Menu</Button>}
+        <div className="app-header-actions">
+          {screen !== "levels" && <Button variant="outline" size="sm" onClick={() => navigate("levels")}>Public levels</Button>}
+          {screen !== "menu" && <Button variant="outline" size="sm" onClick={() => navigate("menu")}>Menu</Button>}
+          {!sessionPending && (
+            session?.user
+              ? <Button size="sm" onClick={() => navigate("account")}>{session.user.name}</Button>
+              : <Button size="sm" onClick={() => navigate("login")}>Log in</Button>
+          )}
+        </div>
       </header>
 
       {screen === "menu" && (
         <MenuScreen
           level={level}
           savedLevels={savedLevels}
+          authenticated={Boolean(session?.user)}
           loadError={loadError}
           onPlay={play}
           onOpenCamera={() => void openSetup()}
-          onNewLevel={() => {
-            if (!level) return;
-            const draft = structuredClone(level);
-            const id = `level-${crypto.randomUUID()}`;
-            draft.song = { ...draft.song, id, title: "Untitled level", audio: "", duration: 60 };
-            draft.chart = {
-              ...draft.chart,
-              song: "",
-              level: { ...draft.chart.level, id, difficulty: "Normal", endTime: 60 },
-              notes: [],
-            };
-            setBuilderLevel(draft);
-            navigate("builder");
-          }}
+          onNewLevel={openNewLevel}
+          onBrowseLevels={() => navigate("levels")}
           onOpenAssets={() => navigate("assets")}
           onPlayLevel={(libraryLevel) => {
             setLevel(libraryLevel);
@@ -197,8 +274,42 @@ export function App() {
             else void openSetup();
           }}
           onEditLevel={(libraryLevel) => {
-            setBuilderLevel(structuredClone(libraryLevel));
+            const stored = savedLevels.find((candidate) => candidate.level.song.id === libraryLevel.song.id);
+            if (!stored) return;
+            setBuilderLevel(structuredClone(stored.level));
+            setBuilderVisibility(stored.visibility);
             navigate("builder");
+          }}
+          onVisibilityChange={updateVisibility}
+        />
+      )}
+
+      {screen === "levels" && <PublicLevelsScreen onPlay={playPublicLevel} />}
+
+      {authScreens.includes(screen as AuthScreenMode) && (
+        <AuthScreen
+          key={screen}
+          mode={screen as AuthScreenMode}
+          onAuthenticated={async () => {
+            await refreshSession();
+            navigate("menu");
+          }}
+          onNavigate={(destination) => navigate(destination)}
+          onHome={() => navigate("menu")}
+        />
+      )}
+
+      {screen === "account" && session?.user && (
+        <AccountScreen
+          name={session.user.name}
+          email={session.user.email}
+          onBack={() => navigate("menu")}
+          onSignedOut={async () => {
+            await refreshSession();
+            setSavedLevels([]);
+            setBuilderLevel(undefined);
+            setLevel(bundledLevel);
+            navigate("menu");
           }}
         />
       )}

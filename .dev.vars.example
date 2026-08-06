@@ -1,0 +1,2 @@
+BETTER_AUTH_SECRET=replace-with-at-least-32-random-characters
+AUTH_EMAIL_FROM=no-reply@your-cloudflare-email-domain.example

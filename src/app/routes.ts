@@ -1,5 +1,11 @@
 export type Screen =
   | "menu"
+  | "levels"
+  | "login"
+  | "signup"
+  | "forgot-password"
+  | "reset-password"
+  | "account"
   | "camera"
   | "game"
   | "results"
@@ -9,6 +15,12 @@ export type Screen =
 
 export const screenPaths: Record<Screen, string> = {
   menu: "/",
+  levels: "/levels",
+  login: "/login",
+  signup: "/signup",
+  "forgot-password": "/forgot-password",
+  "reset-password": "/reset-password",
+  account: "/account",
   camera: "/camera",
   game: "/game",
   results: "/results",

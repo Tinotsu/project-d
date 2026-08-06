@@ -5,26 +5,35 @@
   "license": "AGPL-3.0-only",
   "type": "module",
   "scripts": {
-    "dev": "node server/dev.js",
-    "server": "node server/local-storage-server.js",
-    "build": "tsc --noEmit && rm -rf dist && vite build",
+    "predev": "npm run db:migrate",
+    "dev": "vite",
+    "build": "npm run typecheck && rm -rf dist && vite build",
+    "deploy": "npm run build && wrangler deploy",
+    "typecheck": "wrangler types --check && tsc --noEmit && tsc -p tsconfig.worker.json",
+    "types:worker": "wrangler types",
+    "db:migrate": "wrangler d1 migrations apply project-d --local",
+    "db:migrate:remote": "wrangler d1 migrations apply project-d --remote",
     "test": "vitest run",
     "test:python": "python3 -m unittest discover -s tools/foot_pose/tests -v",
     "test:all": "npm test && npm run test:python"
   },
   "dependencies": {
+    "better-auth": "^1.6.26",
     "onnxruntime-web": "^1.27.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "three": "^0.185.1"
   },
   "devDependencies": {
+    "@cloudflare/vite-plugin": "^1.51.0",
+    "@types/node": "^26.1.2",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@types/three": "^0.185.1",
     "@vitejs/plugin-react": "^5.0.0",
     "typescript": "7.0.2",
     "vite": "8.1.5",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.10",
+    "wrangler": "^4.119.0"
   }
 }

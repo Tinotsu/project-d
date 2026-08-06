@@ -25,6 +25,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, audio:focus-vis
 .app-shell, .loading-screen { width: 100%; height: 100dvh; overflow: hidden; }
 .loading-screen { display: grid; place-items: center; color: #929292; }
 .app-header { display: flex; align-items: center; justify-content: space-between; height: 64px; padding: 0 24px; border-bottom: 1px solid #929292; }
+.app-header-actions { display: flex; align-items: center; gap: 8px; }
 .brand { width: 40px; height: 40px; padding: 0; overflow: hidden; }
 .brand img { display: block; width: 100%; height: 100%; }
 
@@ -35,12 +36,39 @@ button:focus-visible, input:focus-visible, select:focus-visible, audio:focus-vis
 .menu-item:first-child { grid-column: 1 / -1; }
 .published-levels { margin-top: 16px; padding: 12px; }
 .published-levels .section-heading { margin-bottom: 4px; }
-.published-level { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 8px; border-top: 1px solid #929292; padding: 10px 0; }
+.published-level { display: grid; grid-template-columns: minmax(0, 1fr) repeat(3, auto); align-items: center; gap: 8px; border-top: 1px solid #929292; padding: 10px 0; }
 .published-level > div { display: grid; gap: 3px; min-width: 0; }
 .published-level > div strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .published-level > div span { color: #929292; font-size: 11px; text-transform: capitalize; }
 .saved-drafts .published-level { grid-template-columns: minmax(0, 1fr) auto; }
 .error-message { margin: 16px 0 0; color: #fc2500; }
+.success-message { margin: 0; color: #00f300; }
+.empty-message { margin: 14px 0; color: #929292; }
+
+.auth-page, .account-page, .levels-page { height: calc(100dvh - 64px); overflow-y: auto; padding: 32px 20px; }
+.auth-page { display: grid; place-items: center; }
+.auth-card, .account-card { display: grid; width: min(460px, 100%); gap: 20px; padding: 24px; }
+.auth-card h1, .account-card h1, .levels-page h1 { margin: 0; font-size: 30px; }
+.auth-card p, .account-card p, .levels-page p { color: #929292; line-height: 1.5; }
+.auth-card label, .account-card label, .level-search label { display: grid; gap: 6px; color: #929292; font-size: 12px; }
+.auth-card input, .account-card input, .level-search input, .level-search select { width: 100%; border: 1px solid #929292; border-radius: 6px; padding: 10px; background: #050505; color: #f9f9f9; }
+.auth-card .error-message, .auth-card .success-message, .account-card .error-message, .account-card .success-message { margin: 0; }
+.auth-links { display: flex; flex-wrap: wrap; gap: 8px 16px; }
+.auth-links button { border: 0; padding: 0; background: transparent; color: #00f7fa; font-size: 12px; }
+.account-page { display: grid; justify-items: center; }
+.account-card .section-heading { align-items: start; }
+.account-card .section-heading p { margin: 6px 0 0; font-size: 12px; }
+.account-card form { display: grid; gap: 14px; border-top: 1px solid #929292; padding-top: 20px; }
+.account-card h2 { margin: 0; font-size: 18px; }
+
+.levels-page { width: min(900px, 100%); margin: auto; }
+.page-heading p { margin: 6px 0 20px; }
+.level-search { display: grid; grid-template-columns: minmax(0, 1fr) 190px auto; align-items: end; gap: 12px; padding: 16px; }
+.level-results { display: grid; gap: 10px; margin-top: 16px; }
+.level-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 16px; }
+.level-card > div { display: grid; gap: 5px; min-width: 0; }
+.level-card strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.level-card span { color: #929292; font-size: 11px; text-transform: capitalize; }
 
 .assets-screen { width: 100%; height: calc(100dvh - 64px); }
 .asset-preview { position: relative; width: 100%; height: 100%; overflow: hidden; }
@@ -254,8 +282,10 @@ button:focus-visible, input:focus-visible, select:focus-visible, audio:focus-vis
   .menu-grid { grid-template-columns: 1fr; gap: 8px; }
   .menu-item, .menu-item:first-child { grid-column: auto; height: 52px; }
   .assets-screen { height: calc(100dvh - 56px); }
-  .published-level { grid-template-columns: minmax(0, 1fr) auto; }
+  .published-level { grid-template-columns: minmax(0, 1fr) repeat(2, auto); }
   .published-level > .button:last-child { grid-column: 1 / -1; }
+  .auth-page, .account-page, .levels-page { height: calc(100dvh - 56px); padding: 18px 12px; }
+  .level-search { grid-template-columns: 1fr; }
   .setup-screen { height: calc(100dvh - 56px); padding: 8px; }
   .camera-panel:not(.compact) { grid-template-columns: 1fr 1fr; grid-template-rows: minmax(0, 1fr) auto auto; gap: 8px; }
   .camera-panel:not(.compact) .camera-stage { grid-column: 1 / -1; grid-row: 1; min-height: 120px; }
