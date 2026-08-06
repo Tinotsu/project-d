@@ -109,7 +109,7 @@ void main() {
 
   vec4 assetColor = vec4(0.0);
 
-#if ASSET_KIND == 0
+#ifdef ASSET_STEP
   vec2 assetPoint = (assetUv - 0.5) * vec2(1.49, 1.0);
   float outerDistance = roundedBoxDistance(assetPoint, vec2(0.745, 0.5), 0.12);
   if (outerDistance > 0.0) discard;
@@ -119,7 +119,7 @@ void main() {
     ? vec3(0.947)
     : normalStepPattern(assetUv, time, edgeColor, centerColor);
   assetColor = vec4(color, 1.0);
-#elif ASSET_KIND == 1
+#elif defined(ASSET_FOOT_BASE)
   vec2 assetPoint = (assetUv - 0.5) * vec2(5.826923, 1.0);
   float outerDistance = roundedBoxDistance(assetPoint, vec2(2.913462, 0.5), 0.067);
   if (outerDistance > 0.0) discard;
@@ -129,7 +129,7 @@ void main() {
     ? vec3(0.976)
     : footBasePattern(assetUv);
   assetColor = vec4(color, 1.0);
-#elif ASSET_KIND == 2
+#elif defined(ASSET_FOOT)
   vec2 ringPoint = (assetUv - vec2(0.5, 0.519)) * vec2(1.0, 1.04);
   float ring = 1.0 - smoothstep(0.008, 0.018, abs(length(ringPoint) - 0.48));
   float footprint = footprintMask(assetUv);
@@ -139,7 +139,7 @@ void main() {
   float alpha = max(ring, footprint);
   if (alpha < 0.01) discard;
   assetColor = vec4(mix(ringColor, footprintColor, footprint), alpha);
-#elif ASSET_KIND == 3
+#elif defined(ASSET_TRACK)
   float diamond = 1.0 - clamp(
     max(abs(assetUv.x - 0.5) * 1.5, abs(assetUv.y - 0.5) * 0.42),
     0.0,
@@ -154,7 +154,7 @@ void main() {
   float laneLine = 1.0 - smoothstep(0.012, 0.025, lineDistance);
   color = mix(color, vec3(0.976), laneLine);
   assetColor = vec4(color, 1.0);
-#elif ASSET_KIND == 4
+#elif defined(ASSET_JUMP_BASE)
   vec2 assetPoint = (assetUv - 0.5) * vec2(6.0, 1.0);
   float outerDistance = roundedBoxDistance(assetPoint, vec2(3.0, 0.5), 0.065);
   if (outerDistance > 0.0) discard;
@@ -167,7 +167,7 @@ void main() {
   faceColor = mix(faceColor, primaryColor, dots * 0.3);
   vec3 color = innerDistance > 0.0 ? vec3(0.976) : faceColor;
   assetColor = vec4(color, 1.0);
-#elif ASSET_KIND == 5
+#elif defined(ASSET_JUMP)
   float scroll = -time * 0.32;
   float left = chevronBand(assetUv, 0.25, 0.095, 5.0, scroll);
   float right = chevronBand(assetUv, 0.75, 0.095, 5.0, scroll);
@@ -175,23 +175,25 @@ void main() {
   float pulse = 0.55 + 0.35 * sin(-time * 10.0);
   if (mask < 0.01) discard;
   assetColor = vec4(primaryColor, mask * pulse);
-#elif ASSET_KIND == 6
+#elif defined(ASSET_SLIDE)
   float arrows = chevronBand(assetUv, 0.5, 0.52, 6.0, -time * 0.26);
   float edgeGlow = abs(assetUv.x - 0.5) * 2.0;
   vec3 color = mix(secondaryColor, primaryColor, edgeGlow * 0.24);
   color = mix(color, primaryColor, arrows * 0.82);
   assetColor = vec4(color, 0.96);
-#elif ASSET_KIND == 7
+#elif defined(ASSET_STAY)
   float edgeFade = smoothstep(0.0, 0.25, assetUv.x)
     * smoothstep(0.0, 0.25, 1.0 - assetUv.x);
   float stripeCell = abs(fract((assetUv.x - time * 0.07) * 30.0) - 0.5);
   float stripes = 1.0 - smoothstep(0.14, 0.23, stripeCell);
   vec3 color = mix(secondaryColor, primaryColor, stripes * 0.75);
   assetColor = vec4(color, edgeFade * (0.68 + stripes * 0.24));
-#else
+#elif defined(ASSET_VERTICAL_SLIDE)
   float arrows = chevronBand(assetUv, 0.5, 0.52, 5.0, -time * 0.26);
   vec3 color = mix(primaryColor, secondaryColor, arrows * 0.94);
   assetColor = vec4(color, 0.96);
+#else
+  discard;
 #endif
 
   gl_FragColor = assetColor;

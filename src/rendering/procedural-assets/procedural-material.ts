@@ -6,17 +6,9 @@ import type {
   StepFoot,
 } from "./procedural-asset-definitions.ts";
 
-const assetKindIds: Record<ProceduralAssetKind, number> = {
-  step: 0,
-  "foot-base": 1,
-  foot: 2,
-  track: 3,
-  "jump-base": 4,
-  jump: 5,
-  slide: 6,
-  stay: 7,
-  "vertical-slide": 8,
-};
+function assetKindDefine(kind: ProceduralAssetKind): string {
+  return `ASSET_${kind.toUpperCase().replaceAll("-", "_")}`;
+}
 
 function footColors(foot: StepFoot): [number, number] {
   return foot === "left" ? [0xfaf600, 0xfc2500] : [0x00f7fa, 0x0532fa];
@@ -48,7 +40,7 @@ export function createProceduralMaterial(
   };
   return new THREE.ShaderMaterial({
     defines: {
-      ASSET_KIND: assetKindIds[kind],
+      [assetKindDefine(kind)]: 1,
       ...(warped ? { WARPED: 1 } : {}),
       ...(clipY ? { TRACK_CLIPPED: 1 } : {}),
     },
