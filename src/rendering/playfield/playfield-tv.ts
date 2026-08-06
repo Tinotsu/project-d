@@ -3,11 +3,7 @@ import type { GLTF } from "three/addons/loaders/GLTFLoader.js";
 import starsFragmentShader from "./shaders/scene-stars.frag.glsl?raw";
 import starsVertexShader from "./shaders/scene-stars.vert.glsl?raw";
 
-const tvVideoUrl = "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4";
-
 export type PlayfieldScene = {
-  video: HTMLVideoElement;
-  texture: THREE.VideoTexture;
   mixer: THREE.AnimationMixer;
 };
 
@@ -15,33 +11,13 @@ export function createPlayfieldScene(
   scene: THREE.Scene,
   gltf: GLTF,
 ): PlayfieldScene {
-  const video = document.createElement("video");
-  video.src = tvVideoUrl;
-  video.crossOrigin = "anonymous";
-  video.loop = true;
-  video.muted = true;
-  video.playsInline = true;
-  video.preload = "auto";
-
-  const texture = new THREE.VideoTexture(video);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  texture.minFilter = THREE.LinearFilter;
-  texture.magFilter = THREE.LinearFilter;
-  texture.generateMipmaps = false;
-
   const model = gltf.scene;
   removeDuplicateGroups(model);
 
   const tv = requireObject(model, "TV");
   const videoScreen = requireObject(model, "video_screen");
-  replaceMaterial(
-    requireDirectMesh(tv, "screen"),
-    new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide, toneMapped: false }),
-  );
-  replaceMaterial(
-    requireDirectMesh(videoScreen, "screen_video"),
-    new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide, toneMapped: false }),
-  );
+  setScreenColor(tv, "screen", 0x080810);
+  setScreenColor(videoScreen, "screen_video", 0x080810);
 
   setScreenColor(requireObject(model, "screen_text"), "screen", 0xff4fd8);
   setScreenColor(requireObject(model, "wave_screen"), "screen", 0x22d3ee);
@@ -63,8 +39,7 @@ export function createPlayfieldScene(
     ));
     mixer.clipAction(new THREE.AnimationClip(clip.name, clip.duration, tracks)).play();
   });
-  void video.play().catch(() => undefined);
-  return { video, texture, mixer };
+  return { mixer };
 }
 
 function createStarfield(): THREE.Mesh {

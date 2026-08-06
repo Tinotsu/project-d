@@ -219,10 +219,6 @@ export class ThreePlayfield {
   destroy(): void {
     this.resizeObserver.disconnect();
     this.playfieldScene.mixer.stopAllAction();
-    this.playfieldScene.video.pause();
-    this.playfieldScene.video.removeAttribute("src");
-    this.playfieldScene.video.load();
-    this.playfieldScene.texture.dispose();
     this.environment.dispose();
     this.renderer.dispose();
     this.scene.traverse((object) => {
