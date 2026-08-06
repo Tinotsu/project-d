@@ -38,6 +38,7 @@ export function App() {
   const [builderLevel, setBuilderLevel] = useState<LoadedLevel>();
   const [builderVisibility, setBuilderVisibility] = useState<LevelVisibility>("private");
   const [savedLevels, setSavedLevels] = useState<StoredLevel[]>([]);
+  const [savedLevelsLoaded, setSavedLevelsLoaded] = useState(false);
   const [trackReturn, setTrackReturn] = useState<"menu" | "builder">("menu");
   const [loadError, setLoadError] = useState("");
   const [cameraCalibrated, setCameraCalibrated] = useState(false);
@@ -63,31 +64,37 @@ export function App() {
     if (sessionPending) return;
     if (!session?.user) {
       setSavedLevels([]);
+      setSavedLevelsLoaded(true);
       return;
     }
 
     let cancelled = false;
     setSavedLevels([]);
+    setSavedLevelsLoaded(false);
     setLoadError("");
     loadStoredLevels().then((storedLevels) => {
       if (cancelled) return;
       setSavedLevels(storedLevels);
-      if (window.location.pathname === screenPaths.builder) {
-        const stored = storedLevels[0];
-        if (stored) {
-          setBuilderLevel(stored.level);
-          setBuilderVisibility(stored.visibility);
-        } else {
-          navigate("menu");
-        }
-      }
     }).catch((error: unknown) => {
       if (!cancelled) setLoadError(error instanceof Error ? error.message : "Could not load your levels");
+    }).finally(() => {
+      if (!cancelled) setSavedLevelsLoaded(true);
     });
     return () => {
       cancelled = true;
     };
   }, [navigate, session?.user.id, sessionPending]);
+
+  useEffect(() => {
+    if (sessionPending || !session?.user || !savedLevelsLoaded || screen !== "builder" || builderLevel) return;
+    const stored = savedLevels[0];
+    if (!stored) {
+      navigate("menu");
+      return;
+    }
+    setBuilderLevel(stored.level);
+    setBuilderVisibility(stored.visibility);
+  }, [builderLevel, navigate, savedLevels, savedLevelsLoaded, screen, session?.user.id, sessionPending]);
 
   useEffect(() => {
     const followBrowserNavigation = () => setScreen(screenFromPath(window.location.pathname));

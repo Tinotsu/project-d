@@ -63,13 +63,20 @@ function readNote(value: unknown, endTime: number, noteIds: Set<string>): ChartN
   requireNumberInRange(value.time, `Time for ${value.id}`, 0, endTime);
   if (typeof value.type !== "string" || !noteTypes.has(value.type)) throw new LevelInputError(`Invalid note type for ${value.id}`);
   if (typeof value.foot !== "string" || !feet.has(value.foot)) throw new LevelInputError(`Invalid foot for ${value.id}`);
+  if (value.type !== "JUMP" && value.lane === undefined) throw new LevelInputError(`Lane for ${value.id} is required`);
   optionalLane(value.lane, `Lane for ${value.id}`);
   if (value.laneOffset !== undefined && value.laneOffset !== 0 && value.laneOffset !== 0.5) {
     throw new LevelInputError(`Invalid lane offset for ${value.id}`);
   }
+  if ((value.type === "HORIZONTAL_SLIDE" || value.type === "VERTICAL_SLIDE") && value.endLane === undefined) {
+    throw new LevelInputError(`End lane for ${value.id} is required`);
+  }
   optionalLane(value.endLane, `End lane for ${value.id}`);
   optionalFiniteNumber(value.slidePosition, `Slide position for ${value.id}`);
   optionalFiniteNumber(value.stepPosition, `Step position for ${value.id}`);
+  if ((value.type === "STAY" || value.type === "VERTICAL_SLIDE") && value.duration === undefined) {
+    throw new LevelInputError(`Duration for ${value.id} is required`);
+  }
   if (value.duration !== undefined) {
     requireNumberInRange(value.duration, `Duration for ${value.id}`, 0.01, endTime);
     if (value.time + value.duration > endTime + 0.001) throw new LevelInputError(`Note ${value.id} ends after the level`);

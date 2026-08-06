@@ -29,4 +29,18 @@ describe("readLevelDocument", () => {
     invalid.chart.notes[0].time = 31;
     expect(() => readLevelDocument(invalid, "level-one")).toThrow("Time for move-one must be between 0 and 30");
   });
+
+  it("requires note fields used by rendering and scoring", () => {
+    const missingLane = structuredClone(validLevel);
+    delete (missingLane.chart.notes[0] as { lane?: number }).lane;
+    expect(() => readLevelDocument(missingLane, "level-one")).toThrow("Lane for move-one is required");
+
+    const missingEndLane = structuredClone(validLevel);
+    missingEndLane.chart.notes[0].type = "HORIZONTAL_SLIDE";
+    expect(() => readLevelDocument(missingEndLane, "level-one")).toThrow("End lane for move-one is required");
+
+    const missingDuration = structuredClone(validLevel);
+    missingDuration.chart.notes[0].type = "STAY";
+    expect(() => readLevelDocument(missingDuration, "level-one")).toThrow("Duration for move-one is required");
+  });
 });

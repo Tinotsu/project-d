@@ -371,7 +371,7 @@ function levelFromRow(row: LevelRow, audioPath: string): LevelDocument {
     throw new Error(`Stored level ${row.id} contains invalid JSON`);
   }
   const level = readLevelDocument(parsed, row.id);
-  if (row.audio_key) level.song.audio = audioPath;
+  level.song.audio = row.audio_key ? audioPath : "";
   return level;
 }
 

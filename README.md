@@ -125,9 +125,11 @@ npm run typecheck
 
 ## Cloudflare deployment
 
-Before deployment, configure the two required Worker secrets and onboard the sender domain in Cloudflare Email Service:
+For the first deployment, create the storage resources, configure the two required Worker secrets, and onboard the sender domain in Cloudflare Email Service:
 
 ```bash
+npx wrangler d1 create project-d
+npx wrangler r2 bucket create project-d-level-audio
 npx wrangler secret put BETTER_AUTH_SECRET
 npx wrangler secret put AUTH_EMAIL_FROM
 npm run db:migrate:remote
