@@ -10,7 +10,10 @@ import {
 } from "../../domain/chart/note-geometry.ts";
 import type { ChartNote } from "../../domain/chart/types.ts";
 import type { JudgementResult } from "../../domain/scoring/rhythm-engine.ts";
-import type { ProceduralAssetKind } from "../procedural-assets/procedural-asset-definitions.ts";
+import {
+  stepAssetSize,
+  type ProceduralAssetKind,
+} from "../procedural-assets/procedural-asset-definitions.ts";
 import { createProceduralMaterial } from "../procedural-assets/procedural-material.ts";
 import { PlayfieldEffects } from "./playfield-effects.ts";
 import {
@@ -276,7 +279,15 @@ export class ThreePlayfield {
     }
     return {
       note,
-      warped: this.createProceduralSprite("step", 152, 102, normalUvs, 3, foot, true),
+      warped: this.createProceduralSprite(
+        "step",
+        stepAssetSize.width,
+        stepAssetSize.height,
+        normalUvs,
+        3,
+        foot,
+        true,
+      ),
     };
   }
 

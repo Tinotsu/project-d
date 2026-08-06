@@ -20,9 +20,11 @@ export type ProceduralAssetDefinition = {
   height: number;
 };
 
+export const stepAssetSize = { width: 152, height: 102 } as const;
+
 export const proceduralAssets: ProceduralAssetDefinition[] = [
-  { id: "left-step", label: "Left step", kind: "step", foot: "left", width: 152, height: 102 },
-  { id: "right-step", label: "Right step", kind: "step", foot: "right", width: 152, height: 102 },
+  { id: "left-step", label: "Left step", kind: "step", foot: "left", ...stepAssetSize },
+  { id: "right-step", label: "Right step", kind: "step", foot: "right", ...stepAssetSize },
   { id: "foot-base", label: "Foot base", kind: "foot-base", width: 606, height: 104 },
   { id: "foot", label: "Tracked foot", kind: "foot", width: 100, height: 100 },
   { id: "track", label: "Track", kind: "track", width: 400, height: 1200 },
