@@ -21,17 +21,6 @@ export function createProceduralAssetPreview(
   face.position.z = 0.071;
   group.add(face);
 
-  const hasBody = !["foot", "jump", "stay"].includes(definition.kind);
-  const bodyGeometry = hasBody ? new THREE.BoxGeometry(width, height, 0.14) : undefined;
-  const bodyMaterial = hasBody
-    ? new THREE.MeshStandardMaterial({
-      color: definition.kind === "track" ? 0x07130d : 0xf9f9f9,
-      metalness: 0.05,
-      roughness: 0.3,
-    })
-    : undefined;
-  if (bodyGeometry && bodyMaterial) group.add(new THREE.Mesh(bodyGeometry, bodyMaterial));
-
   return {
     group,
     update(elapsed) {
@@ -43,8 +32,6 @@ export function createProceduralAssetPreview(
     dispose() {
       faceGeometry.dispose();
       faceMaterial.dispose();
-      bodyGeometry?.dispose();
-      bodyMaterial?.dispose();
     },
   };
 }

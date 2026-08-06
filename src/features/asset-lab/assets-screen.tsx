@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { Button } from "../../shared/ui/button.tsx";
 import {
   proceduralAssets,
@@ -28,6 +29,11 @@ export function AssetsScreen() {
 
     const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100);
     camera.position.set(0, 0.1, 7);
+    const controls = new OrbitControls(camera, mount);
+    controls.enableDamping = true;
+    controls.enablePan = false;
+    controls.target.set(0, 0, 0);
+    controls.update();
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -54,6 +60,7 @@ export function AssetsScreen() {
       previous = now;
       if (playingRef.current) elapsed += delta;
       previewRef.current?.update(elapsed);
+      controls.update();
       renderer.render(scene, camera);
       animationFrame = requestAnimationFrame(render);
     };
@@ -71,6 +78,7 @@ export function AssetsScreen() {
     return () => {
       cancelAnimationFrame(animationFrame);
       resizeObserver.disconnect();
+      controls.dispose();
       previewRef.current?.dispose();
       renderer.dispose();
       renderer.domElement.remove();

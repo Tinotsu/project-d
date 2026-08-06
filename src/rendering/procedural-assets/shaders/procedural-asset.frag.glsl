@@ -119,6 +119,7 @@ void main() {
     ? vec3(0.947)
     : normalStepPattern(assetUv, time, edgeColor, centerColor);
   assetColor = vec4(color, 1.0);
+
 #elif defined(ASSET_FOOT_BASE)
   vec2 assetPoint = (assetUv - 0.5) * vec2(5.826923, 1.0);
   float outerDistance = roundedBoxDistance(assetPoint, vec2(2.913462, 0.5), 0.067);
