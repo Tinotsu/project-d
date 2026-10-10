@@ -1,76 +1,93 @@
 # Project D
 
-A browser MVP for a DanceRush-style floor game. It tracks both feet with a custom YOLO Pose model, maps camera coordinates onto a calibrated floor, and reports which of four lanes each foot occupies.
+A browser rhythm-game MVP inspired by DanceRush. A custom YOLO Pose model tracks each foot's big toe, small toe, and heel, then maps them onto a calibrated four-lane floor for scoring. The app includes gameplay, results, a level editor, and public level sharing.
 
-## Pipeline
-
-```text
-Camera
-  → YOLO feet-only pose model
-  → big toe + small toe + heel landmarks
-  → perspective transform
-  → normalized floor coordinates
-  → four floor lanes
-```
+Built with React, TypeScript, Three.js, Web Audio, and ONNX Runtime Web. Cloudflare Workers runs the API, Better Auth handles accounts, D1 stores accounts and levels, and R2 stores uploaded audio.
 
 ## Run locally
 
-Requirements: Node.js and a browser with camera access. No separate Node.js backend is needed; the API runs locally in the Cloudflare Workers runtime.
+Requirements: Node.js 22.12+ and a browser with camera access. Python 3 is needed only for the converter and its tests.
 
 ```bash
 npm install
 cp .dev.vars.example .dev.vars
+```
+
+Set `BETTER_AUTH_SECRET` to at least 32 random characters in `.dev.vars`, then run:
+
+```bash
 npm run dev
 ```
 
-Set a local `BETTER_AUTH_SECRET` of at least 32 random characters in `.dev.vars`, then open the localhost URL printed by Vite. `npm run dev` applies pending D1 migrations before starting Vite. Camera access requires localhost or HTTPS. The ONNX model and runtime are bundled with the app.
+Open the localhost URL printed by Vite. The command applies local D1 migrations automatically; the Worker API runs alongside Vite. Camera access requires localhost or HTTPS. The pose model is bundled and runs in the browser.
 
-Email/password authentication supports account creation, login, persistent sessions, logout, password recovery, password reset, and password changes. In local development, password-reset emails are logged to the terminal and saved under `.wrangler/tmp/email/` instead of being delivered. Follow the logged reset URL to test the complete flow.
+Local state is stored under `.wrangler/` and ignored by Git. Password-reset emails are [simulated locally](https://developers.cloudflare.com/email-service/local-development/sending/): follow the reset URL logged in the terminal.
 
-The browser app includes level selection, camera calibration, gameplay, results, and a chart editor for **Second Heaven**. The bundled test level runs with a silent timer until an audio file is added in the level editor.
+## Play
 
-To create a production build:
+1. Click **Play**, then **Start camera** and allow camera access.
+2. Keep your lower legs, both feet, and the play floor in view.
+3. Click the floor corners in order: **A** far left, **B** far right, **C** near right, **D** near left.
+4. Click **Continue to level**.
+
+The camera view is mirrored automatically. Click **Recalibrate** whenever the camera or play area moves. Calibration maps the floor to normalized coordinates; feet outside it have no lane. Missing or low-confidence detections also display `—`.
+
+The bundled **Second Heaven** test chart runs silently because no recording is distributed.
+
+## Create and share levels
+
+Log in or create an account, then choose **Create a level**. Upload music, edit notes and timing, and use **Test level** to preview the playfield or **Play level** to try it with the camera. Changes autosave; **Save** also saves immediately.
+
+New levels are private. **Publish** makes a level and its audio playable through **Public levels** without logging in. Owners can edit, delete, or make their levels private again.
+
+The bundled data is split between [song metadata](public/levels/second-heaven/song.json) and the [test chart](public/levels/second-heaven/test.json). Note times are seconds from the start of the audio; playback uses the Web Audio clock, with a silent timer when audio is absent.
+
+## Development
 
 ```bash
-npm run build
+npm run test:all  # TypeScript and Python tests
+npm run typecheck # Worker bindings and TypeScript
+npm run build     # Typecheck and production build
 ```
 
-## Use
+- `src/app`: startup, routes, and navigation.
+- `src/features`: camera, gameplay, editor, accounts, level library, and diagnostic screens.
+- `src/domain`: chart types, calibration, note geometry, and deterministic scoring.
+- `src/infrastructure` and `src/rendering`: audio/pose adapters and the Three.js playfield.
+- `src/shared` and `src/styles`: reusable UI and styles.
+- `worker` and `migrations`: authentication, level/audio APIs, and D1 schema.
 
-1. Select the test level and click **Start camera**.
-2. Click the floor corners clockwise:
-   - A: far left
-   - B: far right
-   - C: near right
-   - D: near left
-3. Move both feet across the calibrated floor and watch the lane readout.
+## Cloudflare deployment
 
-Use **Recalibrate floor** whenever the camera or play area moves.
+Authenticate and create the storage resources in your Cloudflare account:
 
-The camera requests a horizontal 16:9 stream and mirrors the video and overlay automatically.
-
-## Pose framing
-
-Only the lower legs, both feet, and play floor need to be visible. The custom model predicts the big toe, small toe, and heel for each foot. The highest-confidence pose is used, short detection gaps are held for 250 ms, and foot points are smoothed over time to reduce flicker.
-
-## Train a feet-only pose model
-
-The [CMU Human Foot Keypoint Dataset](https://cmu-perceptual-computing-lab.github.io/foot_keypoint_dataset/) can train a six-keypoint YOLO Pose model without new labels. Its annotations are CC BY 4.0 and use images from COCO, whose copyrights remain with their respective owners. Download the train/validation annotation JSON files and the corresponding COCO 2017 images, then arrange them as:
-
-```text
-foot-pose/
-  images/train2017/*.jpg
-  images/val2017/*.jpg
+```bash
+npx wrangler login
+npx wrangler d1 create project-d
+npx wrangler r2 bucket create project-d-level-audio
 ```
 
-Convert both splits. The converter also writes `foot-pose.yaml` with the correct dataset path:
+Add the returned D1 `database_id` to the existing `DB` binding in [wrangler.jsonc](wrangler.jsonc) before applying remote migrations. Onboard a sender domain in [Cloudflare Email Service](https://developers.cloudflare.com/email-service/get-started/send-emails/), then configure the secrets and deploy:
+
+```bash
+npx wrangler secret put BETTER_AUTH_SECRET
+npx wrangler secret put AUTH_EMAIL_FROM
+npm run db:migrate:remote
+npm run deploy
+```
+
+Use at least 32 random characters for `BETTER_AUTH_SECRET` and an address on the onboarded domain for `AUTH_EMAIL_FROM`.
+
+## Optional: train the foot model
+
+Download the [CMU foot annotations and corresponding COCO 2017 images](https://cmu-perceptual-computing-lab.github.io/foot_keypoint_dataset/). Place the images under `/path/to/foot-pose/images/train2017/` and `images/val2017/`, then convert both annotation splits:
 
 ```bash
 python3 tools/foot_pose/convert_cmu.py person_keypoints_train2017_foot_v1.json /path/to/foot-pose train2017
 python3 tools/foot_pose/convert_cmu.py person_keypoints_val2017_foot_v1.json /path/to/foot-pose val2017
 ```
 
-The generated image lists include only CMU-annotated COCO images. Train and export a small pose model with Ultralytics:
+The converter writes labels, image lists, and `foot-pose.yaml`. Train and export with Ultralytics:
 
 ```bash
 python3 -m pip install ultralytics==8.4.98
@@ -78,70 +95,8 @@ yolo pose train data=/path/to/foot-pose/foot-pose.yaml model=yolo26n-pose.pt epo
 yolo export model=runs/pose/train/weights/best.pt format=onnx imgsz=640 simplify=True
 ```
 
-Copy the exported model to `public/models/foot-pose.onnx` to use new weights in the browser.
-
-The bundled model was trained on 10,970 images and validated on 434 images. At epoch 100 it reached pose mAP50 0.5956 and pose mAP50–95 0.4051, with 0.6995 precision and 0.5668 recall. It has not been validated for medical or safety-critical use; occlusion, footwear, lighting, and camera angle can reduce accuracy.
-
-## Floor coordinates
-
-The four calibration clicks define a homography from camera pixels to normalized floor coordinates:
-
-```text
-(0, 0) ───────── (1, 0)
-  L1    L2    L3    L4
-(0, 1) ───────── (1, 1)
-```
-
-Feet outside this rectangle are reported as `OUTSIDE`.
-
-## Test level data
-
-Song metadata is shared in `public/levels/second-heaven/song.json`. The separate difficulty chart in `public/levels/second-heaven/test.json` contains the level settings, timing grid, playfield, notes, and visual-effect settings. Note times are seconds from the start of the decoded audio.
-
-The game uses Web Audio's context clock for gameplay timing and Three.js for the playfield. Scoring is independent from rendering in `src/domain/scoring/rhythm-engine.ts`. The chart editor can capture the current audio time, edit notes and timing, and save the resulting level to local Cloudflare D1 storage.
-
-Accounts, sessions, reset tokens, ownership, and level documents use D1. Uploaded level audio uses R2. Local Cloudflare state is stored under `.wrangler/`, which is ignored by Git. New levels are private until their owner publishes them; only public levels and their audio are available without a session.
-
-## Application structure
-
-- `src/app` owns application startup, routes, navigation, and application-level screens.
-- `src/domain` contains chart types, floor calibration, note geometry, and deterministic scoring.
-- `src/features` groups camera, gameplay, level-library, editor, and diagnostic screens.
-- `src/infrastructure` contains Web Audio and ONNX pose-detection adapters.
-- `src/rendering` contains the Three.js playfield and procedural shader assets.
-- `src/shared` contains reusable UI components; `src/styles` contains application styles.
-- `worker` contains Better Auth and the server-enforced level and audio APIs.
-- `migrations` contains the D1 schema for authentication and owned levels.
-- `tools/foot_pose` contains model-training conversion utilities and their Python tests.
-
-## Test
-
-Run all TypeScript and Python tests:
-
-```bash
-npm run test:all
-npm run typecheck
-```
-
-## Cloudflare deployment
-
-For the first deployment, create the storage resources, configure the two required Worker secrets, and onboard the sender domain in Cloudflare Email Service:
-
-```bash
-npx wrangler d1 create project-d
-npx wrangler r2 bucket create project-d-level-audio
-npx wrangler secret put BETTER_AUTH_SECRET
-npx wrangler secret put AUTH_EMAIL_FROM
-npm run db:migrate:remote
-npm run deploy
-```
-
-`AUTH_EMAIL_FROM` must be an address on the domain configured for Cloudflare Email Service. The production Worker, D1 database, R2 bucket, and static app stay in the same Cloudflare project.
-
-## Current scope
-
-The browser app includes camera capture, pose landmarks, calibration, lane detection, automatic mirroring, buffered frame scoring, a test chart, Web Audio synchronization, product screens, results, and chart editing. The camera model and Pixi game runtime are loaded only when their screens need them.
+Replace `public/models/foot-pose.onnx` with the export. Tracking accuracy depends on visibility, footwear, lighting, and camera angle.
 
 ## License
 
-Project D, including its Ultralytics YOLO model, is licensed under the [GNU Affero General Public License v3.0](LICENSE). The CMU foot annotations are licensed separately under CC BY 4.0. COCO images and the Second Heaven recording are not distributed by this project.
+Project D declares `AGPL-3.0-only` in [package.json](package.json). CMU foot annotations are separately licensed under CC BY 4.0; COCO images retain their respective owners' copyrights. COCO images and the Second Heaven recording are not distributed here.
